@@ -2058,16 +2058,40 @@ function syncMobileUI(id){
 }
 
 function mobileNavTo(id){
-  if(isMobile()) closeSidebar();
+  closeSidebar();
   syncMobileUI(id);
+
+  // 1. Ativar página
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const page = document.getElementById('pg-'+id);
+  if(page) page.classList.add('active');
+
+  // 2. Marcar nav-item na sidebar (mesmo oculta)
   const navItem=[...document.querySelectorAll('.nav-item')].find(el=>(el.getAttribute('onclick')||'').includes("'"+id+"'"));
-  if(navItem) navTo(id,navItem);
-  else {
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-    const page=document.getElementById('pg-'+id);
-    if(page) page.classList.add('active');
-    requestAnimationFrame(()=>requestAnimationFrame(()=>renderPage(id)));
+  if(navItem) navItem.classList.add('active');
+
+  // 3. Scroll ao topo
+  const mainEl = document.querySelector('.main');
+  if(mainEl) mainEl.scrollTop = 0;
+
+  // 4. Se já tem dados, forçar showBody e re-render sempre
+  if(DB.lancamentos.length > 0){
+    // Prefixo padrão = id (ex: 'lancamentos' -> 'lan' é exceção)
+    const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',metas:'met',cartao:'car',formas:'for',novo:'novo'};
+    const pref = prefMap[id] || id;
+    // Forçar corpo visível (esconde empty-state)
+    const emptyEl = document.getElementById(pref+'-empty');
+    const bodyEl  = document.getElementById(pref+'-body');
+    if(emptyEl) emptyEl.style.display='none';
+    if(bodyEl)  bodyEl.style.display='block';
+    // Limpar cache para forçar re-render
+    delete rendered[id];
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      renderPage(id);
+      setTimeout(()=>{ if(!rendered[id]){ delete rendered[id]; renderPage(id); } }, 350);
+      setTimeout(()=>{ if(!rendered[id]){ delete rendered[id]; renderPage(id); } }, 900);
+    }));
   }
 }
 
