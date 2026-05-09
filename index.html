@@ -4789,6 +4789,8 @@ async function initAuth(){
       usuarioAtual = session.user;
       atualizarUserSidebar();
       if(loading) loading.style.display = 'none';
+      // Ocultar auth-overlay (necessário no fluxo de sessão existente)
+      document.getElementById('auth-overlay').classList.remove('visible');
       // Garantir sidebar fechada no mobile
       if(typeof closeSidebar === 'function') closeSidebar();
       // No mobile aguarda layout estabilizar
