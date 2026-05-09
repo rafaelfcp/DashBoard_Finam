@@ -415,8 +415,6 @@ html.is-mobile .sidebar.open{
 <meta name="theme-color" content="#0d1117">
 <link rel="manifest" href="manifest.json">
 </head>
-<div id="debug-toast"></div>
-<button id="debug-btn" onclick="toggleDebug()">🔍 Debug</button>
 <body>
 <input type="file" id="file-input" accept=".xlsm,.xlsx" style="display:none">
 
@@ -2131,8 +2129,7 @@ function renderPage(id){
 
 // Versão que bypassa o cache — usada na navegação mobile
 function forceRenderPage(id){
-  console.log('[mobile] forceRenderPage:', id, 'DB:', DB.lancamentos.length);
-  if(!DB.lancamentos.length){ console.warn('[mobile] DB vazio, abortando'); return; }
+  if(!DB.lancamentos.length) return;
   const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',
     simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',
     metas:'met',cartao:'car',formas:'for',novo:'novo'};
@@ -2144,7 +2141,7 @@ function forceRenderPage(id){
   // Forçar corpo visível DIRETAMENTE no DOM
   const emptyEl=document.getElementById(pref+'-empty');
   const bodyEl=document.getElementById(pref+'-body');
-  console.log('[mobile] empty:', emptyEl?.id, 'body:', bodyEl?.id, 'page active:', document.getElementById('pg-'+id)?.classList.contains('active'));
+
   if(emptyEl) emptyEl.style.cssText='display:none!important';
   if(bodyEl)  bodyEl.style.cssText='display:block!important';
   // Limpar cache
@@ -2155,10 +2152,8 @@ function forceRenderPage(id){
     orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,
     lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){
-    try{ delete rendered[id]; fns[id](); console.log('[mobile] render OK:', id); }
+    try{ delete rendered[id]; fns[id](); }
     catch(err){ console.error('[mobile] ERRO render', id, err); }
-  } else {
-    console.warn('[mobile] sem função de render para:', id);
   }
 }
 
@@ -4996,72 +4991,4 @@ function atualizarRelogio(){
 atualizarRelogio();
 setInterval(atualizarRelogio, 1000);
 
-// ── DEBUG MOBILE ──
-let debugLog = [];
-function dbg(msg){
-  debugLog.unshift(new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' '+msg);
-  if(debugLog.length>20) debugLog.pop();
-  const t=document.getElementById('debug-toast');
-  if(t&&t.classList.contains('show')) t.innerHTML=debugLog.join('<br>');
-}
-function toggleDebug(){
-  const t=document.getElementById('debug-toast');
-  if(!t)return;
-  t.classList.toggle('show');
-  if(t.classList.contains('show')) t.innerHTML=debugLog.join('<br>');
-}
-// Patch renderPage para logar
-const _origRenderPage = renderPage;
-function renderPage(id){
-  const hasData = DB.lancamentos.length;
-  const wasRendered = rendered[id];
-  dbg(`renderPage(${id}) dados:${hasData} rendered:${wasRendered}`);
-  _origRenderPage(id);
-  dbg(`→ ${id} done rendered:${rendered[id]}`);
-}
-
-</script>
-
-<!-- PAINEL DEBUG VISUAL MOBILE -->
-<div id="debug-panel" style="display:none;position:fixed;bottom:65px;left:0;right:0;max-height:180px;overflow-y:auto;background:rgba(0,0,0,.93);color:#0f0;font-size:9px;font-family:monospace;padding:6px 8px;z-index:9999;border-top:2px solid #0f0;"></div>
-<button id="debug-toggle" onclick="var p=document.getElementById('debug-panel');p.style.display=p.style.display==='none'?'block':'none';" style="position:fixed;bottom:65px;right:70px;z-index:9999;background:#222;color:#0f0;border:1px solid #0f0;padding:3px 7px;font-size:9px;font-family:monospace;border-radius:4px;">🐛 LOG</button>
-<script>
-(function(){
-  const dp=document.getElementById('debug-panel');
-  function dbgLine(msg,color){
-    if(!dp)return;
-    const d=document.createElement('div');
-    d.style.color=color||'#0f0';
-    d.style.borderBottom='1px solid #111';
-    d.style.padding='1px 0';
-    d.textContent=new Date().toLocaleTimeString('pt-BR',{hour12:false})+' '+msg;
-    dp.appendChild(d);
-    dp.scrollTop=dp.scrollHeight;
-    // Mostrar automaticamente se erro
-    if(color==='#f55') dp.style.display='block';
-  }
-  window._dbgLine=dbgLine;
-  // Capturar erros JS globais
-  window.addEventListener('error',e=>{
-    dbgLine('❌ '+e.message+' ['+( e.filename||'').split('/').pop()+':'+e.lineno+']','#f55');
-  });
-  window.addEventListener('unhandledrejection',e=>{
-    dbgLine('⚠ PROMISE: '+(e.reason?.message||String(e.reason)),'#fa0');
-  });
-  // Patch console.log para capturar logs [mobile]
-  const oLog=console.log,oWarn=console.warn,oErr=console.error;
-  console.log=function(){
-    oLog.apply(console,arguments);
-    const msg=[...arguments].join(' ');
-    if(msg.includes('[mobile]')) dbgLine(msg,'#0f0');
-  };
-  console.warn=function(){
-    oWarn.apply(console,arguments);
-    dbgLine('⚠ '+[...arguments].join(' '),'#fa0');
-  };
-  console.error=function(){
-    oErr.apply(console,arguments);
-    dbgLine('❌ '+[...arguments].join(' '),'#f55');
-  };
-})();
 </script>
