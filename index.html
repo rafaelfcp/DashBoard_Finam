@@ -2,6 +2,12 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<script>if(window.innerWidth<=860){document.documentElement.classList.add('is-mobile');}</script>
+
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ctrl Financeiro — Rafael Cardoso</title>
 <link rel="icon" type="image/png" href="data:image/png;base64,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">
@@ -223,7 +229,8 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
 @media(max-width:860px){
   /* Topbar e overlay */
   .mobile-topbar{display:flex}
-  .sidebar-overlay{display:block}
+  .sidebar-overlay{display:block;visibility:hidden}
+  .sidebar-overlay.visible{opacity:1;pointer-events:auto;visibility:visible}
 
   /* Sidebar vira drawer */
   .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:160;top:0;box-shadow:none}
@@ -249,6 +256,7 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
     -webkit-overflow-scrolling:touch;
     box-sizing:border-box;
     z-index:1;
+    background:var(--bg);
   }
 
   /* Páginas ocupam espaço natural */
@@ -380,6 +388,16 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
   .section-header-right{flex-wrap:wrap;gap:6px;width:100%}
   .section-header-right select,.section-header-right input{font-size:14px;max-width:100%}
   .tag{font-size:10px;padding:2px 6px}
+}
+
+/* Sidebar fechada por padrão no mobile — sem depender de JS */
+html.is-mobile .sidebar{
+  transform:translateX(-100%) !important;
+  transition:none !important;
+}
+html.is-mobile .sidebar.open{
+  transform:translateX(0) !important;
+  transition:transform .28s cubic-bezier(.4,0,.2,1) !important;
 }
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2004,7 +2022,7 @@ function toggleSidebar(){
   document.body.style.overflow=open?'hidden':'';
 }
 
-function closeSidebar(){
+function closeSidebar(onClosed){
   const sb=document.getElementById('sidebar-nav');
   const ov=document.getElementById('sidebar-overlay');
   const hb=document.getElementById('btn-hamburger');
@@ -2012,6 +2030,10 @@ function closeSidebar(){
   hb.classList.remove('open');
   ov.classList.remove('visible');
   document.body.style.overflow='';
+  // Callback após transição CSS (280ms + buffer)
+  if(typeof onClosed==='function'){
+    setTimeout(onClosed, 320);
+  }
 }
 
 const PAGE_NAMES={visao:'Visão Geral',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
@@ -4610,8 +4632,10 @@ async function authLogin(){
   usuarioAtual = data.user;
   document.getElementById('auth-overlay').classList.remove('visible');
   atualizarUserSidebar();
+  // Garantir sidebar fechada no mobile
+  if(typeof closeSidebar === 'function') closeSidebar();
   // No mobile aguarda o layout estabilizar antes de carregar
-  const loginDelay = (window.innerWidth <= 860) ? 400 : 0;
+  const loginDelay = (window.innerWidth <= 860) ? 600 : 0;
   setTimeout(carregarDoSupabase, loginDelay);
 }
 
@@ -4690,8 +4714,10 @@ async function initAuth(){
       usuarioAtual = session.user;
       atualizarUserSidebar();
       if(loading) loading.style.display = 'none';
+      // Garantir sidebar fechada no mobile
+      if(typeof closeSidebar === 'function') closeSidebar();
       // No mobile aguarda layout estabilizar
-      const sessionDelay = (window.innerWidth <= 860) ? 500 : 0;
+      const sessionDelay = (window.innerWidth <= 860) ? 600 : 0;
       setTimeout(carregarDoSupabase, sessionDelay);
     } else {
       if(loading) loading.style.display = 'none';
@@ -4792,19 +4818,28 @@ async function carregarDoSupabase(){
     for(const k in rendered) delete rendered[k];
     for(const k in CHARTS) delete CHARTS[k];
 
-    // Mobile: fechar sidebar + delay para layout estabilizar
+    // Mobile: fechar sidebar e aguardar transição CSS antes de renderizar
+    const _isMob=(window.innerWidth<=860);
     if(typeof closeSidebar==='function') closeSidebar();
     const _mainEl=document.querySelector('.main');
     if(_mainEl) _mainEl.scrollTop=0;
-    const _delay=(window.innerWidth<=860)?500:50;
+    // 350ms = transição sidebar (280ms) + buffer; desktop sem delay
+    const _delay=_isMob?350:50;
     setTimeout(()=>{
+      // Forçar sidebar fechada novamente após transição
+      if(_isMob && typeof closeSidebar==='function') closeSidebar();
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         const act=document.querySelector('.page.active');
         const _id=act?act.id.replace('pg-',''):'visao';
         renderPage(_id);
-        // Retry no mobile caso charts ainda sem dimensão
-        if(window.innerWidth<=860){
-          setTimeout(()=>{ if(!rendered[_id]){ rendered[_id]=false; renderPage(_id); }}, 800);
+        // Retry automático se charts não renderizaram (offsetWidth=0 na 1a tentativa)
+        if(_isMob){
+          setTimeout(()=>{
+            if(!rendered[_id]){ delete rendered[_id]; renderPage(_id); }
+          }, 500);
+          setTimeout(()=>{
+            if(!rendered[_id]){ delete rendered[_id]; renderPage(_id); }
+          }, 1200);
         }
       }));
     }, _delay);
