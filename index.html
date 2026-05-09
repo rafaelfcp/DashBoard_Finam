@@ -1978,11 +1978,11 @@ function mkChart(id,cfg,_retry){
   const ex=Chart.getChart(c); if(ex)ex.destroy();
   if(CHARTS[id]){try{CHARTS[id].destroy();}catch(e){}}
   delete CHARTS[id];
-  // No mobile o canvas pode demorar para ter dimensão — retry até 10x
-  if(c.offsetWidth===0){
+  const w=c.offsetWidth||c.getBoundingClientRect().width;
+  if(w===0){
     const attempt=(_retry||0)+1;
-    if(attempt>10)return;
-    setTimeout(()=>mkChart(id,cfg,attempt), attempt<3?60:150);
+    if(attempt>20)return;
+    setTimeout(()=>mkChart(id,cfg,attempt), attempt<5?80:200);
     return;
   }
   CHARTS[id]=new Chart(c,cfg);
@@ -4610,7 +4610,9 @@ async function authLogin(){
   usuarioAtual = data.user;
   document.getElementById('auth-overlay').classList.remove('visible');
   atualizarUserSidebar();
-  carregarDoSupabase();
+  // No mobile aguarda o layout estabilizar antes de carregar
+  const loginDelay = (window.innerWidth <= 860) ? 400 : 0;
+  setTimeout(carregarDoSupabase, loginDelay);
 }
 
 // ── Cadastro ──
@@ -4688,7 +4690,9 @@ async function initAuth(){
       usuarioAtual = session.user;
       atualizarUserSidebar();
       if(loading) loading.style.display = 'none';
-      carregarDoSupabase();
+      // No mobile aguarda layout estabilizar
+      const sessionDelay = (window.innerWidth <= 860) ? 500 : 0;
+      setTimeout(carregarDoSupabase, sessionDelay);
     } else {
       if(loading) loading.style.display = 'none';
       authShowView('login');
@@ -4788,10 +4792,22 @@ async function carregarDoSupabase(){
     for(const k in rendered) delete rendered[k];
     for(const k in CHARTS) delete CHARTS[k];
 
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      const act = document.querySelector('.page.active');
-      if(act){ const id=act.id.replace('pg-',''); renderPage(id); }
-    }));
+    // Mobile: fechar sidebar + delay para layout estabilizar
+    if(typeof closeSidebar==='function') closeSidebar();
+    const _mainEl=document.querySelector('.main');
+    if(_mainEl) _mainEl.scrollTop=0;
+    const _delay=(window.innerWidth<=860)?500:50;
+    setTimeout(()=>{
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        const act=document.querySelector('.page.active');
+        const _id=act?act.id.replace('pg-',''):'visao';
+        renderPage(_id);
+        // Retry no mobile caso charts ainda sem dimensão
+        if(window.innerWidth<=860){
+          setTimeout(()=>{ if(!rendered[_id]){ rendered[_id]=false; renderPage(_id); }}, 800);
+        }
+      }));
+    }, _delay);
 
   } catch(err){
     setStatus(`✗ Erro: ${err.message}`, 'err');
