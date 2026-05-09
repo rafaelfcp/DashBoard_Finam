@@ -2077,20 +2077,29 @@ function mobileNavTo(id){
 
   // 4. Se já tem dados, forçar showBody e re-render sempre
   if(DB.lancamentos.length > 0){
-    // Prefixo padrão = id (ex: 'lancamentos' -> 'lan' é exceção)
     const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',metas:'met',cartao:'car',formas:'for',novo:'novo'};
     const pref = prefMap[id] || id;
+
     // Forçar corpo visível (esconde empty-state)
     const emptyEl = document.getElementById(pref+'-empty');
     const bodyEl  = document.getElementById(pref+'-body');
     if(emptyEl) emptyEl.style.display='none';
     if(bodyEl)  bodyEl.style.display='block';
-    // Limpar cache para forçar re-render
+
+    // Limpar cache — renderVisao usa rendered.visao E rendered['visao']
     delete rendered[id];
+    rendered[id] = false; // forçar false para passar o if(!rendered[id])
+    // Destruir charts existentes da página para forçar recriação
+    Object.keys(CHARTS).filter(k=>k.startsWith(pref)||k.startsWith(id)).forEach(k=>{
+      try{ CHARTS[k].destroy(); }catch(e){}
+      delete CHARTS[k];
+    });
+
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      renderPage(id);
-      setTimeout(()=>{ if(!rendered[id]){ delete rendered[id]; renderPage(id); } }, 350);
-      setTimeout(()=>{ if(!rendered[id]){ delete rendered[id]; renderPage(id); } }, 900);
+      forceRenderPage(id);
+      // Retry para charts que precisam de offsetWidth > 0
+      setTimeout(()=>{ if(!rendered[id]) forceRenderPage(id); }, 400);
+      setTimeout(()=>{ if(!rendered[id]) forceRenderPage(id); }, 1000);
     }));
   }
 }
@@ -2118,6 +2127,31 @@ function renderPage(id){
   if(rendered[id]) return;
   const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){ rendered[id]=true; fns[id](); } // marca APÓS confirmar que há função
+}
+
+// Versão que bypassa o cache — usada na navegação mobile
+function forceRenderPage(id){
+  if(!DB.lancamentos.length) return;
+  // Destruir charts da página para forçar recriação limpa
+  const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',
+    simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',
+    metas:'met',cartao:'car',formas:'for',novo:'novo'};
+  const pref = prefMap[id]||id;
+  Object.keys(CHARTS).filter(k=>k.startsWith(pref)).forEach(k=>{
+    try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k];
+  });
+  // Forçar corpo visível
+  const emptyEl=document.getElementById(pref+'-empty');
+  const bodyEl=document.getElementById(pref+'-body');
+  if(emptyEl) emptyEl.style.display='none';
+  if(bodyEl)  bodyEl.style.display='block';
+  // Limpar cache e chamar render direto
+  delete rendered[id];
+  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,
+    mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,
+    orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,
+    lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
+  if(fns[id]){ delete rendered[id]; fns[id](); }
 }
 
 function showBody(prefix){
@@ -4851,31 +4885,34 @@ async function carregarDoSupabase(){
     for(const k in rendered) delete rendered[k];
     for(const k in CHARTS) delete CHARTS[k];
 
-    // Mobile: fechar sidebar e aguardar transição CSS antes de renderizar
+    // Re-render após carregar dados
     const _isMob=(window.innerWidth<=860);
-    if(typeof closeSidebar==='function') closeSidebar();
     const _mainEl=document.querySelector('.main');
     if(_mainEl) _mainEl.scrollTop=0;
-    // 350ms = transição sidebar (280ms) + buffer; desktop sem delay
-    const _delay=_isMob?350:50;
-    setTimeout(()=>{
-      // Forçar sidebar fechada novamente após transição
-      if(_isMob && typeof closeSidebar==='function') closeSidebar();
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        const act=document.querySelector('.page.active');
-        const _id=act?act.id.replace('pg-',''):'visao';
-        renderPage(_id);
-        // Retry automático se charts não renderizaram (offsetWidth=0 na 1a tentativa)
-        if(_isMob){
-          setTimeout(()=>{
-            if(!rendered[_id]){ delete rendered[_id]; renderPage(_id); }
-          }, 500);
-          setTimeout(()=>{
-            if(!rendered[_id]){ delete rendered[_id]; renderPage(_id); }
-          }, 1200);
-        }
-      }));
-    }, _delay);
+
+    // Descobrir página ativa
+    const act=document.querySelector('.page.active');
+    const _id=act?act.id.replace('pg-',''):'visao';
+
+    if(_isMob){
+      // Mobile: fechar sidebar e usar mobileNavTo para forçar re-render completo
+      if(typeof closeSidebar==='function') closeSidebar();
+      setTimeout(()=>{
+        // Forçar re-render direto sem depender de mobileNavTo (evita loop)
+      if(typeof forceRenderPage==='function'){
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          forceRenderPage(_id);
+          setTimeout(()=>{ if(!rendered[_id]) forceRenderPage(_id); }, 450);
+          setTimeout(()=>{ if(!rendered[_id]) forceRenderPage(_id); }, 1100);
+        }));
+      }
+      }, 320); // aguarda transição sidebar (280ms) + buffer
+    } else {
+      // Desktop: re-render direto
+      setTimeout(()=>{
+        requestAnimationFrame(()=>requestAnimationFrame(()=>renderPage(_id)));
+      }, 50);
+    }
 
   } catch(err){
     setStatus(`✗ Erro: ${err.message}`, 'err');
