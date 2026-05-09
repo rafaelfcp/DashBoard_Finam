@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ctrl Financeiro — Rafael Cardoso</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
+  --bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.15);
+  --tx:#e6edf3;--tx2:#8b949e;--tx3:#484f58;
+  --green:#3fb950;--gd:rgba(63,185,80,.12);
+  --red:#f85149;--rd:rgba(248,81,73,.12);
+  --amber:#d29922;--ad:rgba(210,153,34,.12);
+  --blue:#58a6ff;--bld:rgba(88,166,255,.12);
+  --purple:#bc8cff;--r:8px;--rs:5px;
+  --sb:230px;
+}
+:root.light{
+  --bg:#f6f8fa;--bg2:#fff;--bg3:#f0f2f5;--bg4:#d0d7de;
+  --bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.15);
+  --tx:#1f2328;--tx2:#656d76;--tx3:#9ca3af;
+  --green:#1a7f37;--red:#cf222e;--amber:#9a6700;--blue:#0969da;--purple:#8250df;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;-webkit-tap-highlight-color:transparent}
+
+/* ── LOGIN ── */
+#app-login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-card{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:40px 36px;width:100%;max-width:420px}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.login-logo-icon{width:44px;height:44px;border-radius:8px;overflow:hidden}
+.login-logo-icon img{width:100%;height:100%;object-fit:cover}
+.login-title{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.login-sub{font-size:12px;color:var(--tx2);margin-top:2px}
+.login-form-title{font-size:16px;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:10px 14px;font-size:16px;outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--blue)}
+.btn-primary{width:100%;padding:14px;font-size:15px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;transition:.15s;margin-top:4px}
+.btn-primary:active{opacity:.85;transform:scale(.98)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.login-error{background:var(--rd);border:1px solid rgba(248,81,73,.3);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--red);margin-top:12px;display:none}
+.login-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--tx3);font-size:12px}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--bd)}
+.btn-ghost-full{width:100%;padding:12px;font-size:14px;font-weight:600;background:none;border:1px solid var(--bd2);color:var(--tx2);border-radius:var(--rs);cursor:pointer;transition:.15s}
+.btn-ghost-full:active{background:var(--bg3)}
+.login-footer{font-size:11px;color:var(--tx3);text-align:center;margin-top:20px}
+
+/* ── APP ── */
+#app-dashboard{display:none}
+.shell{display:flex;min-height:100vh;width:100%;overflow-x:hidden}
+
+/* ── SIDEBAR DESKTOP ── */
+.sidebar{width:var(--sb);background:var(--bg2);border-right:1px solid var(--bd);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;overflow-y:auto;z-index:100;transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.brand{padding:16px 18px 12px;border-bottom:1px solid var(--bd)}
+.brand-name{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.brand-sub{font-size:10px;color:var(--tx3);margin-top:1px;letter-spacing:.03em}
+.brand-data{font-size:11px;color:var(--tx2);margin-top:4px}
+.user-row{display:flex;align-items:center;gap:10px;margin:10px 12px;padding:8px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--bld);color:var(--blue);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-name{font-size:12px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-logout{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:6px;transition:.15s;min-width:32px;min-height:32px}
+.btn-logout:active{color:var(--red)}
+.import-zone{margin:8px 12px;border:2px dashed var(--bd2);border-radius:var(--r);padding:12px 10px;text-align:center;cursor:pointer;transition:all .2s}
+.import-zone:hover,.import-zone.drag-over{border-color:var(--blue);background:var(--bld)}
+.import-zone.success{border-color:var(--green);background:var(--gd);animation:pulse .4s ease}
+.import-zone.error{border-color:var(--red);background:var(--rd)}
+@keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+.dz-icon{font-size:20px;display:block;margin-bottom:3px}
+.dz-text{font-size:11px;font-weight:600;color:var(--tx2);line-height:1.4}
+.dz-sub{font-size:10px;color:var(--tx3);margin-top:2px}
+.import-status{margin:0 12px 6px;font-size:11px;color:var(--tx3);padding:6px 10px;background:var(--bg3);border-radius:var(--rs);min-height:28px;line-height:1.5}
+.import-status.ok{color:var(--green)}.import-status.err{color:var(--red)}
+.import-btns{display:flex;gap:6px;margin:0 12px 8px}
+.btn-sync{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;font-size:11px;font-weight:700;background:var(--bld);border:1px solid rgba(88,166,255,.3);border-radius:var(--rs);cursor:pointer;color:var(--blue);transition:.15s}
+.btn-sync:active{background:rgba(88,166,255,.28)}
+.btn-sync:disabled{opacity:.5;cursor:not-allowed}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.theme-row{display:flex;align-items:center;justify-content:space-between;margin:4px 12px 6px;padding:7px 12px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rs);cursor:pointer;font-size:12px;color:var(--tx2);user-select:none}
+.tog{width:28px;height:16px;border-radius:99px;background:var(--bg4);position:relative;transition:.2s;flex-shrink:0}
+.tog.on{background:var(--blue)}.tog-thumb{width:10px;height:10px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:.2s}
+.tog.on .tog-thumb{left:15px}
+.nav-sec{padding:10px 18px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 18px;cursor:pointer;font-size:13px;color:var(--tx2);border-left:2px solid transparent;transition:.12s}
+.nav-item:active{background:rgba(255,255,255,.05)}
+.nav-item.active{color:var(--blue);background:var(--bld);border-left-color:var(--blue)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0}
+.nav-item.active .dot{opacity:1}
+.sb-foot{margin-top:auto;padding:12px 18px;border-top:1px solid var(--bd);font-size:10px;color:var(--tx3);line-height:1.6}
+.sync-badge{display:inline-flex;align-items:center;font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;margin-left:6px;background:var(--gd);color:var(--green)}
+.sync-badge.offline{background:var(--ad);color:var(--amber)}
+
+/* ── MAIN DESKTOP ── */
+.main{margin-left:var(--sb);padding:26px 30px 60px;width:calc(100% - var(--sb));min-width:0;box-sizing:border-box}
+.page{display:none}.page.active{display:block}
+
+/* ── LOADING ── */
+#app-loading{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:14px}
+.spinner{width:40px;height:40px;border:3px solid var(--bd2);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+
+/* ── MOBILE TOP BAR ── */
+.mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:56px;background:var(--bg2);border-bottom:1px solid var(--bd);z-index:90;align-items:center;padding:0 16px;gap:12px}
+.btn-hamburger{background:none;border:none;cursor:pointer;color:var(--tx);padding:8px;border-radius:6px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.btn-hamburger span{display:block;width:20px;height:2px;background:currentColor;border-radius:2px;transition:all .25s}
+.btn-hamburger.open span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.btn-hamburger.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+.btn-hamburger.open span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+.mobile-title{font-size:14px;font-weight:700;flex:1;letter-spacing:.04em;text-transform:uppercase}
+.mobile-sync-btn{background:var(--bld);border:1px solid rgba(88,166,255,.3);color:var(--blue);border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.mobile-sync-btn:active{background:rgba(88,166,255,.28)}
+
+/* ── SIDEBAR OVERLAY (mobile) ── */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:95;backdrop-filter:blur(2px)}
+
+/* ── BOTTOM NAV (mobile) ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:60px;background:var(--bg2);border-top:1px solid var(--bd);z-index:90;flex-direction:row;align-items:stretch;padding:0 4px;padding-bottom:env(safe-area-inset-bottom)}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--tx3);font-size:10px;font-weight:600;border-radius:8px;margin:4px 2px;transition:.15s;padding:4px 2px;border:none;background:none;-webkit-tap-highlight-color:transparent}
+.bn-item.active{color:var(--blue);background:var(--bld)}
+.bn-item:active{background:var(--bg3)}
+.bn-icon{font-size:18px;line-height:1}
+
+/* ── FAB (botão novo lançamento mobile) ── */
+.fab{display:none;position:fixed;bottom:76px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:24px;line-height:1;box-shadow:0 4px 20px rgba(88,166,255,.4);z-index:89;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s}
+.fab:active{transform:scale(.92);box-shadow:0 2px 10px rgba(88,166,255,.3)}
+
+/* ── GRIDS RESPONSIVOS ── */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+
+/* ── MOBILE BREAKPOINT ── */
+@media(max-width:680px){
+  /* Topbar e sidebar overlay */
+  .mobile-topbar{display:flex}
+  .sidebar-overlay{display:block;opacity:0;pointer-events:none;transition:opacity .28s}
+  .sidebar-overlay.visible{opacity:1;pointer-events:auto}
+
+  /* Sidebar vira drawer lateral */
+  .sidebar{transform:translateX(-100%);top:0;width:min(var(--sb), 85vw)}
+  .sidebar.open{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.4)}
+
+  /* Main deslocar para baixo da topbar */
+  .main{margin-left:0;width:100%;padding:16px 14px 80px;padding-top:72px}
+
+  /* Grids colapsam */
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:1fr}
+
+  /* Bottom nav e FAB */
+  .bottom-nav{display:flex}
+  .fab{display:flex}
+
+  /* Tipografia mobile */
+  body{font-size:15px}
+  .form-input{font-size:16px}/* evita zoom automático iOS */
+}
+
+@media(max-width:380px){
+  .g4{grid-template-columns:1fr 1fr}
+  .g2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING INICIAL -->
+<div id="app-loading">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--tx2)">Verificando autenticação...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="app-login">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <img src="FAVICON_BASE64_PLACEHOLDER" alt="logo" onerror="this.style.display='none'">
+      </div>
+      <div>
+        <div class="login-title">Ctrl Financeiro</div>
+        <div class="login-sub">Rafael Cardoso · 2026</div>
+      </div>
+    </div>
+
+    <div id="login-view">
+      <div class="login-form-title">Entrar na conta</div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" id="login-email" class="form-input" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" id="login-senha" class="form-input" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <button class="btn-primary" onclick="fazerLogin()" id="btn-login">Entrar</button>
+      <div id="login-error" class="login-error"></div>
+      <div class="login-divider">ou</div>
+      <button class="btn-ghost-full" onclick="mostrarCadastro()">Criar conta</button>
+      <button class="btn-ghost-full" style="margin-top:8px" onclick="mostrarRecover()">Esqueci minha senha</button>
+    </div>
+
+    <div id="cadastro-view" style="display:none">
+      <div class="login-form-title">Criar conta</div>
+      <div class="form-group">
+        <label class="form-label">Nome completo</label>
+        <input type="text" id="cad-nome" class="form-input" placeholder="Rafael Cardoso">
+      </div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" id="cad-email" class="form-input" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" id="cad-senha" class="form-input" placeholder="Mínimo 6 caracteres">
+      </div>
+      <button class="btn-primary" onclick="fazerCadastro()" id="btn-cad">Criar conta</button>
+      <div id="cad-error" class="login-error"></div>
+      <div class="login-divider">ou</div>
+      <button class="btn-ghost-full" onclick="mostrarLogin()">Já tenho conta</button>
+    </div>
+
+    <div id="recover-view" style="display:none">
+      <div class="login-form-title">Recuperar senha</div>
+      <div class="form-group">
+        <label class="form-label">E-mail cadastrado</label>
+        <input type="email" id="rec-email" class="form-input" placeholder="seu@email.com">
+      </div>
+      <button class="btn-primary" onclick="enviarRecover()" id="btn-rec">Enviar link de recuperação</button>
+      <div id="rec-msg" class="login-error"></div>
+      <div class="login-divider">ou</div>
+      <button class="btn-ghost-full" onclick="mostrarLogin()">Voltar ao login</button>
+    </div>
+
+    <div class="login-footer">
+      Seus dados ficam seguros no Supabase com criptografia AES-256.
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app-dashboard">
+
+<!-- TOPBAR MOBILE -->
+<div class="mobile-topbar" id="mobile-topbar">
+  <button class="btn-hamburger" id="btn-hamburger" onclick="toggleSidebar()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="mobile-title" id="mobile-page-title">Visão Geral</div>
+  <button class="mobile-sync-btn" onclick="carregarDoSupabase()">☁ Sync</button>
+</div>
+
+<!-- OVERLAY -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- FAB novo lançamento -->
+<button class="fab" id="fab" onclick="navToMobile('novo')" title="Novo Lançamento">＋</button>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="bn-item active" id="bn-visao" onclick="navToMobile('visao')">
+    <span class="bn-icon">📊</span>Visão
+  </button>
+  <button class="bn-item" id="bn-categorias" onclick="navToMobile('categorias')">
+    <span class="bn-icon">🏷</span>Categ.
+  </button>
+  <button class="bn-item" id="bn-lancamentos" onclick="navToMobile('lancamentos')">
+    <span class="bn-icon">📋</span>Lançam.
+  </button>
+  <button class="bn-item" id="bn-diagnostico" onclick="navToMobile('diagnostico')">
+    <span class="bn-icon">🩺</span>Diagnóst.
+  </button>
+  <button class="bn-item" id="bn-menu" onclick="toggleSidebar()">
+    <span class="bn-icon">☰</span>Menu
+  </button>
+</div>
+
+<div class="shell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar-nav">
+  <div class="brand">
+    <div class="brand-name">Ctrl Financeiro</div>
+    <div class="brand-sub">Rafael Cardoso</div>
+    <div class="brand-data" id="sidebar-sub">Nenhum dado carregado</div>
+  </div>
+
+  <!-- Usuário logado -->
+  <div class="user-row">
+    <div class="user-avatar" id="user-avatar">R</div>
+    <div class="user-name" id="user-name">—</div>
+    <button class="btn-logout" onclick="fazerLogout()" title="Sair">⏻</button>
+  </div>
+
+  <!-- Import -->
+  <input type="file" id="file-input" accept=".xlsm,.xlsx" style="display:none">
+  <div class="import-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <span class="dz-icon" id="dz-icon">📂</span>
+    <div class="dz-text" id="dz-text">Arraste a planilha aqui</div>
+    <div class="dz-sub">ou clique para selecionar</div>
+  </div>
+  <div class="import-status" id="import-status">Importe ou sincronize seus dados.</div>
+
+  <!-- Botões sync -->
+  <div class="import-btns">
+    <button class="btn-sync" id="btn-sync-load" onclick="carregarDoSupabase()" title="Carregar dados salvos no Supabase">
+      ☁ Carregar dados
+    </button>
+    <button class="btn-sync" id="btn-sync-save" onclick="salvarNoSupabase()" title="Salvar dados importados no Supabase" style="display:none">
+      ↑ Salvar
+    </button>
+  </div>
+
+  <div class="theme-row" onclick="toggleTheme()">
+    <span id="theme-lbl">🌙 Tema escuro</span>
+    <div class="tog" id="tog"><div class="tog-thumb"></div></div>
+  </div>
+
+  <div class="nav-sec">Análise Financeira</div>
+  <div class="nav-item active" onclick="navTo('visao',this)"><span class="dot"></span>Visão Geral</div>
+  <div class="nav-item" onclick="navTo('diagnostico',this)"><span class="dot"></span>Diagnóstico Financeiro</div>
+  <div class="nav-item" onclick="navTo('mensal',this)"><span class="dot"></span>Evolução Mensal</div>
+  <div class="nav-item" onclick="navTo('categorias',this)"><span class="dot"></span>Categorias</div>
+  <div class="nav-item" onclick="navTo('transporte',this)"><span class="dot"></span>Transporte</div>
+  <div class="nav-item" onclick="navTo('cartao',this)"><span class="dot"></span>Cartão / Parcelas</div>
+  <div class="nav-item" onclick="navTo('formas',this)"><span class="dot"></span>Formas de Pagamento</div>
+  <div class="nav-item" onclick="navTo('efetivado',this)"><span class="dot"></span>Efetivados / Pendentes</div>
+  <div class="nav-sec">Planejamento</div>
+  <div class="nav-item" onclick="navTo('orcamento',this)"><span class="dot"></span>Orçado vs Real</div>
+  <div class="nav-item" onclick="navTo('simulador',this)"><span class="dot"></span>Simulador</div>
+  <div class="nav-item" onclick="navTo('metas',this)"><span class="dot"></span>Metas & Reserva</div>
+  <div class="nav-sec">Dados</div>
+  <div class="nav-item" onclick="navTo('novo',this)"><span class="dot"></span>➕ Novo Lançamento</div>
+  <div class="nav-item" onclick="navTo('lancamentos',this)"><span class="dot"></span>Lançamentos</div>
+  <div class="sb-foot">
+    <span id="sync-status-badge" class="sync-badge offline">● offline</span>
+    Ctrl Financeiro · 2026<br>Dados sincronizados com Supabase
+  </div>
+</nav>
+
+<!-- MAIN (páginas do dashboard injetadas aqui) -->
+<main class="main" id="main-content">
+  <div class="page active" id="pg-visao">
+    <div id="vg-empty" class="empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;text-align:center;gap:14px">
+      <div style="font-size:52px">☁</div>
+      <div style="font-size:20px;font-weight:700">Conecte seus dados</div>
+      <div style="font-size:13px;color:var(--tx2);max-width:380px;line-height:1.65">
+        Clique em <strong style="color:var(--blue)">☁ Carregar dados</strong> para buscar seus lançamentos do Supabase,<br>
+        ou arraste a planilha para importar e depois salvar.
+      </div>
+    </div>
+    <div id="vg-body" style="display:none">
+      <div style="font-size:22px;font-weight:800;margin-bottom:4px">Visão Geral</div>
+      <div style="font-size:13px;color:var(--tx2);margin-bottom:18px" id="vg-sub">—</div>
+      <div style="padding:40px;text-align:center;color:var(--tx2)">
+        ⚙ Carregando análises... importe o dashboard completo para ver todos os gráficos.
+      </div>
+    </div>
+  </div>
+</main>
+
+</div><!-- .shell -->
+</div><!-- #app-dashboard -->
+
+<script>
+// ══ SUPABASE CONFIG ══
+const SUPABASE_URL = 'https://lfagemsbgtzlqjjagrmn.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmYWdlbXNiZ3R6bHFqamFncm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxOTE1NzksImV4cCI6MjA5Mzc2NzU3OX0.vy1NtUSQWWv5O_bJEPygE2QsOKlAV1SFOD31a0jaI-4'; // Preencher com anon key
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let usuarioAtual = null;
+
+// ══ INICIALIZAÇÃO ══
+async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  document.getElementById('app-loading').style.display = 'none';
+  if(session){
+    usuarioAtual = session.user;
+    mostrarDashboard();
+  } else {
+    document.getElementById('app-login').style.display = 'flex';
+  }
+}
+
+// ══ AUTH ══
+function mostrarLogin(){ document.getElementById('login-view').style.display='block'; document.getElementById('cadastro-view').style.display='none'; document.getElementById('recover-view').style.display='none'; }
+function mostrarCadastro(){ document.getElementById('login-view').style.display='none'; document.getElementById('cadastro-view').style.display='block'; document.getElementById('recover-view').style.display='none'; }
+function mostrarRecover(){ document.getElementById('login-view').style.display='none'; document.getElementById('cadastro-view').style.display='none'; document.getElementById('recover-view').style.display='block'; }
+
+async function fazerLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('btn-login');
+  if(!email||!senha){ errEl.textContent='Preencha e-mail e senha.'; errEl.style.display='block'; return; }
+  btn.disabled=true; btn.textContent='Entrando...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+  if(error){
+    errEl.textContent = error.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error.message;
+    errEl.style.display='block'; btn.disabled=false; btn.textContent='Entrar'; return;
+  }
+  usuarioAtual = data.user;
+  document.getElementById('app-login').style.display='none';
+  mostrarDashboard();
+}
+
+async function fazerCadastro(){
+  const nome  = document.getElementById('cad-nome').value.trim();
+  const email = document.getElementById('cad-email').value.trim();
+  const senha = document.getElementById('cad-senha').value;
+  const errEl = document.getElementById('cad-error');
+  const btn   = document.getElementById('btn-cad');
+  if(!nome||!email||!senha){ errEl.textContent='Preencha todos os campos.'; errEl.style.display='block'; return; }
+  if(senha.length < 6){ errEl.textContent='Senha deve ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
+  btn.disabled=true; btn.textContent='Criando...';
+  const { data, error } = await sb.auth.signUp({ email, password: senha, options:{ data:{ nome } } });
+  if(error){ errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Criar conta'; return; }
+  errEl.style.background='var(--gd)'; errEl.style.color='var(--green)'; errEl.style.border='1px solid rgba(63,185,80,.3)';
+  errEl.textContent='✓ Conta criada! Verifique seu e-mail para confirmar.'; errEl.style.display='block';
+  btn.disabled=false; btn.textContent='Criar conta';
+}
+
+async function enviarRecover(){
+  const email = document.getElementById('rec-email').value.trim();
+  const msgEl = document.getElementById('rec-msg');
+  const btn   = document.getElementById('btn-rec');
+  if(!email){ msgEl.textContent='Informe o e-mail.'; msgEl.style.display='block'; return; }
+  btn.disabled=true;
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if(error){ msgEl.textContent=error.message; msgEl.style.display='block'; btn.disabled=false; return; }
+  msgEl.style.background='var(--gd)'; msgEl.style.color='var(--green)'; msgEl.style.border='1px solid rgba(63,185,80,.3)';
+  msgEl.textContent='✓ Link enviado! Verifique seu e-mail.'; msgEl.style.display='block';
+  btn.disabled=false;
+}
+
+async function fazerLogout(){
+  await sb.auth.signOut();
+  usuarioAtual = null;
+  DB = { lancamentos:[], saldos_iniciais:{}, orcamento:{ Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 }};
+  document.getElementById('app-dashboard').style.display='none';
+  document.getElementById('app-login').style.display='flex';
+  mostrarLogin();
+}
+
+function mostrarDashboard(){
+  document.getElementById('app-dashboard').style.display='block';
+  // Preencher dados do usuário na sidebar
+  const nome = usuarioAtual?.user_metadata?.nome || usuarioAtual?.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = nome;
+  document.getElementById('user-avatar').textContent = nome.charAt(0).toUpperCase();
+  // Tentar carregar dados automaticamente
+  carregarDoSupabase();
+}
+
+// ══ SYNC SUPABASE ══
+async function carregarDoSupabase(){
+  if(!usuarioAtual){ setStatus('⚠ Faça login primeiro.','err'); return; }
+  const btn = document.getElementById('btn-sync-load');
+  btn.disabled=true; btn.textContent='⏳ Carregando...';
+  setStatus('⏳ Buscando dados no Supabase...','');
+  try {
+    // Lançamentos
+    const { data: lans, error: err1 } = await sb
+      .from('lancamentos')
+      .select('*')
+      .eq('usuario_id', usuarioAtual.id)
+      .order('data', { ascending: true });
+    if(err1) throw new Error(err1.message);
+
+    // Saldos iniciais
+    const { data: saldos, error: err2 } = await sb
+      .from('saldos_iniciais')
+      .select('*')
+      .eq('usuario_id', usuarioAtual.id);
+    if(err2) throw new Error(err2.message);
+
+    // Orçamentos
+    const { data: orcs, error: err3 } = await sb
+      .from('orcamentos')
+      .select('*')
+      .eq('usuario_id', usuarioAtual.id);
+    if(err3) throw new Error(err3.message);
+
+    if(!lans || lans.length === 0){
+      setStatus('☁ Nenhum dado salvo. Importe a planilha.','');
+      btn.disabled=false; btn.textContent='☁ Carregar dados'; return;
+    }
+
+    // Mapear para formato do DB
+    DB.lancamentos = lans.map(l => ({
+      id: l.id, mes: l.mes, data: l.data,
+      cat: l.categoria, subcat: l.subcategoria||'Outros',
+      desc: l.descricao||'', forma: l.forma_pagamento||'',
+      valor: parseFloat(l.valor), pago: l.pago
+    }));
+
+    DB.saldos_iniciais = {};
+    (saldos||[]).forEach(s => { DB.saldos_iniciais[s.mes] = parseFloat(s.saldo); });
+
+    if(orcs && orcs.length > 0){
+      orcs.forEach(o => { DB.orcamento[o.categoria] = parseFloat(o.valor); });
+    }
+
+    const mAtivos = getMeses();
+    document.getElementById('sidebar-sub').textContent = `${mAtivos.join('–')} · ${DB.lancamentos.length} registros`;
+    document.getElementById('sync-status-badge').textContent = '● online';
+    document.getElementById('sync-status-badge').className = 'sync-badge';
+    document.getElementById('btn-sync-save').style.display = 'none';
+
+    setStatus(`✓ ${DB.lancamentos.length} lançamentos carregados do Supabase.`, 'ok');
+
+    // DZ feedback
+    const dz=document.getElementById('drop-zone');
+    dz.classList.add('success');
+    document.getElementById('dz-icon').textContent='✅';
+    document.getElementById('dz-text').textContent=`${mAtivos.length} meses · ${DB.lancamentos.length} registros`;
+    setTimeout(()=>{ dz.classList.remove('success'); document.getElementById('dz-icon').textContent='📂'; document.getElementById('dz-text').textContent='Arraste a planilha aqui'; },4000);
+
+    populaFiltros(); populaOrcFiltros();
+    Object.values(CHARTS).forEach(c=>{try{c.destroy();}catch(e){}});
+    for(const k in rendered)delete rendered[k];
+    for(const k in CHARTS)delete CHARTS[k];
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const act=document.querySelector('.page.active');
+      if(act){const id=act.id.replace('pg-','');renderPage(id);}
+    }));
+
+  } catch(err){
+    setStatus(`✗ Erro: ${err.message}`, 'err');
+    console.error(err);
+  }
+  btn.disabled=false; btn.textContent='☁ Carregar dados';
+}
+
+async function salvarNoSupabase(){
+  if(!usuarioAtual||!DB.lancamentos.length){ setStatus('⚠ Importe dados primeiro.','err'); return; }
+  const btn = document.getElementById('btn-sync-save');
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  setStatus('⏳ Salvando no Supabase...','');
+  try {
+    // Deletar dados anteriores do usuário
+    await sb.from('lancamentos').delete().eq('usuario_id', usuarioAtual.id);
+    await sb.from('saldos_iniciais').delete().eq('usuario_id', usuarioAtual.id);
+    await sb.from('orcamentos').delete().eq('usuario_id', usuarioAtual.id);
+
+    // Inserir lançamentos em batches
+    const lans = DB.lancamentos.map(l => ({
+      usuario_id: usuarioAtual.id, mes: l.mes, ano: 2026,
+      data: l.data||null, categoria: l.cat, subcategoria: l.subcat||null,
+      descricao: l.desc||null, forma_pagamento: l.forma||null,
+      valor: l.valor, pago: l.pago||'Não', origem: l.origem||'planilha'
+    }));
+    for(let i=0;i<lans.length;i+=200){
+      await sb.from('lancamentos').insert(lans.slice(i,i+200));
+    }
+
+    // Saldos
+    const saldos = Object.entries(DB.saldos_iniciais).map(([mes,saldo])=>({usuario_id:usuarioAtual.id,mes,ano:2026,saldo}));
+    if(saldos.length>0) await sb.from('saldos_iniciais').insert(saldos);
+
+    // Orçamentos
+    const orcs = Object.entries(DB.orcamento).map(([cat,val])=>({usuario_id:usuarioAtual.id,ano:2026,categoria:cat,valor:val}));
+    await sb.from('orcamentos').insert(orcs);
+
+    document.getElementById('sync-status-badge').textContent='● online';
+    document.getElementById('sync-status-badge').className='sync-badge';
+    setStatus(`✓ ${DB.lancamentos.length} lançamentos salvos no Supabase!`,'ok');
+    btn.style.display='none';
+  } catch(err){
+    setStatus(`✗ Erro ao salvar: ${err.message}`,'err');
+    console.error(err);
+  }
+  btn.disabled=false; btn.textContent='↑ Salvar';
+}
+
+function setStatus(msg,cls){
+  const el=document.getElementById('import-status');
+  el.textContent=msg; el.className='import-status'+(cls?' '+cls:'');
+}
+
+// ══ DRAG & DROP ══
+(function(){
+  const zone=document.getElementById('drop-zone');if(!zone)return;
+  ['dragenter','dragover','dragleave','drop'].forEach(ev=>{document.addEventListener(ev,e=>e.preventDefault(),false);});
+  zone.addEventListener('dragenter',e=>{e.preventDefault();zone.classList.add('drag-over');document.getElementById('dz-text').textContent='Solte para importar';document.getElementById('dz-icon').textContent='📥';});
+  zone.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget)){zone.classList.remove('drag-over');document.getElementById('dz-text').textContent='Arraste a planilha aqui';document.getElementById('dz-icon').textContent='📂';}});
+  zone.addEventListener('drop',e=>{
+    e.preventDefault();zone.classList.remove('drag-over');
+    document.getElementById('dz-text').textContent='Arraste a planilha aqui';document.getElementById('dz-icon').textContent='📂';
+    const files=e.dataTransfer.files;if(!files||!files.length)return;
+    const file=files[0],ext=file.name.split('.').pop().toLowerCase();
+    if(ext!=='xlsx'&&ext!=='xlsm'){zone.classList.add('error');document.getElementById('dz-icon').textContent='❌';document.getElementById('dz-text').textContent='Formato inválido';setStatus('✗ Use .xlsm ou .xlsx','err');setTimeout(()=>{zone.classList.remove('error');document.getElementById('dz-icon').textContent='📂';document.getElementById('dz-text').textContent='Arraste a planilha aqui';},2500);return;}
+    document.getElementById('dz-icon').textContent='⏳';document.getElementById('dz-text').textContent='Processando...';
+    setStatus('⏳ Lendo arquivo...','');processFile(file);
+  });
+})();
+
+document.getElementById('file-input').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;processFile(file);e.target.value='';
+});
+
+// ══ DADOS ══
+let DB={lancamentos:[],saldos_iniciais:{},orcamento:{Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0}};
+const CHARTS={};const CATS=['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
+const CORES={Transporte:'#ff7b72',Moradia:'#58a6ff',Educação:'#bc8cff',Alimentação:'#3fb950',Compras:'#8b949e',Lazer:'#d29922',Giovanna:'#f78166','Saúde & Beleza':'#39d353','Serviços Financeiros':'#e3b341','Outras Despesas':'#484f58',Vestuário:'#a5d6ff','Doações & Presentes':'#ffa198'};
+const MESES_ORD=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const R=(v,d=0)=>'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const SM=arr=>arr.reduce((a,b)=>a+b,0);
+function getMeses(){return MESES_ORD.filter(m=>DB.lancamentos.some(l=>l.mes===m));}
+function getResumo(){return getMeses().map(m=>{const lm=DB.lancamentos.filter(l=>l.mes===m);const rec=SM(lm.filter(l=>l.cat==='Receitas').map(l=>l.valor));const inv=SM(lm.filter(l=>l.cat==='Investimentos').map(l=>l.valor));const desp=SM(lm.filter(l=>l.cat!=='Receitas'&&l.cat!=='Investimentos').map(l=>l.valor));return{mes:m,rec,inv,desp,saldo:rec-inv-desp};});}
+const CC={grid:'rgba(255,255,255,.06)',tick:'#484f58',font:'Segoe UI,system-ui,sans-serif'};
+function mkChart(id,cfg){const c=document.getElementById(id);if(!c)return;const ex=Chart.getChart(c);if(ex)ex.destroy();if(CHARTS[id]){try{CHARTS[id].destroy();}catch(e){}}delete CHARTS[id];if(c.offsetWidth===0){setTimeout(()=>mkChart(id,cfg),60);return;}CHARTS[id]=new Chart(c,cfg);}
+function yFmt(v){return'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v);}
+function baseOpts(yf){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:CC.grid},ticks:{color:CC.tick,font:{size:11,family:CC.font}}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,font:{size:11,family:CC.font},callback:yf||yFmt}}}};}
+const rendered={};
+function navTo(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  let page=document.getElementById('pg-'+id);
+  if(!page){loadPageContent(id);page=document.getElementById('pg-'+id);}
+  if(page)page.classList.add('active');
+  el.classList.add('active');
+  // Sync mobile title
+  const names={visao:'Visão Geral',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',lancamentos:'Lançamentos',cartao:'Cartão/Parcelas',formas:'Pagamento',efetivado:'Efetivados',diagnostico:'Diagnóstico',novo:'Novo Lançamento'};
+  const titleEl=document.getElementById('mobile-page-title');
+  if(titleEl)titleEl.textContent=names[id]||id;
+  // Sync bottom nav
+  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
+  const bnEl=document.getElementById('bn-'+id);
+  if(bnEl)bnEl.classList.add('active');
+  // Fechar sidebar no mobile após navegar
+  if(isMobile())closeSidebar();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>renderPage(id)));
+}
+function renderPage(id){
+  if(!DB.lancamentos.length)return;
+  if(rendered[id])return;
+  rendered[id]=true;
+  const fns={visao:renderVisaoSimples,mensal:()=>setPlaceholder('men'),categorias:()=>setPlaceholder('cat'),transporte:()=>setPlaceholder('tra'),orcamento:()=>setPlaceholder('orc'),simulador:()=>setPlaceholder('sim'),metas:()=>setPlaceholder('met'),lancamentos:()=>setPlaceholder('lan'),cartao:()=>setPlaceholder('car'),formas:()=>setPlaceholder('for'),efetivado:()=>setPlaceholder('efe'),diagnostico:()=>setPlaceholder('diag'),novo:()=>setPlaceholder('novo')};
+  if(fns[id])fns[id]();
+}
+function showBody(prefix){const e=document.getElementById(prefix+'-empty');const b=document.getElementById(prefix+'-body');if(e)e.style.display='none';if(b)b.style.display='block';}
+function setPlaceholder(id){
+  showBody(id);
+  const body=document.getElementById(id+'-body');
+  if(body&&!body.querySelector('canvas')&&!body.querySelector('.page-title')){
+    body.innerHTML=`<div style="padding:40px;text-align:center;color:var(--tx2);font-size:13px">
+      <div style="font-size:32px;margin-bottom:12px">🔄</div>
+      Esta seção será carregada ao integrar com o dashboard completo.<br>
+      <strong style="color:var(--blue)">Dados carregados: ${DB.lancamentos.length} lançamentos ✓</strong>
+    </div>`;
+  }
+}
+
+// Visão geral simplificada para este arquivo base
+function renderVisaoSimples(){
+  showBody('vg');
+  const rm=getResumo(),meses=getMeses(),n=meses.length||1;
+  const tRec=SM(rm.map(r=>r.rec)),tDesp=SM(rm.map(r=>r.desp)),tInv=SM(rm.map(r=>r.inv));
+  const aRec=Math.round(tRec/n),aDesp=Math.round(tDesp/n),aInv=Math.round(tInv/n),aSaldo=Math.round(SM(rm.map(r=>r.saldo))/n);
+  const vgBody=document.getElementById('vg-body');
+  if(vgBody){
+    const sub=document.getElementById('vg-sub');
+    if(sub)sub.textContent=`${meses.join(' · ')} · ${DB.lancamentos.length} lançamentos`;
+    vgBody.querySelector('div[style*="padding:40px"]')?.remove();
+    if(!vgBody.querySelector('.g4')){
+      const kpis=document.createElement('div');
+      kpis.className='g4';kpis.style.marginBottom='20px';
+      kpis.innerHTML=`
+        <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;border-left:3px solid var(--green)">
+          <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Renda média/mês</div>
+          <div style="font-size:24px;font-weight:800;color:var(--green)">${R(aRec)}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;border-left:3px solid var(--red)">
+          <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Despesa média/mês</div>
+          <div style="font-size:24px;font-weight:800;color:var(--red)">${R(aDesp)}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;border-left:3px solid var(--amber)">
+          <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Investimento médio</div>
+          <div style="font-size:24px;font-weight:800;color:var(--amber)">${R(aInv)}</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;border-left:3px solid ${aSaldo>=0?'var(--green)':'var(--red)'}">
+          <div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Saldo médio/mês</div>
+          <div style="font-size:24px;font-weight:800;color:${aSaldo>=0?'var(--green)':'var(--red)'}">${aSaldo>=0?'+':''}${R(aSaldo)}</div>
+        </div>`;
+      vgBody.appendChild(kpis);
+      const notice=document.createElement('div');
+      notice.style.cssText='background:var(--bld);border:1px solid rgba(88,166,255,.3);border-radius:var(--r);padding:16px 20px;margin-top:16px;font-size:13px;color:var(--tx2);line-height:1.7';
+      notice.innerHTML=`<strong style="color:var(--blue)">✓ ${DB.lancamentos.length} lançamentos carregados do Supabase.</strong><br>
+        Este é o arquivo base com autenticação. Para o dashboard completo com todos os gráficos,
+        importe o <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">dashboard_financeiro_v2.html</code>
+        neste projeto e copie as credenciais do Supabase.`;
+      vgBody.appendChild(notice);
+    }
+  }
+}
+
+function loadPageContent(id){
+  const main=document.getElementById('main-content');
+  const div=document.createElement('div');
+  div.className='page';div.id='pg-'+id;
+  const names={mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',lancamentos:'Lançamentos',cartao:'Cartão / Parcelas',formas:'Formas de Pagamento',efetivado:'Efetivados / Pendentes',diagnostico:'Diagnóstico Financeiro',novo:'Novo Lançamento'};
+  div.innerHTML=`
+    <div style="display:none" id="${id}-empty"></div>
+    <div id="${id}-body" style="display:none">
+      <div style="font-size:22px;font-weight:800;margin-bottom:16px">${names[id]||id}</div>
+    </div>`;
+  main.appendChild(div);
+}
+
+function populaFiltros(){}
+function populaOrcFiltros(){}
+
+// ── Import Parser (mesmo do dashboard v2) ──
+function processFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=evt=>{
+    try{
+      const wb=XLSX.read(evt.target.result,{type:'array',cellDates:true,raw:false});
+      const ABAS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      let novos=0;const mAtivos=[];
+      ABAS.forEach(mes=>{
+        if(!wb.SheetNames.includes(mes))return;
+        const ws=wb.Sheets[mes];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+        // Saldo inicial
+        let saldoIniMes=null;
+        for(let ri=0;ri<Math.min(rows.length,15);ri++){
+          const rw=rows[ri];if(!rw)continue;
+          const liIdx=rw.findIndex(c=>String(c||'').trim().toLowerCase()==='saldo inicial');
+          if(liIdx>=0){
+            for(let ci=0;ci<rw.length;ci++){if(ci===liIdx)continue;const v=rw[ci];if(v!==null&&v!==undefined&&typeof v==='number'&&isFinite(v)){saldoIniMes=Math.round(v*100)/100;break;}}
+            if(saldoIniMes!==null)break;
+          }
+        }
+        if(saldoIniMes!==null)DB.saldos_iniciais[mes]=saldoIniMes;
+        // Header
+        let hIdx=-1;
+        for(let i=0;i<Math.min(rows.length,15);i++){if(rows[i]&&rows[i].some(c=>String(c||'').toLowerCase().trim()==='categoria')){hIdx=i;break;}}
+        if(hIdx===-1)return;
+        const hdr=rows[hIdx].map(c=>String(c||'').toLowerCase().trim());
+        const iD=hdr.findIndex(c=>c==='data');const iC=hdr.findIndex(c=>c==='categoria');
+        const iS=hdr.findIndex(c=>c.startsWith('subcategor'));const iDesc=hdr.findIndex(c=>c.startsWith('descri'));
+        const iF=hdr.findIndex(c=>c.includes('forma')||c.includes('pagamento'));const iV=hdr.findIndex(c=>c==='valor');
+        const iPago=hdr.findIndex(c=>c==='pago');
+        if(iC<0||iV<0)return;
+        DB.lancamentos=DB.lancamentos.filter(l=>l.mes!==mes);
+        for(let r=hIdx+1;r<rows.length;r++){
+          const row=rows[r];if(!row)continue;
+          const cat=String(row[iC]||'').trim();if(!cat||cat==='null')continue;
+          let val=row[iV];if(typeof val==='string')val=parseFloat(val.replace(',','.'));
+          if(isNaN(val)||val===0||val===null)continue;
+          let data='';
+          if(iD>=0&&row[iD]!=null){const d=row[iD];if(d instanceof Date)data=d.toISOString().slice(0,10);else if(typeof d==='number')data=new Date(Math.round((d-25569)*86400*1000)).toISOString().slice(0,10);else data=String(d).slice(0,10);}
+          DB.lancamentos.push({mes,data,cat,subcat:String(iS>=0&&row[iS]!=null?row[iS]:'Outros').trim(),desc:String(iDesc>=0&&row[iDesc]!=null?row[iDesc]:'').trim(),forma:String(iF>=0&&row[iF]!=null?row[iF]:'').trim(),valor:Math.round(Math.abs(val)*100)/100,pago:String(iPago>=0&&row[iPago]!=null?row[iPago]:'')});
+          novos++;
+        }
+        mAtivos.push(mes);
+      });
+      if(novos===0){setStatus('✗ Nenhum lançamento encontrado.','err');return;}
+      document.getElementById('sidebar-sub').textContent=`${mAtivos.join('–')} · ${DB.lancamentos.length} registros`;
+      // Feedback
+      const dz=document.getElementById('drop-zone');
+      dz.classList.remove('error');dz.classList.add('success');
+      document.getElementById('dz-icon').textContent='✅';
+      document.getElementById('dz-text').textContent=`${mAtivos.length} meses importados`;
+      setTimeout(()=>{dz.classList.remove('success');document.getElementById('dz-icon').textContent='📂';document.getElementById('dz-text').textContent='Arraste a planilha aqui';},3500);
+      setStatus(`✓ ${novos} lançamentos importados. Clique em "↑ Salvar" para persistir.`,'ok');
+      document.getElementById('btn-sync-save').style.display='';
+      // Re-render
+      for(const k in rendered)delete rendered[k];for(const k in CHARTS)delete CHARTS[k];
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{const act=document.querySelector('.page.active');if(act){const id=act.id.replace('pg-','');renderPage(id);}}));
+    }catch(err){setStatus(`✗ Erro: ${err.message}`,'err');console.error(err);const dz=document.getElementById('drop-zone');dz.classList.add('error');document.getElementById('dz-icon').textContent='❌';document.getElementById('dz-text').textContent='Erro ao importar';setTimeout(()=>{dz.classList.remove('error');document.getElementById('dz-icon').textContent='📂';document.getElementById('dz-text').textContent='Arraste a planilha aqui';},3000);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function toggleTheme(){
+  const isLight=document.documentElement.classList.toggle('light');
+  document.getElementById('tog').classList.toggle('on',isLight);
+  document.getElementById('theme-lbl').textContent=isLight?'☀ Tema claro':'🌙 Tema escuro';
+}
+
+// ── MOBILE NAV ──
+function isMobile(){ return window.innerWidth <= 680; }
+
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar-nav');
+  const ov = document.getElementById('sidebar-overlay');
+  const hb = document.getElementById('btn-hamburger');
+  const open = sb.classList.toggle('open');
+  hb.classList.toggle('open', open);
+  ov.classList.toggle('visible', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
+function closeSidebar(){
+  const sb = document.getElementById('sidebar-nav');
+  const ov = document.getElementById('sidebar-overlay');
+  const hb = document.getElementById('btn-hamburger');
+  sb.classList.remove('open');
+  hb.classList.remove('open');
+  ov.classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+function navToMobile(id){
+  // Fechar sidebar se estiver aberta no mobile
+  if(isMobile()) closeSidebar();
+  // Atualizar bottom nav
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+  const bnEl = document.getElementById('bn-'+id);
+  if(bnEl) bnEl.classList.add('active');
+  // Atualizar título da topbar
+  const names={visao:'Visão Geral',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',lancamentos:'Lançamentos',cartao:'Cartão/Parcelas',formas:'Pagamento',efetivado:'Efetivados',diagnostico:'Diagnóstico',novo:'Novo Lançamento'};
+  const titleEl = document.getElementById('mobile-page-title');
+  if(titleEl) titleEl.textContent = names[id] || id;
+  // Navegar — encontrar o nav-item correspondente na sidebar
+  const navItem = [...document.querySelectorAll('.nav-item')].find(el => {
+    const click = el.getAttribute('onclick') || '';
+    return click.includes("'"+id+"'");
+  });
+  if(navItem) navTo(id, navItem);
+  else {
+    // fallback direto
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    let page=document.getElementById('pg-'+id);
+    if(!page){loadPageContent(id);page=document.getElementById('pg-'+id);}
+    if(page)page.classList.add('active');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>renderPage(id)));
+  }
+}
+
+// Iniciar
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
