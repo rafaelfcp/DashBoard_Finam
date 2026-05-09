@@ -229,8 +229,25 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
   .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:160;top:0;box-shadow:none}
   .sidebar.open{transform:translateX(0);box-shadow:6px 0 28px rgba(0,0,0,.45)}
 
-  /* Main ajusta para topbar + bottom nav */
-  .main{margin-left:0;width:100%;padding:14px 12px 74px;padding-top:68px;height:auto;min-height:100vh;overflow-y:auto;overflow-x:hidden}
+  /* Layout mobile: topbar fixa topo, bottom nav fixo baixo, main rola no meio */
+  body{overflow:hidden}
+  .shell{display:block;height:100vh}
+  .shell-row{display:block;height:calc(100vh - 54px - 58px);margin-top:54px}
+
+  /* Main: scroll interno entre topbar e bottom nav */
+  .main{
+    margin-left:0;
+    width:100%;
+    height:100%;
+    padding:16px 12px 16px 12px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    box-sizing:border-box;
+  }
+
+  /* Páginas ocupam espaço natural */
+  .page.active{display:block;min-height:100px}
 
   /* Grids responsivos */
   .g4{grid-template-columns:repeat(2,1fr)}
@@ -242,10 +259,6 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
 
   /* Inputs: evitar zoom automático iOS */
   input,select,textarea{font-size:16px !important}
-
-  /* Shell e shell-row */
-  .shell{flex-direction:column}
-  .shell-row{flex-direction:column}
 }
 @media(max-width:400px){
   .g4{grid-template-columns:1fr 1fr}
@@ -1937,12 +1950,18 @@ function getMesesFiltrados(){
 
 // ══ CHARTS ══
 const CC={grid:'rgba(255,255,255,.06)',tick:'#484f58',font:'Segoe UI,system-ui,sans-serif'};
-function mkChart(id,cfg){
+function mkChart(id,cfg,_retry){
   const c=document.getElementById(id); if(!c)return;
   const ex=Chart.getChart(c); if(ex)ex.destroy();
   if(CHARTS[id]){try{CHARTS[id].destroy();}catch(e){}}
   delete CHARTS[id];
-  if(c.offsetWidth===0){setTimeout(()=>mkChart(id,cfg),60);return;}
+  // No mobile o canvas pode demorar para ter dimensão — retry até 10x
+  if(c.offsetWidth===0){
+    const attempt=(_retry||0)+1;
+    if(attempt>10)return;
+    setTimeout(()=>mkChart(id,cfg,attempt), attempt<3?60:150);
+    return;
+  }
   CHARTS[id]=new Chart(c,cfg);
 }
 function yFmt(v){ return 'R$'+(v>=1000?(v/1000).toFixed(0)+'k':v); }
