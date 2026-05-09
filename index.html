@@ -365,6 +365,22 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
 .user-name{font-size:12px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn-logout{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px;transition:.15s}
 .btn-logout:hover{color:var(--red)}
+
+/* ── MOBILE FIXES ── */
+@media(max-width:860px){
+  .vg-radar-grid{grid-template-columns:1fr !important}
+  .stat-row{flex-wrap:wrap;gap:6px}
+  .stat-label{min-width:120px;font-size:12px}
+  .dtable .col-subcat,.dtable .col-forma,.dtable .col-mes,.dtable .col-acoes{display:none}
+  .dtable td,.dtable th{padding:8px 8px !important;font-size:12px !important}
+  .dtable{min-width:0 !important}
+  #lan-table-wrap{overflow-x:hidden}
+  canvas{max-height:220px !important}
+  .section-header{flex-direction:column;gap:8px;align-items:flex-start !important}
+  .section-header-right{flex-wrap:wrap;gap:6px;width:100%}
+  .section-header-right select,.section-header-right input{font-size:14px;max-width:100%}
+  .tag{font-size:10px;padding:2px 6px}
+}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -687,7 +703,7 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
         <span class="card-title" style="margin:0">Radar de saúde financeira</span>
         <span id="vg-score-badge" class="badge b-warn"></span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px" id="vg-radar"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px" id="vg-radar" class="vg-radar-grid"></div>
     </div>
   </div>
 </div>
@@ -1275,10 +1291,10 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
             <tr>
               <th style="padding:10px 14px;text-align:center;white-space:nowrap">Data</th>
               <th style="padding:10px 14px;text-align:center">Categoria</th>
-              <th style="padding:10px 14px;text-align:center">Subcategoria</th>
+              <th class="col-subcat" style="padding:10px 14px;text-align:center">Subcategoria</th>
               <th style="padding:10px 14px;text-align:center">Descrição</th>
-              <th style="padding:10px 14px;text-align:center">Forma Pgto</th>
-              <th style="padding:10px 14px;text-align:center">Mês</th>
+              <th class="col-forma" style="padding:10px 14px;text-align:center">Forma Pgto</th>
+              <th class="col-mes" style="padding:10px 14px;text-align:center">Mês</th>
               <th style="padding:10px 14px;text-align:center">Valor</th>
               <th style="padding:10px 14px;text-align:center">Pago</th>
               <th style="padding:10px 14px;text-align:center;width:80px">Ações</th>
@@ -3581,10 +3597,10 @@ function renderLan(){
           <span style="width:7px;height:7px;border-radius:50%;background:${catColor};flex-shrink:0"></span>${l.cat}
         </span>
       </td>
-      <td style="padding:7px 14px;text-align:center;font-size:12px;color:var(--tx2)">${l.subcat||'—'}</td>
+      <td class="col-subcat" style="padding:7px 14px;text-align:center;font-size:12px;color:var(--tx2)">${l.subcat||'—'}</td>
       <td style="padding:7px 14px;text-align:center;font-size:12px;color:var(--tx);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.desc}">${l.desc||'—'}</td>
-      <td style="padding:7px 14px;text-align:center;font-size:11px;color:var(--tx3)">${l.forma||'—'}</td>
-      <td style="padding:7px 14px;text-align:center"><span class="tag tag-info">${l.mes}</span></td>
+      <td class="col-forma" style="padding:7px 14px;text-align:center;font-size:11px;color:var(--tx3)">${l.forma||'—'}</td>
+      <td class="col-mes" style="padding:7px 14px;text-align:center"><span class="tag tag-info">${l.mes}</span></td>
       <td style="padding:7px 14px;text-align:center;font-weight:700;font-size:13px" class="${valCls}">${valPfx}${R(l.valor)}</td>
       <td style="padding:7px 14px;text-align:center">
         <button onclick="togglePago(${idx}, this)"
