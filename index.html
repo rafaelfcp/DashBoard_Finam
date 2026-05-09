@@ -229,25 +229,30 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
   .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:160;top:0;box-shadow:none}
   .sidebar.open{transform:translateX(0);box-shadow:6px 0 28px rgba(0,0,0,.45)}
 
-  /* Layout mobile: topbar fixa topo, bottom nav fixo baixo, main rola no meio */
-  body{overflow:hidden}
-  .shell{display:block;height:100vh}
-  .shell-row{display:block;height:calc(100vh - 54px - 58px);margin-top:54px}
+  /* Shell e body sem interferência */
+  body{overflow:hidden;height:100vh}
+  .shell,.shell-row{display:block;height:auto}
 
-  /* Main: scroll interno entre topbar e bottom nav */
+  /* MAIN: position fixed entre topbar e bottom nav — dimensão sempre real */
   .main{
-    margin-left:0;
-    width:100%;
-    height:100%;
-    padding:16px 12px 16px 12px;
+    position:fixed !important;
+    top:54px;
+    bottom:58px;
+    left:0;
+    right:0;
+    margin:0 !important;
+    width:100% !important;
+    height:auto !important;
+    padding:16px 12px;
     overflow-y:auto;
     overflow-x:hidden;
     -webkit-overflow-scrolling:touch;
     box-sizing:border-box;
+    z-index:1;
   }
 
   /* Páginas ocupam espaço natural */
-  .page.active{display:block;min-height:100px}
+  .page.active{display:block}
 
   /* Grids responsivos */
   .g4{grid-template-columns:repeat(2,1fr)}
@@ -367,6 +372,8 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
 <meta name="theme-color" content="#0d1117">
 <link rel="manifest" href="manifest.json">
 </head>
+<div id="debug-toast"></div>
+<button id="debug-btn" onclick="toggleDebug()">🔍 Debug</button>
 <body>
 <input type="file" id="file-input" accept=".xlsm,.xlsx" style="display:none">
 
@@ -2020,12 +2027,16 @@ function mobileNavTo(id){
 function navTo(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('pg-'+id).classList.add('active');
-  el.classList.add('active');
+  const pg = document.getElementById('pg-'+id);
+  if(!pg){ console.error('pg-'+id+' nao encontrado'); return; }
+  pg.classList.add('active');
+  if(el) el.classList.add('active');
   syncMobileUI(id);
   if(isMobile()) closeSidebar();
   // double rAF garante reflow antes de criar charts
-  requestAnimationFrame(()=>requestAnimationFrame(()=>renderPage(id)));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    renderPage(id);
+  }));
 }
 
 // Mapa de quais páginas já foram renderizadas (reset ao importar)
@@ -2034,9 +2045,8 @@ const rendered={};
 function renderPage(id){
   if(!DB.lancamentos.length){ return; } // sem dados: empty-state já visível
   if(rendered[id]) return;
-  rendered[id]=true;
   const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
-  if(fns[id]) fns[id]();
+  if(fns[id]){ rendered[id]=true; fns[id](); } // marca APÓS confirmar que há função
 }
 
 function showBody(prefix){
@@ -4838,5 +4848,29 @@ function atualizarRelogio(){
 }
 atualizarRelogio();
 setInterval(atualizarRelogio, 1000);
+
+// ── DEBUG MOBILE ──
+let debugLog = [];
+function dbg(msg){
+  debugLog.unshift(new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' '+msg);
+  if(debugLog.length>20) debugLog.pop();
+  const t=document.getElementById('debug-toast');
+  if(t&&t.classList.contains('show')) t.innerHTML=debugLog.join('<br>');
+}
+function toggleDebug(){
+  const t=document.getElementById('debug-toast');
+  if(!t)return;
+  t.classList.toggle('show');
+  if(t.classList.contains('show')) t.innerHTML=debugLog.join('<br>');
+}
+// Patch renderPage para logar
+const _origRenderPage = renderPage;
+function renderPage(id){
+  const hasData = DB.lancamentos.length;
+  const wasRendered = rendered[id];
+  dbg(`renderPage(${id}) dados:${hasData} rendered:${wasRendered}`);
+  _origRenderPage(id);
+  dbg(`→ ${id} done rendered:${rendered[id]}`);
+}
 
 </script>
