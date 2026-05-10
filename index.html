@@ -240,7 +240,7 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
   body{overflow:hidden;height:100vh}
   .shell,.shell-row{display:block;height:auto}
 
-  /* MAIN: position fixed entre topbar e bottom nav — dimensão sempre real */
+  /* MAIN: position fixed entre topbar e bottom nav */
   .main{
     position:fixed !important;
     top:54px;
@@ -250,7 +250,7 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
     margin:0 !important;
     width:100% !important;
     height:auto !important;
-    padding:16px 12px;
+    padding:12px 12px 16px;
     overflow-y:auto;
     overflow-x:hidden;
     -webkit-overflow-scrolling:touch;
@@ -262,20 +262,72 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
   /* Páginas ocupam espaço natural */
   .page.active{display:block}
 
-  /* Grids responsivos */
+  /* ── SECTION HEADER: ocultar no mobile (título já está na topbar) ── */
+  .section-header{display:none !important}
+
+  /* ── GRIDS RESPONSIVOS ── */
   .g4{grid-template-columns:repeat(2,1fr)}
   .g3,.g2{grid-template-columns:1fr}
 
-  /* Bottom nav e FAB */
-  .bottom-nav{display:flex}
-  .fab{display:flex}
+  /* ── TABELAS: scroll horizontal quando necessário ── */
+  .dtable-wrap,.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:0 12px}
+  .dtable{min-width:500px}
 
-  /* Inputs: evitar zoom automático iOS */
+  /* ── CARDS: padding reduzido ── */
+  .card{padding:14px 12px !important}
+  .card-title{font-size:12px !important}
+
+  /* ── NOVO LANÇAMENTO: form mobile-first ── */
+  #pg-novo [style*="grid-template-columns:1fr 1fr"]{display:grid !important;grid-template-columns:1fr !important}
+  #pg-novo [style*="grid-template-columns:1fr 1fr 1fr"]{display:grid !important;grid-template-columns:1fr 1fr !important}
+  #pg-novo .form-row-3{grid-template-columns:1fr 1fr !important}
+
+  /* ── LANÇAMENTOS: tabela como cards ── */
+  #lan-body .dtable thead{display:none}
+  #lan-body .dtable tbody tr{
+    display:block;
+    border:1px solid var(--bd);
+    border-radius:var(--rs);
+    margin-bottom:8px;
+    padding:10px 12px;
+    background:var(--bg2);
+  }
+  #lan-body .dtable tbody td{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:3px 0;
+    border:none;
+    font-size:13px;
+  }
+  #lan-body .dtable tbody td::before{
+    content:attr(data-label);
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--tx3);
+    flex-shrink:0;
+    margin-right:8px;
+  }
+
+  /* Análise de impacto e resultado por mês — scroll horizontal */
+  .diag-impact-table,.diag-mes-table,.result-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* ── BOTTOM NAV E FAB ── */
+  .bottom-nav{display:flex}
+  .fab{display:flex;bottom:70px}
+
+  /* ── INPUTS: evitar zoom iOS ── */
   input,select,textarea{font-size:16px !important}
+
+  /* ── FOOTER: ocultar no mobile ── */
+  .footer{display:none}
 }
 @media(max-width:400px){
   .g4{grid-template-columns:1fr 1fr}
   .g2{grid-template-columns:1fr}
+  .main{padding:10px 10px 14px}
 }
 
 /* ── AUTH OVERLAY ── */
@@ -408,6 +460,59 @@ html.is-mobile .sidebar.open{
   }
 }
 
+
+/* ── MOBILE: tabelas com scroll horizontal ── */
+@media(max-width:860px){
+  /* Qualquer tabela dentro do main vira scrollável */
+  .main table,.main .dtable{
+    display:block;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    white-space:nowrap;
+    max-width:100%;
+  }
+  /* Exceto lançamentos que vira cards — resetar */
+  #lan-body table,#lan-body .dtable{
+    display:table;
+    overflow-x:visible;
+    white-space:normal;
+  }
+
+  /* Novo lançamento: grids inline -> coluna única */
+  #pg-novo [style*="grid-template-columns:1fr 1fr"]{
+    grid-template-columns:1fr !important;
+  }
+  #pg-novo [style*="max-width:680px"]{
+    padding:0 !important;
+  }
+
+  /* Botões de ação no novo lançamento */
+  #pg-novo [style*="display:flex"][style*="gap"]{
+    flex-direction:column;
+  }
+  #pg-novo button[style*="flex:1"]{
+    width:100% !important;
+  }
+
+  /* Análise de impacto - cards ao invés de tabela larga */
+  .impact-row{
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    gap:4px !important;
+  }
+
+  /* Formas de pagamento e efetivados — tabelas scrolláveis */
+  #for-body table,#efe-body table{
+    display:block;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* Remover max-width de containers que limitam no mobile */
+  .main > div[style*="max-width"]{
+    max-width:100% !important;
+  }
+}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -483,7 +588,7 @@ html.is-mobile .sidebar.open{
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-title" id="mobile-page-title">Visão Geral</div>
-  <button class="mobile-sync-btn" onclick="carregarDoSupabase()">☁ Sync</button>
+  
 </div>
 
 <!-- ══ OVERLAY ══ -->
@@ -1726,7 +1831,6 @@ html.is-mobile .sidebar.open{
     </div>
   </div>
   <div style="max-width:680px;margin:0 auto;padding-top:4px">
-     no banco de dados</div>
 
     <!-- Formulário -->
     <div class="card" style="margin-bottom:16px">
