@@ -224,26 +224,16 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
 /* ── OCULTAR VALORES ── */
 .btn-hide-values{
   background:none;border:none;
-  color:var(--tx2);font-size:18px;
-  cursor:pointer;padding:6px 8px;
+  color:var(--tx3);
+  cursor:pointer;padding:6px 4px;
   border-radius:6px;flex-shrink:0;
   -webkit-tap-highlight-color:transparent;
-  transition:.15s;line-height:1;
+  transition:color .2s;line-height:0;
+  display:flex;align-items:center;
 }
-.btn-hide-values:active{background:var(--bg3)}
-
-/* Quando valores ocultos: substituir por pontos */
-body.values-hidden .kpi-val,
-body.values-hidden .kpi-val *,
-body.values-hidden [data-value],
-body.values-hidden .hide-val{
-  color:transparent !important;
-  text-shadow:0 0 8px var(--tx2);
-  user-select:none;
-  -webkit-user-select:none;
-}
-/* Badge visual na topbar quando oculto */
-.btn-hide-values.hidden-on{color:var(--blue)}
+.btn-hide-values:active{color:var(--tx)}
+.btn-hide-values svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.btn-hide-values.hidden-on{color:var(--tx2)}
 .filter-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)}
 .chip{display:inline-flex;align-items:center;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--bd2);background:var(--bg3);color:var(--tx2);transition:.12s;white-space:nowrap}
 .chip:hover{color:var(--tx);border-color:var(--tx3)}
@@ -590,6 +580,39 @@ html.is-mobile .sidebar.open{
     max-width:100% !important;
   }
 
+  /* ── SIMULADOR: slider rows adaptadas ── */
+  .sl-row{
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    gap:6px !important;
+  }
+  .sl-lbl{
+    min-width:0 !important;
+    width:100% !important;
+    font-size:13px !important;
+  }
+  .sl-val{
+    min-width:0 !important;
+    text-align:left !important;
+    font-size:14px !important;
+  }
+  .sl-row input[type="range"]{
+    width:100% !important;
+    height:28px !important;
+  }
+
+  /* ── METAS: trow sem overflow ── */
+  .trow{
+    flex-wrap:wrap !important;
+    gap:4px !important;
+  }
+  .tl{ font-size:12px !important; }
+  .tv{ font-size:13px !important; }
+
+  /* ── METAS: chart de projeção ── */
+  #chart-proj{ max-width:100% !important; }
+  .met-body .card{ overflow:hidden !important; }
+
   /* ── ANÁLISE DE IMPACTO: linha com valor na segunda linha no mobile ── */
   #diag-impacto > div > div:first-child{
     flex-wrap:wrap !important;
@@ -702,7 +725,9 @@ html.is-mobile .sidebar.open{
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-title" id="mobile-page-title">Visão Geral</div>
-  <button class="btn-hide-values" id="btn-hide-values" onclick="toggleHideValues()" aria-label="Ocultar valores" title="Ocultar valores">👁</button>
+  <button class="btn-hide-values" id="btn-hide-values" onclick="toggleHideValues()" aria-label="Ocultar valores" title="Ocultar valores">
+    <svg id="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
   <button class="btn-filter-mobile" id="btn-filter-mobile" onclick="openFilterDrawer()" aria-label="Filtros">
     <span>⊞</span><span id="filter-badge-count"></span>Filtrar
   </button>
@@ -5279,9 +5304,18 @@ function toggleHideValues(){
   
   const btn = document.getElementById('btn-hide-values');
   if(btn){
-    btn.textContent = _valuesHidden ? '🙈' : '👁';
     btn.classList.toggle('hidden-on', _valuesHidden);
     btn.title = _valuesHidden ? 'Mostrar valores' : 'Ocultar valores';
+    btn.setAttribute('aria-label', _valuesHidden ? 'Mostrar valores' : 'Ocultar valores');
+    // Trocar SVG: olho aberto vs olho com linha
+    const eyeIcon = document.getElementById('eye-icon');
+    if(eyeIcon){
+      if(_valuesHidden){
+        eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+      } else {
+        eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+      }
+    }
   }
   
   // Re-renderizar página ativa para aplicar/remover a máscara
@@ -5294,7 +5328,12 @@ function toggleHideValues(){
 function initHideValues(){
   if(_valuesHidden){
     const btn = document.getElementById('btn-hide-values');
-    if(btn){ btn.textContent='🙈'; btn.classList.add('hidden-on'); btn.title='Mostrar valores'; }
+    if(btn){
+      btn.classList.add('hidden-on');
+      btn.title='Mostrar valores';
+      const eyeIcon = document.getElementById('eye-icon');
+      if(eyeIcon) eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    }
   }
 }
 
