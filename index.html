@@ -463,8 +463,9 @@ html.is-mobile .sidebar.open{
 
 /* ── MOBILE: tabelas com scroll horizontal ── */
 @media(max-width:860px){
-  /* Qualquer tabela dentro do main vira scrollável (exceto lan e efe) */
-  .main table,.main .dtable{
+  /* Regra global de tabelas removida — cada tabela tem seu próprio wrapper */
+  /* Tabelas sem wrapper explícito ainda recebem scroll */
+  .main table:not([style*="min-width"]),.main .dtable:not([style*="min-width"]){
     display:block;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
@@ -950,7 +951,8 @@ html.is-mobile .sidebar.open{
     <div class="card" style="margin-bottom:14px">
       <div class="card-title">Resumo mensal detalhado</div>
       <div style="overflow-x:auto">
-        <table class="dtable" style="width:100%">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px">
+        <table style="min-width:400px" class="dtable" style="width:100%">
           <thead>
             <tr>
               <th style="text-align:left;padding:8px 10px">Mês</th>
@@ -963,6 +965,7 @@ html.is-mobile .sidebar.open{
           </thead>
           <tbody id="men-tbody"></tbody>
         </table>
+        </div>
       </div>
     </div>
     <div class="card">
@@ -1026,23 +1029,25 @@ html.is-mobile .sidebar.open{
 
     <div class="g2">
       <!-- Tabela de subcategorias -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="card" style="overflow:hidden;padding:14px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 14px">
           <span class="card-title" style="margin:0" id="cat-tbl-title">Subcategorias</span>
           <div id="cat-trend-badges" style="display:flex;gap:6px"></div>
         </div>
-        <table class="dtable">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="dtable" style="min-width:420px">
           <thead>
             <tr>
-              <th style="text-align:left">Subcategoria</th>
+              <th style="text-align:left;padding-left:14px">Subcategoria</th>
               <th>Total</th>
               <th>Média/mês</th>
               <th>%</th>
-              <th style="min-width:90px">Participação</th>
+              <th style="min-width:90px;padding-right:14px">Participação</th>
             </tr>
           </thead>
           <tbody id="cat-tbody"></tbody>
         </table>
+        </div>
       </div>
 
       <!-- Donut + legenda + insight -->
@@ -1637,10 +1642,12 @@ html.is-mobile .sidebar.open{
     <!-- Tabela resumo -->
     <div class="card">
       <div class="card-title">Resumo por forma de pagamento</div>
-      <table class="dtable">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px">
+        <table style="min-width:400px" class="dtable">
         <thead><tr><th style="text-align:left">Forma de Pagamento</th><th>Lançamentos</th><th>Total R$</th><th>% do total</th><th>Ticket médio</th><th>Categoria predominante</th></tr></thead>
         <tbody id="for-tbody"></tbody>
       </table>
+        </div>
     </div>
   </div>
 </div>
@@ -1710,7 +1717,8 @@ html.is-mobile .sidebar.open{
         <span id="efe-tbl-badge" class="badge b-warn"></span>
       </div>
       <div style="overflow-x:auto">
-        <table class="dtable" style="min-width:680px">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px">
+        <table style="min-width:440px" class="dtable" style="min-width:680px">
           <thead style="background:var(--bg3)">
             <tr>
               <th style="padding:10px 14px;text-align:left">Data</th>
@@ -1724,6 +1732,7 @@ html.is-mobile .sidebar.open{
           </thead>
           <tbody id="efe-tbody"></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
