@@ -1678,6 +1678,13 @@ html.is-mobile .sidebar.open{
         <div class="filter-group">
           <span class="filter-label">Período</span>
           <select id="for-mes" onchange="renderFormas()"><option value="">Todos os meses</option></select>
+          <select id="for-tipo" onchange="renderFormas()">
+            <option value="">Todas as formas</option>
+            <option value="cartao">Cartão de Crédito</option>
+            <option value="debpix">Débito / PIX</option>
+            <option value="cred">Crédito em Conta</option>
+            <option value="outros">Outros</option>
+          </select>
         </div>
       </div>
     </div>
@@ -4137,11 +4144,20 @@ function setupFormas(){
 
 function renderFormas(){
   const mesFiltro=document.getElementById('for-mes')?.value||'';
-  const lan=DB.lancamentos.filter(l=>!mesFiltro||l.mes===mesFiltro);
-  const meses=getMeses();
+  const tipoFiltro=document.getElementById('for-tipo')?.value||'';
   const isCartao=f=>f&&(f.toLowerCase().includes('credito')||f.toLowerCase().includes('master')||f.toLowerCase().includes('c.c'));
   const isDebPix=f=>f&&(f.toLowerCase().includes('débito')||f.toLowerCase().includes('debito')||f.toLowerCase().includes('pix'));
   const isCred=f=>f&&f.toLowerCase().includes('crédito em conta');
+  const matchTipo=f=>{
+    if(!tipoFiltro)return true;
+    if(tipoFiltro==='cartao')return isCartao(f);
+    if(tipoFiltro==='debpix')return isDebPix(f);
+    if(tipoFiltro==='cred')return isCred(f);
+    if(tipoFiltro==='outros')return!isCartao(f)&&!isDebPix(f)&&!isCred(f);
+    return true;
+  };
+  let lan=DB.lancamentos.filter(l=>(!mesFiltro||l.mes===mesFiltro)&&matchTipo(l.forma||''));
+  const meses=getMeses();
   const formaMap={};
   lan.forEach(l=>{const f=l.forma||'Outros';if(!formaMap[f])formaMap[f]={count:0,total:0,cats:{}};formaMap[f].count++;formaMap[f].total+=l.valor;formaMap[f].cats[l.cat]=(formaMap[f].cats[l.cat]||0)+l.valor;});
   const totalGeral=Object.values(formaMap).reduce((a,v)=>a+v.total,0)||1;
@@ -5235,11 +5251,13 @@ const PAGE_FILTERS = {
   transporte: { title:'Filtrar Transporte', groups:[
     { label:'Mês', type:'select', source_id:'tra-mes', apply_fn:'renderTransporte' }
   ]},
-  cartao: { title:'Filtrar Cartão', groups:[
+  cartao: { title:'Filtrar Cartão / Parcelas', groups:[
+    { label:'Visualização', type:'select', source_id:'car-vis', apply_fn:'renderCartao' },
     { label:'Categoria', type:'select', source_id:'car-cat-filtro', apply_fn:'renderCartao' }
   ]},
   formas: { title:'Filtrar Formas de Pagamento', groups:[
-    { label:'Mês', type:'select', source_id:'for-mes', apply_fn:'renderFormas' }
+    { label:'Mês', type:'select', source_id:'for-mes', apply_fn:'renderFormas' },
+    { label:'Tipo de Pagamento', type:'select', source_id:'for-tipo', apply_fn:'renderFormas' }
   ]},
   efetivado: { title:'Filtrar Efetivados', groups:[
     { label:'Mês', type:'select', source_id:'efe-mes', apply_fn:'renderEfetivado' },
