@@ -463,12 +463,11 @@ html.is-mobile .sidebar.open{
 
 /* ── MOBILE: tabelas com scroll horizontal ── */
 @media(max-width:860px){
-  /* Qualquer tabela dentro do main vira scrollável */
+  /* Qualquer tabela dentro do main vira scrollável (exceto lan e efe) */
   .main table,.main .dtable{
     display:block;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
-    white-space:nowrap;
     max-width:100%;
   }
   /* Exceto lançamentos que vira cards — resetar */
@@ -511,6 +510,43 @@ html.is-mobile .sidebar.open{
   /* Remover max-width de containers que limitam no mobile */
   .main > div[style*="max-width"]{
     max-width:100% !important;
+  }
+
+  /* ── ANÁLISE DE IMPACTO: linha com valor na segunda linha no mobile ── */
+  #diag-impacto > div > div:first-child{
+    flex-wrap:wrap !important;
+    gap:4px !important;
+  }
+  #diag-impacto > div > div:first-child > div{
+    flex-wrap:wrap !important;
+    gap:4px !important;
+  }
+
+  /* ── INPUT DATE: largura forçada no mobile ── */
+  input[type="date"]{
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+    -webkit-appearance:none !important;
+    appearance:none !important;
+    min-height:44px;
+  }
+
+  /* ── NOVO LANÇAMENTO: container sem max-width ── */
+  #pg-novo > div[style*="max-width:680px"]{
+    max-width:100% !important;
+    margin:0 !important;
+  }
+
+  /* ── G2 no diagnóstico: coluna única no mobile ── */
+  #diag-body .g2{
+    grid-template-columns:1fr !important;
+  }
+
+  /* ── CARD sem padding lateral para tabelas internas ── */
+  #diag-body .card[style*="overflow:hidden"]{
+    padding-left:0 !important;
+    padding-right:0 !important;
   }
 }
 </style>
@@ -1773,20 +1809,22 @@ html.is-mobile .sidebar.open{
     <div class="g2" style="margin-bottom:16px">
 
       <!-- Tabela mês a mês -->
-      <div class="card">
-        <div class="card-title">Resultado por mês</div>
-        <table class="dtable">
+      <div class="card" style="overflow:hidden;padding:14px 0">
+        <div class="card-title" style="padding:0 14px 10px">Resultado por mês</div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="dtable" style="min-width:460px">
           <thead>
             <tr>
-              <th style="text-align:left">Mês</th>
+              <th style="text-align:left;padding-left:14px">Mês</th>
               <th>Saldo Inicial</th>
               <th>Resultado</th>
               <th>Saldo Atual</th>
-              <th>Previsto</th>
+              <th style="padding-right:14px">Previsto</th>
             </tr>
           </thead>
           <tbody id="diag-tbody"></tbody>
         </table>
+        </div>
       </div>
 
       <!-- Painel de impacto -->
