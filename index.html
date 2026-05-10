@@ -2364,6 +2364,10 @@ function mobileNavTo(id){
   if(mainEl) mainEl.scrollTop = 0;
 
   // 4. Se já tem dados, forçar showBody e re-render sempre
+  // Quando valores ocultos, sempre forçar re-render ao navegar
+  if(typeof _valuesHidden !== 'undefined' && _valuesHidden){
+    delete rendered[id];
+  }
   if(DB.lancamentos.length > 0){
     const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',metas:'met',cartao:'car',formas:'for',novo:'novo'};
     const pref = prefMap[id] || id;
@@ -5318,7 +5322,13 @@ function toggleHideValues(){
     }
   }
   
-  // Re-renderizar página ativa para aplicar/remover a máscara
+  // Invalidar cache de TODAS as páginas para que ao navegar
+  // qualquer página re-renderize com o estado correto de ocultar
+  ['visao','diagnostico','mensal','categorias','transporte','cartao',
+   'formas','efetivado','orcamento','metas','simulador','lancamentos'].forEach(p=>{
+    delete rendered[p];
+  });
+  // Re-renderizar apenas a página ativa agora
   const pAtiva = document.querySelector('.page.active');
   const pgId = pAtiva ? pAtiva.id.replace('pg-','') : 'visao';
   if(typeof forceRenderPage === 'function') forceRenderPage(pgId);
