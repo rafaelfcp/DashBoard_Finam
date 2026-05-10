@@ -219,6 +219,30 @@ select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-
 @media(max-width:860px){
   .btn-filter-mobile{display:flex;align-items:center;gap:5px}
 }
+
+/* ── OCULTAR VALORES ── */
+.btn-hide-values{
+  background:none;border:none;
+  color:var(--tx2);font-size:18px;
+  cursor:pointer;padding:6px 8px;
+  border-radius:6px;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+  transition:.15s;line-height:1;
+}
+.btn-hide-values:active{background:var(--bg3)}
+
+/* Quando valores ocultos: substituir por pontos */
+body.values-hidden .kpi-val,
+body.values-hidden .kpi-val *,
+body.values-hidden [data-value],
+body.values-hidden .hide-val{
+  color:transparent !important;
+  text-shadow:0 0 8px var(--tx2);
+  user-select:none;
+  -webkit-user-select:none;
+}
+/* Badge visual na topbar quando oculto */
+.btn-hide-values.hidden-on{color:var(--blue)}
 .filter-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)}
 .chip{display:inline-flex;align-items:center;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--bd2);background:var(--bg3);color:var(--tx2);transition:.12s;white-space:nowrap}
 .chip:hover{color:var(--tx);border-color:var(--tx3)}
@@ -677,6 +701,7 @@ html.is-mobile .sidebar.open{
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-title" id="mobile-page-title">Visão Geral</div>
+  <button class="btn-hide-values" id="btn-hide-values" onclick="toggleHideValues()" aria-label="Ocultar valores" title="Ocultar valores">👁</button>
   <button class="btn-filter-mobile" id="btn-filter-mobile" onclick="openFilterDrawer()" aria-label="Filtros">
     <span>⊞</span><span id="filter-badge-count"></span>Filtrar
   </button>
@@ -2187,7 +2212,12 @@ const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Laz
 const CORES = { Transporte:'#ff7b72',Moradia:'#58a6ff',Educação:'#bc8cff',Alimentação:'#3fb950',Compras:'#8b949e',Lazer:'#d29922',Giovanna:'#f78166','Saúde & Beleza':'#39d353','Serviços Financeiros':'#e3b341','Outras Despesas':'#484f58',Vestuário:'#a5d6ff','Doações & Presentes':'#ffa198' };
 
 // ══ HELPERS ══
-const R = (v,d=0) => 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+// Flag global de ocultar valores
+let _valuesHidden = false;
+try{ _valuesHidden = localStorage.getItem('ctrl-hide-values') === '1'; }catch(e){}
+
+const _Rfmt = (v,d=0) => 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const R = (v,d=0) => _valuesHidden ? 'R$ ••••' : _Rfmt(v,d);
 const SM = arr => arr.reduce((a,b)=>a+b,0);
 const MESES_ORD = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -4526,27 +4556,33 @@ async function salvarLancamento(){
 
   setTimeout(()=>{ fb.style.display='none'; }, 5000);
 
-  // Invalidar e re-renderizar a página ativa
-  ['visao','mensal','categorias','lancamentos','orcamento','efetivado','formas','diagnostico'].forEach(p=>{ rendered[p]=false; });
+  // Invalidar cache de TODAS as páginas
+  ['visao','mensal','categorias','lancamentos','orcamento','efetivado','formas','diagnostico','transporte','cartao'].forEach(p=>{
+    delete rendered[p];
+  });
+  // Destruir charts para forçar recriação
+  Object.keys(CHARTS).forEach(k=>{ try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k]; });
 
-  // Se a página ativa for Lançamentos, limpar filtros e re-renderizar mostrando o novo
+  // Populatr filtros com novos meses disponíveis
+  if(typeof populaFiltros==='function') populaFiltros();
+
+  // Re-renderizar página ativa e navegar para Lançamentos para confirmar
   const pAtiva = document.querySelector('.page.active');
-  if(pAtiva){
-    const pgId = pAtiva.id.replace('pg-','');
-    if(pgId === 'lancamentos'){
-      // Limpar filtros para o novo registro aparecer
-      const elMesFiltro = document.getElementById('lan-mes');
-      const elCatFiltro = document.getElementById('lan-cat');
-      const elPagoFiltro= document.getElementById('lan-pago-filtro');
-      if(elMesFiltro)  elMesFiltro.value  = mes;
-      if(elCatFiltro)  elCatFiltro.value  = cat;
-      if(elPagoFiltro) elPagoFiltro.value = '';
-      renderLan();
-    } else if(pgId === 'visao'){
-      renderVisao();
-    } else {
-      requestAnimationFrame(()=>renderPage(pgId));
-    }
+  const pgId = pAtiva ? pAtiva.id.replace('pg-','') : 'visao';
+
+  if(typeof isMobile === 'function' && isMobile()){
+    // Mobile: ir direto para lançamentos para o usuário ver o registro novo
+    setTimeout(()=>{ mobileNavTo('lancamentos'); }, 1200);
+  } else {
+    // Desktop: ajustar filtro de lançamentos e re-renderizar página ativa
+    const elMesFiltro = document.getElementById('lan-mes');
+    const elCatFiltro = document.getElementById('lan-cat');
+    const elPagoFiltro= document.getElementById('lan-pago-filtro');
+    if(elMesFiltro)  elMesFiltro.value = mes;
+    if(elCatFiltro)  elCatFiltro.value = cat;
+    if(elPagoFiltro) elPagoFiltro.value = '';
+    if(pgId !== 'novo') requestAnimationFrame(()=>forceRenderPage(pgId));
+    else requestAnimationFrame(()=>forceRenderPage('visao'));
   }
 }
 
@@ -5233,6 +5269,33 @@ function atualizarRelogio(){
 }
 atualizarRelogio();
 setInterval(atualizarRelogio, 1000);
+
+
+// ══ OCULTAR VALORES ══
+function toggleHideValues(){
+  _valuesHidden = !_valuesHidden;
+  try{ localStorage.setItem('ctrl-hide-values', _valuesHidden ? '1' : '0'); }catch(e){}
+  
+  const btn = document.getElementById('btn-hide-values');
+  if(btn){
+    btn.textContent = _valuesHidden ? '🙈' : '👁';
+    btn.classList.toggle('hidden-on', _valuesHidden);
+    btn.title = _valuesHidden ? 'Mostrar valores' : 'Ocultar valores';
+  }
+  
+  // Re-renderizar página ativa para aplicar/remover a máscara
+  const pAtiva = document.querySelector('.page.active');
+  const pgId = pAtiva ? pAtiva.id.replace('pg-','') : 'visao';
+  if(typeof forceRenderPage === 'function') forceRenderPage(pgId);
+}
+
+// Aplicar estado salvo ao inicializar
+function initHideValues(){
+  if(_valuesHidden){
+    const btn = document.getElementById('btn-hide-values');
+    if(btn){ btn.textContent='🙈'; btn.classList.add('hidden-on'); btn.title='Mostrar valores'; }
+  }
+}
 
 // ══ FILTER DRAWER MOBILE ══
 
