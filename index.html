@@ -6106,117 +6106,149 @@ async function cfgRenderOrc(){
   const el = document.getElementById('cfg-orc-list');
   if(!el) return;
   const tipo = document.getElementById('cfg-orc-tipo')?.value || 'tabela';
-  const { data: orcs, error } = await getSB().from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id);
+
+  const { data: orcs, error } = await getSB()
+    .from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id);
   if(error){ el.innerHTML = `<div style="color:var(--red)">Erro: ${error.message}</div>`; return; }
+
   _orcDados = {};
   (orcs||[]).forEach(o => {
     const cat    = o.categoria;
-    const sub    = o.subcategoria || ''; // '' = orçamento de categoria (sem subcategoria)
-    const mesKey = o.mes || '';          // '' = valor base (sem mês específico)
-    if(!_orcDados[cat]) _orcDados[cat] = {};
-    if(!_orcDados[cat][sub]) _orcDados[cat][sub] = {};
+    const sub    = o.subcategoria || '';
+    const mesKey = o.mes || '';
+    if(!_orcDados[cat])        _orcDados[cat] = {};
+    if(!_orcDados[cat][sub])   _orcDados[cat][sub] = {};
     _orcDados[cat][sub][mesKey] = { id: o.id, valor: parseFloat(o.valor)||0 };
   });
+
   const grupos = [
-    { label:'Receitas',      tipos:['receita']       },
-    { label:'Investimentos', tipos:['investimento']  },
-    { label:'Despesas',      tipos:['despesa']       },
+    { label:'RECEITAS',      tipos:['receita']      },
+    { label:'INVESTIMENTOS', tipos:['investimento'] },
+    { label:'DESPESAS',      tipos:['despesa']      },
   ];
+
   if(tipo === 'tabela'){
-    el.innerHTML = grupos.map(g => _orcGrupoTabela(g)).join('');
+    el.innerHTML = _orcTabelaUnificada(grupos);
   } else {
     el.innerHTML = grupos.map(g => _orcGrupoBase(g)).join('');
   }
 }
 
-function _orcGrupoTabela(grupo){
-  const cats = DB_CATS.filter(c => grupo.tipos.includes(c.tipo));
-  if(!cats.length) return '';
-
+function _orcTabelaUnificada(grupos){
   const thMeses = MESES_FULL.map(m =>
-    `<th style="min-width:78px;text-align:right;padding:7px 5px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">${m}</th>`
+    `<th style="width:72px;min-width:72px;text-align:right;padding:6px 4px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd);white-space:nowrap">${m}</th>`
   ).join('');
 
-  let allRows = '';
+  let tbody = '';
 
-  for(const cat of cats){
-    // Subcategorias desta categoria
-    const subs = DB_SUBCATS.filter(s => s.categoria_id === cat.id);
+  for(const grupo of grupos){
+    const cats = DB_CATS.filter(c => grupo.tipos.includes(c.tipo));
+    if(!cats.length) continue;
 
-    // Linha de cabeçalho da categoria (totaliza subcategorias)
-    const catKey = cat.nome.replace(/[^a-z0-9]/gi,'_');
-    const catTotal = MESES_FULL.reduce((s,m) => {
-      return s + (subs.length > 0
-        ? subs.reduce((ss,sub) => ss + (_orcDados[cat.nome]?.[sub.nome]?.[m]?.valor||0), 0)
-        : (_orcDados[cat.nome]?.['']?.[m]?.valor || _orcDados[cat.nome]?.['']?.['']?.valor || 0));
-    }, 0);
-
-    const catTotalAnual = catTotal;
-    allRows += `<tr style="background:var(--bg3)">
-      <td colspan="${MESES_FULL.length+2}" style="padding:7px 12px;font-size:12px;font-weight:700;color:var(--tx);text-transform:uppercase;letter-spacing:.04em;border-top:2px solid var(--bd);border-bottom:1px solid var(--bd)">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.cor};margin-right:6px;vertical-align:middle"></span>
-        ${cat.nome}
-        <span style="font-size:10px;font-weight:400;color:var(--tx3);margin-left:8px;text-transform:none">Total anual: R$ ${catTotalAnual.toLocaleString('pt-BR')}</span>
-      </td>
+    // Linha separadora de grupo
+    tbody += `<tr style="background:var(--bg)">
+      <td colspan="${MESES_FULL.length+2}" style="padding:10px 12px 4px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;border-top:2px solid var(--bd)">${grupo.label}</td>
     </tr>`;
 
-    if(subs.length === 0){
-      // Sem subcategorias: linha direta da categoria
-      const cells = MESES_FULL.map(m => {
-        const orc = _orcDados[cat.nome]?.['']?.[m] || _orcDados[cat.nome]?.['']?.[''] || {id:null,valor:0};
-        return `<td style="padding:3px 2px"><input class="orc-tbl-input" type="number"
-          id="orc-${catKey}--${m}"
-          value="${orc.valor||''}" placeholder="0" min="0" step="50"
-          data-cat="${cat.nome}" data-sub="" data-mes="${m}" data-id="${orc.id||''}"
-          oninput="orcMarkDirty(this)"
-          style="width:74px;text-align:right;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 6px;font-size:12px;outline:none;transition:border-color .15s"></td>`;
-      }).join('');
-      const lineTotal = MESES_FULL.reduce((s,m) => s+(_orcDados[cat.nome]?.['']?.[m]?.valor||0), 0);
-      allRows += `<tr>
-        <td style="padding:7px 12px 7px 24px;font-size:13px;color:var(--tx2);border-bottom:1px solid var(--bd)">
-          (sem subcategorias)
+    for(const cat of cats){
+      const subs   = DB_SUBCATS.filter(s => s.categoria_id === cat.id);
+      const catKey = cat.nome.replace(/[^a-z0-9]/gi,'_');
+
+      // Linha de cabeçalho da categoria
+      tbody += `<tr style="background:var(--bg3)">
+        <td style="padding:7px 12px;font-size:12px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--bd);white-space:nowrap">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${cat.cor};margin-right:6px;vertical-align:middle"></span>${cat.nome}
         </td>
-        ${cells}
-        <td id="orc-total-${catKey}-" style="padding:7px 10px;font-size:12px;font-weight:700;color:var(--tx2);text-align:right;border-bottom:1px solid var(--bd);border-left:1px solid var(--bd);white-space:nowrap">
-          ${lineTotal>0?'R$ '+lineTotal.toLocaleString('pt-BR'):'—'}
-        </td>
+        ${MESES_FULL.map(()=>'<td style="background:var(--bg3);border-bottom:1px solid var(--bd)"></td>').join('')}
+        <td id="orc-cattotal-${catKey}" style="padding:7px 8px;font-size:11px;font-weight:700;color:var(--tx2);text-align:right;border-bottom:1px solid var(--bd);border-left:1px solid var(--bd);white-space:nowrap;background:var(--bg3)">—</td>
       </tr>`;
-    } else {
-      // Linhas por subcategoria
-      for(const sub of subs){
-        const subKey = sub.nome.replace(/[^a-z0-9]/gi,'_');
+
+      if(subs.length === 0){
         const cells = MESES_FULL.map(m => {
-          const orc = _orcDados[cat.nome]?.[sub.nome]?.[m] || {id:null,valor:0};
-          return `<td style="padding:3px 2px"><input class="orc-tbl-input" type="number"
-            id="orc-${catKey}-${subKey}-${m}"
-            value="${orc.valor||''}" placeholder="0" min="0" step="50"
-            data-cat="${cat.nome}" data-sub="${sub.nome}" data-mes="${m}" data-id="${orc.id||''}"
-            oninput="orcMarkDirty(this);atualizarTotalOrcLinha('${cat.nome}','${sub.nome}')"
-            style="width:74px;text-align:right;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 6px;font-size:12px;outline:none;transition:border-color .15s"></td>`;
+          const orc = _orcDados[cat.nome]?.['']?.[m] || {id:'',valor:0};
+          return `<td style="padding:2px 2px"><input class="orc-tbl-input" type="number"
+            id="orc-${catKey}--${m}" value="${orc.valor||''}" placeholder="0" min="0" step="50"
+            data-cat="${cat.nome}" data-sub="" data-mes="${m}" data-id="${orc.id||''}"
+            oninput="orcMarkDirty(this);_orcLineTotals('${cat.nome}','')"
+            style="width:68px;text-align:right;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 5px;font-size:12px;outline:none;transition:border-color .15s"></td>`;
         }).join('');
-        const lineTotal = MESES_FULL.reduce((s,m) => s+(_orcDados[cat.nome]?.[sub.nome]?.[m]?.valor||0), 0);
-        allRows += `<tr>
-          <td style="padding:7px 12px 7px 24px;font-size:13px;color:var(--tx2);border-bottom:1px solid var(--bd);white-space:nowrap">${sub.nome}</td>
+        const lt = MESES_FULL.reduce((s,m)=>s+(_orcDados[cat.nome]?.['']?.[m]?.valor||0),0);
+        tbody += `<tr style="border-bottom:1px solid var(--bd)">
+          <td style="padding:6px 12px 6px 24px;font-size:13px;color:var(--tx2)">(direto)</td>
           ${cells}
-          <td id="orc-total-${catKey}-${subKey}" style="padding:7px 10px;font-size:12px;font-weight:700;color:var(--tx2);text-align:right;border-bottom:1px solid var(--bd);border-left:1px solid var(--bd);white-space:nowrap">
-            ${lineTotal>0?'R$ '+lineTotal.toLocaleString('pt-BR'):'—'}
-          </td>
+          <td id="orc-total-${catKey}-" style="padding:6px 8px;font-size:12px;font-weight:600;color:var(--tx2);text-align:right;border-left:1px solid var(--bd);white-space:nowrap">${lt>0?'R$\u00a0'+lt.toLocaleString('pt-BR'):'—'}</td>
         </tr>`;
+      } else {
+        for(const sub of subs){
+          const subKey = sub.nome.replace(/[^a-z0-9]/gi,'_');
+          const cells  = MESES_FULL.map(m => {
+            const orc = _orcDados[cat.nome]?.[sub.nome]?.[m] || {id:'',valor:0};
+            return `<td style="padding:2px 2px"><input class="orc-tbl-input" type="number"
+              id="orc-${catKey}-${subKey}-${m}" value="${orc.valor||''}" placeholder="0" min="0" step="50"
+              data-cat="${cat.nome}" data-sub="${sub.nome}" data-mes="${m}" data-id="${orc.id||''}"
+              oninput="orcMarkDirty(this);_orcLineTotals('${cat.nome}','${sub.nome}')"
+              style="width:68px;text-align:right;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 5px;font-size:12px;outline:none;transition:border-color .15s"></td>`;
+          }).join('');
+          const lt = MESES_FULL.reduce((s,m)=>s+(_orcDados[cat.nome]?.[sub.nome]?.[m]?.valor||0),0);
+          tbody += `<tr style="border-bottom:1px solid var(--bd)">
+            <td style="padding:6px 12px 6px 24px;font-size:13px;color:var(--tx2);white-space:nowrap">${sub.nome}</td>
+            ${cells}
+            <td id="orc-total-${catKey}-${subKey}" style="padding:6px 8px;font-size:12px;font-weight:600;color:var(--tx2);text-align:right;border-left:1px solid var(--bd);white-space:nowrap">${lt>0?'R$\u00a0'+lt.toLocaleString('pt-BR'):'—'}</td>
+          </tr>`;
+        }
       }
     }
   }
 
-  return `<div style="margin-bottom:32px">
-    <div style="font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${grupo.label}</div>
-    <table style="border-collapse:collapse;width:100%;font-size:13px">
+  return `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <table style="border-collapse:collapse;table-layout:fixed;width:100%;font-size:13px">
+      <colgroup>
+        <col style="width:200px;min-width:180px">
+        ${MESES_FULL.map(()=>'<col style="width:72px;min-width:72px">').join('')}
+        <col style="width:96px;min-width:90px">
+      </colgroup>
       <thead><tr style="background:var(--bg3)">
-        <th style="text-align:left;padding:7px 12px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd);min-width:180px;position:sticky;left:0;background:var(--bg3)">Categoria / Subcategoria</th>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd);position:sticky;left:0;background:var(--bg3);z-index:2">Categoria / Subcategoria</th>
         ${thMeses}
-        <th style="text-align:right;padding:7px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd);border-left:1px solid var(--bd)">Total</th>
+        <th style="text-align:right;padding:8px 8px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd);border-left:1px solid var(--bd)">Total</th>
       </tr></thead>
-      <tbody>${allRows}</tbody>
+      <tbody>${tbody}</tbody>
     </table>
   </div>`;
+}
+
+// Atualiza total da linha (subcategoria) e total da categoria pai
+function _orcLineTotals(cat, sub){
+  const catKey = cat.replace(/[^a-z0-9]/gi,'_');
+  const subKey = sub ? sub.replace(/[^a-z0-9]/gi,'_') : '';
+
+  // Total da linha de subcategoria
+  const lineId = subKey ? `orc-total-${catKey}-${subKey}` : `orc-total-${catKey}-`;
+  const lineEl = document.getElementById(lineId);
+  if(lineEl){
+    const prefix = subKey ? `orc-${catKey}-${subKey}-` : `orc-${catKey}--`;
+    const tot = MESES_FULL.reduce((s,m)=>s+(parseFloat(document.getElementById(prefix+m)?.value)||0),0);
+    lineEl.textContent = tot>0 ? 'R$\u00a0'+tot.toLocaleString('pt-BR') : '—';
+  }
+
+  // Total do cabeçalho da categoria (soma de todas as subcategorias)
+  const catEl = document.getElementById('orc-cattotal-'+catKey);
+  if(catEl){
+    const catSubs = DB_SUBCATS.filter(s=>{
+      const c = DB_CATS.find(x=>x.id===s.categoria_id);
+      return c?.nome===cat;
+    });
+    let total = 0;
+    if(catSubs.length===0){
+      total = MESES_FULL.reduce((s,m)=>s+(parseFloat(document.getElementById('orc-'+catKey+'--'+m)?.value)||0),0);
+    } else {
+      for(const s of catSubs){
+        const sk = s.nome.replace(/[^a-z0-9]/gi,'_');
+        total += MESES_FULL.reduce((sum,m)=>sum+(parseFloat(document.getElementById('orc-'+catKey+'-'+sk+'-'+m)?.value)||0),0);
+      }
+    }
+    catEl.textContent = total>0 ? 'R$\u00a0'+total.toLocaleString('pt-BR') : '—';
+  }
 }
 
 function _orcGrupoBase(grupo){
@@ -6224,122 +6256,17 @@ function _orcGrupoBase(grupo){
   if(!cats.length) return '';
   const rows = cats.map(c => {
     const key = c.nome.replace(/[^a-z0-9]/gi,'_');
-    const orc = _orcDados[c.nome]?.['base']||{id:null,valor:0};
+    const orc = _orcDados[c.nome]?.['']?.['']||{id:'',valor:0};
     return `<div class="cfg-orc-row">
       <div class="cfg-orc-cat"><div style="font-size:13px;font-weight:600">${c.nome}</div><div style="font-size:10px;color:var(--tx3);text-transform:uppercase">${c.tipo}</div></div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:12px;color:var(--tx2)">R$</span>
-        <input class="cfg-orc-input orc-tbl-input" type="number" id="orc-base-${key}" value="${orc.valor||0}" min="0" step="50" data-cat="${c.nome}" data-mes="" data-id="${orc.id||''}" oninput="orcMarkDirty(this)">
+        <input class="cfg-orc-input orc-tbl-input" type="number" id="orc-base-${key}" value="${orc.valor||0}" min="0" step="50" data-cat="${c.nome}" data-sub="" data-mes="" data-id="${orc.id||''}" oninput="orcMarkDirty(this)">
         <button class="btn-cfg-orc-save" onclick="_orcSaveById('orc-base-${key}')">✓</button>
       </div>
     </div>`;
   }).join('');
   return `<div style="margin-bottom:24px"><div style="font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${grupo.label}</div>${rows}</div>`;
-}
-
-function orcMarkDirty(input){ input.style.borderColor='var(--amber)'; input.dataset.dirty='1'; }
-
-async function _orcSaveById(id){ await _orcSave(document.getElementById(id)); }
-
-async function _orcSave(input){
-  if(!input) return;
-  const cat   = input.dataset.cat;
-  const sub   = input.dataset.sub  || null;
-  const mes   = input.dataset.mes  || null;
-  const valor = parseFloat(input.value) || 0;
-  let   existId = (input.dataset.id || '').trim();
-  const supaClient = getSB(); // renomeado para evitar conflito com reduce
-
-  try {
-    if(existId){
-      // ── CASO 1: ID conhecido → UPDATE por ID ──
-      const { error } = await supaClient
-        .from('orcamentos')
-        .update({ valor })
-        .eq('id', existId)
-        .eq('usuario_id', usuarioAtual.id);
-      if(error) throw error;
-
-    } else {
-      // ── CASO 2: Sem ID → INSERT direto ──
-      const payload = {
-        usuario_id:   usuarioAtual.id,
-        categoria:    cat,
-        subcategoria: sub  || null,
-        valor,
-        mes:          mes  || null,
-        ano:          mes  ? new Date().getFullYear() : null,
-      };
-
-      const { data: inserted, error: errIns } = await supaClient
-        .from('orcamentos')
-        .insert(payload)
-        .select('id')
-        .single();
-
-      if(errIns){
-        // Conflito de unicidade → buscar registro existente e fazer UPDATE
-        if(errIns.code === '23505' || errIns.message?.includes('duplicate') || errIns.message?.includes('unique')){
-          let q = supaClient.from('orcamentos')
-            .select('id')
-            .eq('usuario_id', usuarioAtual.id)
-            .eq('categoria', cat);
-          if(sub)  q = q.eq('subcategoria', sub);
-          else     q = q.is('subcategoria', null);
-          if(mes)  q = q.eq('mes', mes);
-          else     q = q.is('mes', null);
-
-          const { data: found, error: errFind } = await q.maybeSingle();
-          if(errFind) throw errFind;
-          if(!found) throw errIns;
-
-          const { error: errUpd } = await supaClient
-            .from('orcamentos')
-            .update({ valor })
-            .eq('id', found.id);
-          if(errUpd) throw errUpd;
-          existId = found.id;
-        } else {
-          throw errIns;
-        }
-      } else {
-        existId = inserted?.id || '';
-      }
-
-      // Cachear ID no input e em memória
-      if(existId) input.dataset.id = existId;
-      const subKey = sub || '';
-      const mesKey = mes || '';
-      if(!_orcDados[cat])          _orcDados[cat] = {};
-      if(!_orcDados[cat][subKey])  _orcDados[cat][subKey] = {};
-      _orcDados[cat][subKey][mesKey] = { id: existId, valor };
-    }
-
-  } catch(err){
-    const msg = err.message || err.details || JSON.stringify(err) || 'Erro desconhecido';
-    console.error('[orc] ERRO:', cat, sub, mes, valor, msg);
-    input.style.borderColor = 'var(--red)';
-    input.title = msg;
-    _orcShowToast('Erro: ' + msg, 'err');
-    return;
-  }
-
-  // Atualizar DB.orcamento[cat] — usando 'subItem' no reduce, não 'sb'
-  if(!mes){
-    const catSubs = DB_SUBCATS.filter(s => {
-      const c = DB_CATS.find(x => x.id === s.categoria_id);
-      return c?.nome === cat;
-    });
-    DB.orcamento[cat] = catSubs.length > 0
-      ? catSubs.reduce((acc, subItem) => acc + (_orcDados[cat]?.[subItem.nome]?.['']?.valor || 0), 0)
-      : valor;
-  }
-
-  input.style.borderColor = 'var(--green)';
-  input.dataset.dirty = '0';
-  input.title = '';
-  setTimeout(() => { if(input) input.style.borderColor = ''; }, 1800);
-  atualizarTotalOrcLinha(cat, sub);
 }
 
 function _orcShowToast(msg, tipo){
@@ -6351,24 +6278,17 @@ function _orcShowToast(msg, tipo){
     document.body.appendChild(toast);
   }
   toast.textContent = msg;
-  toast.style.background = tipo === 'err' ? 'var(--rd)' : 'var(--gd)';
-  toast.style.color       = tipo === 'err' ? 'var(--red)' : 'var(--green)';
-  toast.style.border      = tipo === 'err' ? '1px solid rgba(248,81,73,.4)' : '1px solid rgba(63,185,80,.4)';
+  toast.style.background = tipo==='err' ? 'var(--rd)' : 'var(--gd)';
+  toast.style.color       = tipo==='err' ? 'var(--red)' : 'var(--green)';
+  toast.style.border      = tipo==='err' ? '1px solid rgba(248,81,73,.4)' : '1px solid rgba(63,185,80,.4)';
   toast.style.opacity = '1';
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+  toast._t = setTimeout(()=>{ toast.style.opacity='0'; }, 4000);
 }
 
-
 function atualizarTotalOrcLinha(cat, sub){
-  const catKey = cat.replace(/[^a-z0-9]/gi,'_');
-  const subKey = sub ? sub.replace(/[^a-z0-9]/gi,'_') : '';
-  const totalId = subKey ? `orc-total-${catKey}-${subKey}` : `orc-total-${catKey}-`;
-  const totalEl = document.getElementById(totalId);
-  if(!totalEl) return;
-  const prefix = subKey ? `orc-${catKey}-${subKey}-` : `orc-${catKey}--`;
-  const total = MESES_FULL.reduce((s,m) => s+(parseFloat(document.getElementById(prefix+m)?.value)||0), 0);
-  totalEl.textContent = total>0 ? 'R$ '+total.toLocaleString('pt-BR') : '—';
+  // Delegar para o novo _orcLineTotals (compatibilidade)
+  if(typeof _orcLineTotals === 'function') _orcLineTotals(cat, sub||'');
 }
 
 async function cfgSalvarTodosOrc(){
