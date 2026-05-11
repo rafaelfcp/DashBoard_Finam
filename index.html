@@ -4039,18 +4039,20 @@ function limparFiltrosLan(){
 function lanShowAll(){ lanShowAllFlag=true; renderLan(); }
 
 // Alternar pago diretamente na tabela (simulação)
-function togglePago(idx, btn){
+async function togglePago(idx, btn){
   const l = DB.lancamentos[idx];
   if(!l) return;
-  const era = l.pago;
-  l.pago = (l.pago === 'Sim') ? 'Não' : 'Sim';
 
-  // Atualizar visual do botão imediatamente
+  // Alternar estado
+  l.pago = (l.pago === 'Sim') ? 'Não' : 'Sim';
   const isPago = l.pago === 'Sim';
+
+  // Atualizar visual imediatamente (feedback instantâneo)
+  btn.disabled = true;
   btn.textContent = isPago ? '✓ Pago' : '⏳ Pendente';
   btn.style.background = isPago ? 'var(--gd)' : 'var(--rd)';
-  btn.style.color = isPago ? 'var(--green)' : 'var(--red)';
-  btn.style.border = isPago ? '1px solid rgba(63,185,80,.3)' : '1px solid rgba(248,81,73,.3)';
+  btn.style.color       = isPago ? 'var(--green)' : 'var(--red)';
+  btn.style.border      = isPago ? '1px solid rgba(63,185,80,.3)' : '1px solid rgba(248,81,73,.3)';
 
   // Destacar a linha
   const tr = btn.closest('tr');
@@ -4060,8 +4062,36 @@ function togglePago(idx, btn){
     setTimeout(()=>{ tr.style.background=''; }, 1200);
   }
 
-  // Invalidar páginas que dependem do campo pago
-  ['visao','diagnostico','efetivado','mensal'].forEach(p=>{ rendered[p]=false; });
+  // Persistir no Supabase
+  if(usuarioAtual && l.id){
+    try {
+      const { error } = await getSB()
+        .from('lancamentos')
+        .update({ pago: l.pago })
+        .eq('id', l.id)
+        .eq('usuario_id', usuarioAtual.id);
+
+      if(error){
+        // Reverter estado em caso de erro
+        l.pago = isPago ? 'Não' : 'Sim';
+        btn.textContent = l.pago === 'Sim' ? '✓ Pago' : '⏳ Pendente';
+        btn.style.background = l.pago === 'Sim' ? 'var(--gd)' : 'var(--rd)';
+        btn.style.color       = l.pago === 'Sim' ? 'var(--green)' : 'var(--red)';
+        btn.style.border      = l.pago === 'Sim' ? '1px solid rgba(63,185,80,.3)' : '1px solid rgba(248,81,73,.3)';
+        console.error('[togglePago] Erro Supabase:', error.message);
+        // Toast de erro visual
+        const tr2 = btn.closest('tr');
+        if(tr2){ tr2.style.background='rgba(248,81,73,.12)'; setTimeout(()=>{ tr2.style.background=''; },2000); }
+      }
+    } catch(err){
+      console.error('[togglePago] Exceção:', err);
+    }
+  }
+
+  btn.disabled = false;
+
+  // Invalidar cache das páginas que dependem do campo pago
+  ['visao','diagnostico','efetivado','mensal'].forEach(p=>{ delete rendered[p]; });
 }
 
 function renderLan(){
