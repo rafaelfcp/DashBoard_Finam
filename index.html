@@ -6286,43 +6286,148 @@ function _orcShowToast(msg, tipo){
   toast._t = setTimeout(()=>{ toast.style.opacity='0'; }, 4000);
 }
 
+// ── Salvar um input de orçamento no Supabase ──
+async function _orcSaveById(id){ await _orcSave(document.getElementById(id)); }
+
+async function _orcSave(input){
+  if(!input) return;
+  const cat     = input.dataset.cat;
+  const sub     = input.dataset.sub  || null;
+  const mes     = input.dataset.mes  || null;
+  const valor   = parseFloat(input.value) || 0;
+  let   existId = (input.dataset.id || '').trim();
+  const supaClient = getSB();
+
+  // Timeout de 10s por operação
+  const withTimeout = (p, ms=10000) =>
+    Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),ms))]);
+
+  try {
+    if(existId){
+      // UPDATE por ID
+      const { error } = await withTimeout(supaClient
+        .from('orcamentos')
+        .update({ valor })
+        .eq('id', existId)
+        .eq('usuario_id', usuarioAtual.id));
+      if(error) throw error;
+
+    } else {
+      // INSERT (com fallback UPDATE se já existir)
+      const payload = {
+        usuario_id:   usuarioAtual.id,
+        categoria:    cat,
+        subcategoria: sub  || null,
+        valor,
+        mes:          mes  || null,
+        ano:          mes  ? new Date().getFullYear() : null,
+      };
+
+      const { data: inserted, error: errIns } = await withTimeout(supaClient
+        .from('orcamentos')
+        .insert(payload)
+        .select('id')
+        .single());
+
+      if(errIns){
+        // Conflito de unicidade → buscar e fazer UPDATE
+        if(errIns.code === '23505' || (errIns.message||'').includes('duplicate') || (errIns.message||'').includes('unique')){
+          let q = supaClient.from('orcamentos')
+            .select('id')
+            .eq('usuario_id', usuarioAtual.id)
+            .eq('categoria', cat);
+          if(sub)  q = q.eq('subcategoria', sub);
+          else     q = q.is('subcategoria', null);
+          if(mes)  q = q.eq('mes', mes);
+          else     q = q.is('mes', null);
+
+          const { data: found, error: errFind } = await withTimeout(q.maybeSingle());
+          if(errFind) throw errFind;
+          if(!found)  throw errIns;
+
+          const { error: errUpd } = await withTimeout(supaClient
+            .from('orcamentos')
+            .update({ valor })
+            .eq('id', found.id));
+          if(errUpd) throw errUpd;
+          existId = found.id;
+        } else {
+          throw errIns;
+        }
+      } else {
+        existId = inserted?.id || '';
+      }
+
+      if(existId) input.dataset.id = existId;
+      const subKey = sub || '';
+      const mesKey = mes || '';
+      if(!_orcDados[cat])         _orcDados[cat] = {};
+      if(!_orcDados[cat][subKey]) _orcDados[cat][subKey] = {};
+      _orcDados[cat][subKey][mesKey] = { id: existId, valor };
+    }
+
+  } catch(err){
+    const msg = err.message || String(err);
+    console.error('[orc] Erro:', cat, sub, mes, valor, msg);
+    input.style.borderColor = 'var(--red)';
+    input.title = msg;
+    _orcShowToast('Erro: ' + msg, 'err');
+    return;
+  }
+
+  // Atualizar DB.orcamento em memória
+  if(!mes){
+    const catSubs = DB_SUBCATS.filter(s => {
+      const c = DB_CATS.find(x => x.id === s.categoria_id);
+      return c?.nome === cat;
+    });
+    DB.orcamento[cat] = catSubs.length > 0
+      ? catSubs.reduce((acc, subItem) => acc + (_orcDados[cat]?.[subItem.nome]?.['']?.valor || 0), 0)
+      : valor;
+  }
+
+  input.style.borderColor = 'var(--green)';
+  input.dataset.dirty = '0';
+  input.title = '';
+  setTimeout(() => { if(input) input.style.borderColor = ''; }, 1800);
+  _orcLineTotals(cat, sub||'');
+}
+
 function atualizarTotalOrcLinha(cat, sub){
   // Delegar para o novo _orcLineTotals (compatibilidade)
   if(typeof _orcLineTotals === 'function') _orcLineTotals(cat, sub||'');
 }
 
 async function cfgSalvarTodosOrc(){
-  // Salvar campos dirty OU com valor > 0 (para não perder preenchimentos sem trigger oninput)
   const todos = [...document.querySelectorAll('.orc-tbl-input')];
-  const paraSlavar = todos.filter(i =>
+
+  // Salvar apenas campos com valor > 0 que ainda não têm ID (novos)
+  // OU campos marcados como dirty (editados)
+  const paraSalvar = todos.filter(i =>
     i.dataset.dirty === '1' ||
     (parseFloat(i.value) > 0 && (!i.dataset.id || i.dataset.id === ''))
   );
 
-  if(!paraSlavar.length){
-    // Nenhum campo novo — verificar se há dirty mesmo assim
-    const dirty = todos.filter(i => i.dataset.dirty === '1');
-    if(!dirty.length){
-      alert('Nenhuma alteração pendente. Edite os valores e tente novamente.');
-      return;
-    }
-    // Salvar só os dirty
-    const btn = document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
-    if(btn){ btn.disabled=true; btn.textContent=`Salvando ${dirty.length}...`; }
-    for(const i of dirty) await _orcSave(i);
-    if(btn){ btn.disabled=false; btn.textContent='✓ Salvar Tudo'; }
+  if(!paraSalvar.length){
+    _orcShowToast('Nenhuma alteração pendente.', 'ok');
     return;
   }
 
   const btn = document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
-  if(btn){ btn.disabled=true; btn.textContent=`Salvando ${paraSlavar.length}...`; }
-  let ok = 0;
-  for(const i of paraSlavar){
-    await _orcSave(i);
-    ok++;
-    if(btn) btn.textContent = `Salvando ${ok}/${paraSlavar.length}...`;
+  if(btn){ btn.disabled=true; btn.textContent=`Salvando ${paraSalvar.length}...`; }
+
+  // Processar em lotes de 5 em paralelo (evita timeout mas não sobrecarrega)
+  const BATCH = 5;
+  let salvos = 0;
+  for(let i = 0; i < paraSalvar.length; i += BATCH){
+    const lote = paraSalvar.slice(i, i + BATCH);
+    await Promise.all(lote.map(inp => _orcSave(inp)));
+    salvos += lote.length;
+    if(btn) btn.textContent = `Salvando ${salvos}/${paraSalvar.length}...`;
   }
+
   if(btn){ btn.disabled=false; btn.textContent='✓ Salvar Tudo'; }
+  _orcShowToast(`${salvos} registros salvos com sucesso!`, 'ok');
 }
 
 // ── Modal genérico ──
