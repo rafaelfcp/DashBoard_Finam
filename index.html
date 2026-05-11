@@ -733,6 +733,20 @@ html.is-mobile .sidebar.open{
   border-radius:var(--rs);cursor:pointer;white-space:nowrap;
 }
 
+/* Tabela anual de orçamentos */
+.orc-tbl-input:focus{border-color:var(--blue) !important;background:var(--bg2) !important}
+.orc-tbl-input:hover{border-color:var(--bd2) !important}
+#cfg-panel-orc table tbody tr:hover td{background:rgba(255,255,255,.02)}
+#cfg-panel-orc table tbody tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+
+/* Sticky coluna de categoria na tabela de orçamentos */
+@media(min-width:860px){
+  #cfg-panel-orc table td:first-child,
+  #cfg-panel-orc table th:first-child{
+    position:sticky;left:0;background:var(--bg);z-index:1;
+  }
+}
+
 #cfg-modal-overlay.open{display:flex !important}
 
 @media(max-width:860px){
@@ -2274,25 +2288,20 @@ html.is-mobile .sidebar.open{
 
     <!-- PAINEL ORÇAMENTOS -->
     <div id="cfg-panel-orc" style="display:none">
-      <div style="margin-bottom:14px">
-        <div style="font-size:16px;font-weight:700">Orçamentos</div>
-        <div style="font-size:12px;color:var(--tx2);margin-top:2px">Defina o orçamento por categoria e mês</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:16px;font-weight:700">Orçamentos</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">Edite os valores inline · clique ✓ para salvar a linha ou use Salvar Tudo</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="cfg-orc-tipo" onchange="cfgOrcTipoChange()" style="background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:8px 12px;font-size:13px;outline:none">
+            <option value="tabela">Tabela anual (todos os meses)</option>
+            <option value="base">Valor base único</option>
+          </select>
+          <button onclick="cfgSalvarTodosOrc()" style="padding:9px 16px;font-size:13px;font-weight:700;background:var(--green);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;white-space:nowrap">✓ Salvar Tudo</button>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <select id="cfg-orc-tipo" onchange="cfgRenderOrc()" style="background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:8px 12px;font-size:13px;outline:none">
-          <option value="base">Valor base (todos os meses)</option>
-          <option value="mes">Por mês específico</option>
-        </select>
-        <select id="cfg-orc-mes" style="display:none;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:8px 12px;font-size:13px;outline:none" onchange="cfgRenderOrc()">
-          <option value="Jan">Janeiro</option><option value="Fev">Fevereiro</option>
-          <option value="Mar">Março</option><option value="Abr">Abril</option>
-          <option value="Mai">Maio</option><option value="Jun">Junho</option>
-          <option value="Jul">Julho</option><option value="Ago">Agosto</option>
-          <option value="Set">Setembro</option><option value="Out">Outubro</option>
-          <option value="Nov">Novembro</option><option value="Dez">Dezembro</option>
-        </select>
-      </div>
-      <div id="cfg-orc-list"></div>
+      <div id="cfg-orc-list" style="overflow-x:auto;-webkit-overflow-scrolling:touch"></div>
     </div>
 
   </div><!-- #cfg-body -->
@@ -6056,69 +6065,139 @@ async function cfgDeletarSubcat(id, nome){
 }
 
 // ────────────────────────────────────────────
-// ORÇAMENTOS
+// ORÇAMENTOS — TABELA ANUAL
 // ────────────────────────────────────────────
+const MESES_FULL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+let _orcDados = {};
+
+function cfgOrcTipoChange(){ cfgRenderOrc(); }
+
 async function cfgRenderOrc(){
   const el = document.getElementById('cfg-orc-list');
   if(!el) return;
-  const tipo = document.getElementById('cfg-orc-tipo')?.value || 'base';
-  const mes  = tipo === 'mes' ? document.getElementById('cfg-orc-mes')?.value : null;
-
-  // Buscar orçamentos do Supabase
-  let q = getSB().from('orcamentos')
-    .select('*').eq('usuario_id', usuarioAtual.id);
-  if(mes){
-    q = q.eq('mes', mes);
+  const tipo = document.getElementById('cfg-orc-tipo')?.value || 'tabela';
+  const { data: orcs, error } = await getSB().from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id);
+  if(error){ el.innerHTML = `<div style="color:var(--red)">Erro: ${error.message}</div>`; return; }
+  _orcDados = {};
+  (orcs||[]).forEach(o => {
+    if(!_orcDados[o.categoria]) _orcDados[o.categoria] = {};
+    _orcDados[o.categoria][o.mes||'base'] = { id: o.id, valor: parseFloat(o.valor)||0 };
+  });
+  const grupos = [
+    { label:'Receitas',      tipos:['receita']       },
+    { label:'Investimentos', tipos:['investimento']  },
+    { label:'Despesas',      tipos:['despesa']       },
+  ];
+  if(tipo === 'tabela'){
+    el.innerHTML = grupos.map(g => _orcGrupoTabela(g)).join('');
   } else {
-    q = q.is('mes', null);
+    el.innerHTML = grupos.map(g => _orcGrupoBase(g)).join('');
   }
-  const { data: orcs } = await q;
-  const orcMap = {};
-  (orcs || []).forEach(o => { orcMap[o.categoria] = { id: o.id, valor: o.valor }; });
+}
 
-  const cats = DB_CATS.filter(c => c.tipo === 'despesa' || c.tipo === 'investimento');
-  if(!cats.length){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px">Cadastre categorias primeiro</div>'; return; }
+function _orcGrupoTabela(grupo){
+  const cats = DB_CATS.filter(c => grupo.tipos.includes(c.tipo));
+  if(!cats.length) return '';
+  const thMeses = MESES_FULL.map(m =>
+    `<th style="min-width:78px;text-align:right;padding:7px 5px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:1px solid var(--bd)">${m}</th>`
+  ).join('');
+  const rows = cats.map(c => {
+    const key = c.nome.replace(/[^a-z0-9]/gi,'_');
+    const cells = MESES_FULL.map(m => {
+      const orc = _orcDados[c.nome]?.[m] || _orcDados[c.nome]?.['base'] || {id:null,valor:0};
+      return `<td style="padding:3px 2px"><input class="orc-tbl-input" type="number" id="orc-${key}-${m}" value="${orc.valor||''}" placeholder="0" min="0" step="50" data-cat="${c.nome}" data-mes="${m}" data-id="${orc.id||''}" oninput="orcMarkDirty(this)" style="width:74px;text-align:right;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 6px;font-size:12px;outline:none;transition:border-color .15s"></td>`;
+    }).join('');
+    const total = MESES_FULL.reduce((s,m) => s+(_orcDados[c.nome]?.[m]?.valor||_orcDados[c.nome]?.['base']?.valor||0), 0);
+    return `<tr>
+      <td style="padding:8px 12px;font-size:13px;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--bd);min-width:150px">
+        ${c.nome}<div style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:400">${c.tipo}</div>
+      </td>
+      ${cells}
+      <td id="orc-total-${key}" style="padding:8px 10px;font-size:12px;font-weight:700;color:var(--tx2);text-align:right;white-space:nowrap;border-bottom:1px solid var(--bd);border-left:1px solid var(--bd)">${total>0?'R$ '+total.toLocaleString('pt-BR'):'—'}</td>
+    </tr>`;
+  }).join('');
+  const totalGrupo = cats.reduce((s,c) => s+MESES_FULL.reduce((sm,m) => sm+((_orcDados[c.nome]?.[m]?.valor||_orcDados[c.nome]?.['base']?.valor)||0),0), 0);
+  return `<div style="margin-bottom:28px">
+    <div style="font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:10px">${grupo.label} <span style="font-size:11px;font-weight:400;color:var(--tx3)">Total anual: R$ ${totalGrupo.toLocaleString('pt-BR')}</span></div>
+    <table style="border-collapse:collapse;width:100%;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:7px 12px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:1px solid var(--bd)">Categoria</th>
+        ${thMeses}
+        <th style="text-align:right;padding:7px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:1px solid var(--bd);border-left:1px solid var(--bd)">Total</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
 
-  el.innerHTML = cats.map(c => {
-    const orc = orcMap[c.nome] || { id: null, valor: 0 };
-    return `
-    <div class="cfg-orc-row">
-      <div class="cfg-orc-cat">
-        <div style="font-size:13px;font-weight:600">${c.nome}</div>
-        <div style="font-size:10px;color:var(--tx3);text-transform:uppercase">${c.tipo}</div>
-      </div>
+function _orcGrupoBase(grupo){
+  const cats = DB_CATS.filter(c => grupo.tipos.includes(c.tipo));
+  if(!cats.length) return '';
+  const rows = cats.map(c => {
+    const key = c.nome.replace(/[^a-z0-9]/gi,'_');
+    const orc = _orcDados[c.nome]?.['base']||{id:null,valor:0};
+    return `<div class="cfg-orc-row">
+      <div class="cfg-orc-cat"><div style="font-size:13px;font-weight:600">${c.nome}</div><div style="font-size:10px;color:var(--tx3);text-transform:uppercase">${c.tipo}</div></div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:12px;color:var(--tx2);flex-shrink:0">R$</span>
-        <input class="cfg-orc-input" type="number" id="orc-val-${c.nome.replace(/[^a-z0-9]/gi,'_')}"
-          value="${orc.valor || 0}" min="0" step="50"
-          data-cat="${c.nome}" data-id="${orc.id || ''}" data-mes="${mes || ''}">
-        <button class="btn-cfg-orc-save" onclick="cfgSalvarOrc('${c.nome.replace(/[^a-z0-9]/gi,'_')}')">✓</button>
+        <span style="font-size:12px;color:var(--tx2)">R$</span>
+        <input class="cfg-orc-input orc-tbl-input" type="number" id="orc-base-${key}" value="${orc.valor||0}" min="0" step="50" data-cat="${c.nome}" data-mes="" data-id="${orc.id||''}" oninput="orcMarkDirty(this)">
+        <button class="btn-cfg-orc-save" onclick="_orcSaveById('orc-base-${key}')">✓</button>
       </div>
     </div>`;
   }).join('');
+  return `<div style="margin-bottom:24px"><div style="font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${grupo.label}</div>${rows}</div>`;
 }
 
-async function cfgSalvarOrc(key){
-  const input = document.getElementById('orc-val-' + key);
-  if(!input) return;
-  const cat = input.dataset.cat;
-  const mes = input.dataset.mes || null;
-  const valor = parseFloat(input.value) || 0;
-  const existId = input.dataset.id;
+function orcMarkDirty(input){ input.style.borderColor='var(--amber)'; input.dataset.dirty='1'; }
 
-  let error;
+async function _orcSaveById(id){ await _orcSave(document.getElementById(id)); }
+
+async function _orcSave(input){
+  if(!input) return;
+  const cat=input.dataset.cat, mes=input.dataset.mes||null, valor=parseFloat(input.value)||0;
+  let existId=input.dataset.id;
   if(existId){
-    ({ error } = await getSB().from('orcamentos').update({ valor }).eq('id', existId));
+    const {error}=await getSB().from('orcamentos').update({valor}).eq('id',existId);
+    if(error){input.style.borderColor='var(--red)';return;}
   } else {
-    ({ error } = await getSB().from('orcamentos').insert({
-      usuario_id: usuarioAtual.id, categoria: cat, valor, mes: mes || null, ano: mes ? new Date().getFullYear() : null
-    }));
+    const {data,error}=await getSB().from('orcamentos').insert({
+      usuario_id:usuarioAtual.id,categoria:cat,valor,mes:mes||null,ano:mes?new Date().getFullYear():null
+    }).select();
+    if(error){input.style.borderColor='var(--red)';return;}
+    if(data?.[0]){existId=data[0].id;input.dataset.id=existId;}
+    if(!_orcDados[cat])_orcDados[cat]={};
+    _orcDados[cat][mes||'base']={id:existId,valor};
   }
-  if(error){ alert('Erro ao salvar: ' + error.message); return; }
-  // Atualizar DB.orcamento em memória
-  DB.orcamento[cat] = valor;
-  input.style.borderColor = 'var(--green)';
-  setTimeout(() => { input.style.borderColor = ''; }, 1500);
+  if(!mes) DB.orcamento[cat]=valor;
+  input.style.borderColor='var(--green)';input.dataset.dirty='0';
+  setTimeout(()=>{input.style.borderColor='';},1800);
+  atualizarTotalOrcLinha(cat);
+}
+
+function atualizarTotalOrcLinha(cat){
+  const key=cat.replace(/[^a-z0-9]/gi,'_');
+  const totalEl=document.getElementById('orc-total-'+key);
+  if(!totalEl) return;
+  const total=MESES_FULL.reduce((s,m)=>s+(parseFloat(document.getElementById('orc-'+key+'-'+m)?.value)||0),0);
+  totalEl.textContent=total>0?'R$ '+total.toLocaleString('pt-BR'):'—';
+}
+
+async function cfgSalvarTodosOrc(){
+  const inputs=[...document.querySelectorAll('.orc-tbl-input[data-dirty="1"]')];
+  if(!inputs.length){
+    // Salvar todos os visíveis mesmo sem dirty
+    const todos=[...document.querySelectorAll('.orc-tbl-input')];
+    if(!todos.length){alert('Nenhum campo encontrado.');return;}
+    const btn=document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
+    if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+    for(const i of todos) await _orcSave(i);
+    if(btn){btn.disabled=false;btn.textContent='✓ Salvar Tudo';}
+    return;
+  }
+  const btn=document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
+  if(btn){btn.disabled=true;btn.textContent=`Salvando ${inputs.length}...`;}
+  for(const i of inputs) await _orcSave(i);
+  if(btn){btn.disabled=false;btn.textContent='✓ Salvar Tudo';}
 }
 
 // ── Modal genérico ──
