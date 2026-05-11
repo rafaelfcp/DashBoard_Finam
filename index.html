@@ -6248,13 +6248,12 @@ async function _orcSave(input){
   const mes   = input.dataset.mes  || null;
   const valor = parseFloat(input.value) || 0;
   let   existId = (input.dataset.id || '').trim();
-  const sb = getSB();
+  const supaClient = getSB(); // renomeado para evitar conflito com reduce
 
-  console.log('[orc] Iniciando save:', {cat, sub, mes, valor, existId});
   try {
     if(existId){
       // ── CASO 1: ID conhecido → UPDATE por ID ──
-      const { error } = await sb
+      const { error } = await supaClient
         .from('orcamentos')
         .update({ valor })
         .eq('id', existId)
@@ -6263,7 +6262,6 @@ async function _orcSave(input){
 
     } else {
       // ── CASO 2: Sem ID → INSERT direto ──
-      // Se já existir um registro idêntico no banco, buscar o ID e fazer UPDATE
       const payload = {
         usuario_id:   usuarioAtual.id,
         categoria:    cat,
@@ -6273,17 +6271,16 @@ async function _orcSave(input){
         ano:          mes  ? new Date().getFullYear() : null,
       };
 
-      const { data: inserted, error: errIns } = await sb
+      const { data: inserted, error: errIns } = await supaClient
         .from('orcamentos')
         .insert(payload)
         .select('id')
         .single();
 
       if(errIns){
-        // Pode ser conflito de unicidade (23505) — buscar o registro e fazer UPDATE
+        // Conflito de unicidade → buscar registro existente e fazer UPDATE
         if(errIns.code === '23505' || errIns.message?.includes('duplicate') || errIns.message?.includes('unique')){
-          // Buscar o registro existente
-          let q = sb.from('orcamentos')
+          let q = supaClient.from('orcamentos')
             .select('id')
             .eq('usuario_id', usuarioAtual.id)
             .eq('categoria', cat);
@@ -6294,10 +6291,9 @@ async function _orcSave(input){
 
           const { data: found, error: errFind } = await q.maybeSingle();
           if(errFind) throw errFind;
-          if(!found) throw errIns; // não encontrou → erro real
+          if(!found) throw errIns;
 
-          // Fazer UPDATE com o ID encontrado
-          const { error: errUpd } = await sb
+          const { error: errUpd } = await supaClient
             .from('orcamentos')
             .update({ valor })
             .eq('id', found.id);
@@ -6308,7 +6304,6 @@ async function _orcSave(input){
         }
       } else {
         existId = inserted?.id || '';
-        console.log('[orc] INSERT ok, id:', existId);
       }
 
       // Cachear ID no input e em memória
@@ -6322,22 +6317,21 @@ async function _orcSave(input){
 
   } catch(err){
     const msg = err.message || err.details || JSON.stringify(err) || 'Erro desconhecido';
-    console.error('[orc] Erro:', cat, sub, mes, valor, '→', msg, err);
+    console.error('[orc] ERRO:', cat, sub, mes, valor, msg);
     input.style.borderColor = 'var(--red)';
     input.title = msg;
-    // Alert bloqueante para diagnóstico
-    alert('ERRO AO SALVAR ORÇAMENTO\n\nCategoria: ' + cat + '\nSubcategoria: ' + (sub||'(nenhuma)') + '\nMês: ' + (mes||'(base)') + '\nValor: ' + valor + '\n\nErro: ' + msg + '\n\nCode: ' + (err.code||'N/A') + '\nDetalhes: ' + (err.details||'N/A') + '\nHint: ' + (err.hint||'N/A'));
+    _orcShowToast('Erro: ' + msg, 'err');
     return;
   }
 
-  // Atualizar DB.orcamento[cat] = soma das subcategorias base para as análises
+  // Atualizar DB.orcamento[cat] — usando 'subItem' no reduce, não 'sb'
   if(!mes){
     const catSubs = DB_SUBCATS.filter(s => {
       const c = DB_CATS.find(x => x.id === s.categoria_id);
       return c?.nome === cat;
     });
     DB.orcamento[cat] = catSubs.length > 0
-      ? catSubs.reduce((s, sb) => s + (_orcDados[cat]?.[sb.nome]?.['']?.valor || 0), 0)
+      ? catSubs.reduce((acc, subItem) => acc + (_orcDados[cat]?.[subItem.nome]?.['']?.valor || 0), 0)
       : valor;
   }
 
