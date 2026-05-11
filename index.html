@@ -6080,9 +6080,9 @@ async function cfgRenderOrc(){
   if(error){ el.innerHTML = `<div style="color:var(--red)">Erro: ${error.message}</div>`; return; }
   _orcDados = {};
   (orcs||[]).forEach(o => {
-    const cat = o.categoria;
-    const sub = o.subcategoria || '_cat_'; // _cat_ = sem subcategoria
-    const mesKey = o.mes || 'base';
+    const cat    = o.categoria;
+    const sub    = o.subcategoria || ''; // '' = orçamento de categoria (sem subcategoria)
+    const mesKey = o.mes || '';          // '' = valor base (sem mês específico)
     if(!_orcDados[cat]) _orcDados[cat] = {};
     if(!_orcDados[cat][sub]) _orcDados[cat][sub] = {};
     _orcDados[cat][sub][mesKey] = { id: o.id, valor: parseFloat(o.valor)||0 };
@@ -6118,7 +6118,7 @@ function _orcGrupoTabela(grupo){
     const catTotal = MESES_FULL.reduce((s,m) => {
       return s + (subs.length > 0
         ? subs.reduce((ss,sub) => ss + (_orcDados[cat.nome]?.[sub.nome]?.[m]?.valor||0), 0)
-        : (_orcDados[cat.nome]?.['_cat_']?.[m]?.valor || _orcDados[cat.nome]?.['_cat_']?.['base']?.valor || 0));
+        : (_orcDados[cat.nome]?.['']?.[m]?.valor || _orcDados[cat.nome]?.['']?.['']?.valor || 0));
     }, 0);
 
     const catTotalAnual = catTotal;
@@ -6133,7 +6133,7 @@ function _orcGrupoTabela(grupo){
     if(subs.length === 0){
       // Sem subcategorias: linha direta da categoria
       const cells = MESES_FULL.map(m => {
-        const orc = _orcDados[cat.nome]?.['_cat_']?.[m] || {id:null,valor:0};
+        const orc = _orcDados[cat.nome]?.['']?.[m] || _orcDados[cat.nome]?.['']?.[''] || {id:null,valor:0};
         return `<td style="padding:3px 2px"><input class="orc-tbl-input" type="number"
           id="orc-${catKey}--${m}"
           value="${orc.valor||''}" placeholder="0" min="0" step="50"
@@ -6141,7 +6141,7 @@ function _orcGrupoTabela(grupo){
           oninput="orcMarkDirty(this)"
           style="width:74px;text-align:right;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:4px;padding:5px 6px;font-size:12px;outline:none;transition:border-color .15s"></td>`;
       }).join('');
-      const lineTotal = MESES_FULL.reduce((s,m) => s+(_orcDados[cat.nome]?.['_cat_']?.[m]?.valor||0), 0);
+      const lineTotal = MESES_FULL.reduce((s,m) => s+(_orcDados[cat.nome]?.['']?.[m]?.valor||0), 0);
       allRows += `<tr>
         <td style="padding:7px 12px 7px 24px;font-size:13px;color:var(--tx2);border-bottom:1px solid var(--bd)">
           (sem subcategorias)
@@ -6213,48 +6213,67 @@ async function _orcSaveById(id){ await _orcSave(document.getElementById(id)); }
 
 async function _orcSave(input){
   if(!input) return;
-  const cat   = input.dataset.cat;
-  const sub   = input.dataset.sub || null; // null = orçamento de categoria
-  const mes   = input.dataset.mes || null;
-  const valor = parseFloat(input.value) || 0;
-  let existId = input.dataset.id;
+  const cat    = input.dataset.cat;
+  const sub    = input.dataset.sub || null;
+  const mes    = input.dataset.mes || null;
+  const valor  = parseFloat(input.value) || 0;
+  const existId = input.dataset.id; // pode ser '' (string vazia) = não existe
 
-  if(existId){
-    const {error} = await getSB().from('orcamentos').update({valor}).eq('id', existId);
-    if(error){ input.style.borderColor='var(--red)'; return; }
-  } else {
-    const {data, error} = await getSB().from('orcamentos').insert({
-      usuario_id: usuarioAtual.id,
-      categoria:  cat,
-      subcategoria: sub || null,
-      valor,
-      mes:  mes || null,
-      ano:  mes ? new Date().getFullYear() : null
-    }).select();
-    if(error){ input.style.borderColor='var(--red)'; return; }
-    if(data?.[0]){ existId = data[0].id; input.dataset.id = existId; }
-    // Atualizar _orcDados
-    const subKey = sub || '_cat_';
-    const mesKey = mes || 'base';
-    if(!_orcDados[cat]) _orcDados[cat] = {};
-    if(!_orcDados[cat][subKey]) _orcDados[cat][subKey] = {};
-    _orcDados[cat][subKey][mesKey] = { id: existId, valor };
+  try {
+    if(existId && existId !== ''){
+      // Registro já existe → UPDATE simples
+      const {error} = await getSB().from('orcamentos')
+        .update({ valor })
+        .eq('id', existId);
+      if(error) throw error;
+    } else {
+      // Novo registro → UPSERT para evitar conflito de constraint
+      const {data, error} = await getSB().from('orcamentos')
+        .upsert({
+          usuario_id:   usuarioAtual.id,
+          categoria:    cat,
+          subcategoria: sub || '',   // '' em vez de NULL (constraint UNIQUE)
+          valor,
+          mes:  mes || '',           // '' em vez de NULL
+          ano:  mes ? new Date().getFullYear() : null
+        }, {
+          onConflict: 'usuario_id,categoria,subcategoria,mes',
+          ignoreDuplicates: false
+        })
+        .select();
+      if(error) throw error;
+      if(data?.[0]){
+        input.dataset.id = data[0].id;
+        // Atualizar _orcDados em memória
+        const subKey = sub || '';
+        const mesKey = mes || '';
+        if(!_orcDados[cat]) _orcDados[cat] = {};
+        if(!_orcDados[cat][subKey]) _orcDados[cat][subKey] = {};
+        _orcDados[cat][subKey][mesKey] = { id: data[0].id, valor };
+      }
+    }
+  } catch(err){
+    console.error('[orc] Erro ao salvar:', cat, sub, mes, err.message);
+    input.style.borderColor = 'var(--red)';
+    input.title = 'Erro: ' + err.message;
+    return;
   }
 
-  // Atualizar DB.orcamento[cat] = soma de todas as subcategorias (base)
+  // Atualizar DB.orcamento[cat] = soma das subcategorias base
   if(!mes){
     const subs = DB_SUBCATS.filter(s => {
       const c = DB_CATS.find(c => c.id === s.categoria_id);
       return c?.nome === cat;
     });
     DB.orcamento[cat] = subs.length > 0
-      ? subs.reduce((s, sb) => s + (_orcDados[cat]?.[sb.nome]?.['base']?.valor || 0), 0)
-      : (_orcDados[cat]?.['_cat_']?.['base']?.valor || valor);
+      ? subs.reduce((s, sb) => s + (_orcDados[cat]?.[sb.nome]?.['']?.valor || 0), 0)
+      : (_orcDados[cat]?.['_cat_']?.['']?.valor || valor);
   }
 
   input.style.borderColor = 'var(--green)';
   input.dataset.dirty = '0';
-  setTimeout(() => { input.style.borderColor = ''; }, 1800);
+  input.title = '';
+  setTimeout(() => { if(input) input.style.borderColor = ''; }, 1800);
   atualizarTotalOrcLinha(cat, sub);
 }
 
@@ -6270,21 +6289,37 @@ function atualizarTotalOrcLinha(cat, sub){
 }
 
 async function cfgSalvarTodosOrc(){
-  const inputs=[...document.querySelectorAll('.orc-tbl-input[data-dirty="1"]')];
-  if(!inputs.length){
-    // Salvar todos os visíveis mesmo sem dirty
-    const todos=[...document.querySelectorAll('.orc-tbl-input')];
-    if(!todos.length){alert('Nenhum campo encontrado.');return;}
-    const btn=document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
-    if(btn){btn.disabled=true;btn.textContent='Salvando...';}
-    for(const i of todos) await _orcSave(i);
-    if(btn){btn.disabled=false;btn.textContent='✓ Salvar Tudo';}
+  // Salvar campos dirty OU com valor > 0 (para não perder preenchimentos sem trigger oninput)
+  const todos = [...document.querySelectorAll('.orc-tbl-input')];
+  const paraSlavar = todos.filter(i =>
+    i.dataset.dirty === '1' ||
+    (parseFloat(i.value) > 0 && (!i.dataset.id || i.dataset.id === ''))
+  );
+
+  if(!paraSlavar.length){
+    // Nenhum campo novo — verificar se há dirty mesmo assim
+    const dirty = todos.filter(i => i.dataset.dirty === '1');
+    if(!dirty.length){
+      alert('Nenhuma alteração pendente. Edite os valores e tente novamente.');
+      return;
+    }
+    // Salvar só os dirty
+    const btn = document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
+    if(btn){ btn.disabled=true; btn.textContent=`Salvando ${dirty.length}...`; }
+    for(const i of dirty) await _orcSave(i);
+    if(btn){ btn.disabled=false; btn.textContent='✓ Salvar Tudo'; }
     return;
   }
-  const btn=document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
-  if(btn){btn.disabled=true;btn.textContent=`Salvando ${inputs.length}...`;}
-  for(const i of inputs) await _orcSave(i);
-  if(btn){btn.disabled=false;btn.textContent='✓ Salvar Tudo';}
+
+  const btn = document.querySelector('[onclick="cfgSalvarTodosOrc()"]');
+  if(btn){ btn.disabled=true; btn.textContent=`Salvando ${paraSlavar.length}...`; }
+  let ok = 0;
+  for(const i of paraSlavar){
+    await _orcSave(i);
+    ok++;
+    if(btn) btn.textContent = `Salvando ${ok}/${paraSlavar.length}...`;
+  }
+  if(btn){ btn.disabled=false; btn.textContent='✓ Salvar Tudo'; }
 }
 
 // ── Modal genérico ──
