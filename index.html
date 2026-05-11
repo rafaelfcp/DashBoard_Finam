@@ -2607,7 +2607,7 @@ const rendered={};
 function renderPage(id){
   if(!DB.lancamentos.length){ return; } // sem dados: empty-state já visível
   if(rendered[id]) return;
-  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:setupConfig,mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
+  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:()=>setupConfig().catch(console.error),mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){ rendered[id]=true; fns[id](); } // marca APÓS confirmar que há função
 }
 
@@ -5642,7 +5642,7 @@ async function migrarDadosParaSupabase(){
           subcatsPayload.push({
             usuario_id: usuarioAtual.id,
             categoria_id: cat.id,
-            nome, ordem: i+1
+            nome, ativo: true, ordem: i+1
           });
         });
       }
@@ -5677,9 +5677,9 @@ async function carregarTabelasDinamicas(){
   if(!usuarioAtual) return;
   const sb = getSB();
   const [r1, r2, r3] = await Promise.all([
-    sb.from('formas_pagamento').select('*').eq('usuario_id', usuarioAtual.id).eq('ativo', true).order('ordem'),
-    sb.from('categorias').select('*').eq('usuario_id', usuarioAtual.id).eq('ativo', true).order('ordem'),
-    sb.from('subcategorias').select('*').eq('usuario_id', usuarioAtual.id).eq('ativo', true).order('ordem'),
+    sb.from('formas_pagamento').select('*').eq('usuario_id', usuarioAtual.id).order('ordem'),
+    sb.from('categorias').select('*').eq('usuario_id', usuarioAtual.id).order('ordem'),
+    sb.from('subcategorias').select('*').eq('usuario_id', usuarioAtual.id).order('ordem'),
   ]);
   if(!r1.error) DB_FORMAS  = r1.data || [];
   if(!r2.error) DB_CATS    = r2.data || [];
@@ -5750,7 +5750,10 @@ function cfgTab(tab){
 }
 
 // ── Setup inicial da página de config ──
-function setupConfig(){
+async function setupConfig(){
+  // Recarregar dados frescos do Supabase ao entrar em Configurações
+  await carregarTabelasDinamicas();
+
   // popular select de categorias para subcategorias
   const sel = document.getElementById('cfg-subcat-cat-sel');
   if(sel){
@@ -5974,7 +5977,14 @@ As subcategorias serão removidas. Os lançamentos existentes não serão afetad
 // SUBCATEGORIAS
 // ────────────────────────────────────────────
 function cfgRenderSubcats(){
+  // Atualizar select de categorias com dados frescos
   const sel = document.getElementById('cfg-subcat-cat-sel');
+  if(sel && DB_CATS.length > 0){
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">Selecione a categoria</option>' +
+      DB_CATS.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    if(currentVal) sel.value = currentVal; // manter seleção
+  }
   const catId = sel?.value;
   const el = document.getElementById('cfg-subcats-list');
   if(!el) return;
