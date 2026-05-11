@@ -3467,9 +3467,7 @@ function renderCat(){
   document.getElementById('cat-tbody').innerHTML=subs.map((s,i)=>{
     const pct=tot?Math.round(s.total/tot*100):0;
     const cor=clrs[i%clrs.length];
-    const orcSub = getOrcSub(cat, s.nome, mesesFilt);
-    const devSub = s.media - orcSub;
-    const devCls = orcSub>0?(devSub>500?'danger':devSub>100?'warn':devSub<=0?'ok':''):'';
+    const orcSub=getOrcSub(cat,s.nome,mesesFilt),devSub=s.media-orcSub,devCls=orcSub>0?(devSub>500?'danger':devSub>100?'warn':devSub<=0?'ok':''):'';
     return `<tr>
       <td style="font-weight:600;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.nome}">${s.nome}</td>
       <td>${R(s.total)}</td>
@@ -3662,9 +3660,9 @@ function renderOrcamento(){
 
   // Dados
   const lan  = DB.lancamentos.filter(l => meses.includes(l.mes) && l.cat !== 'Receitas' && l.cat !== 'Investimentos');
-  const cats  = CATS.filter(c => getOrcCat(c,meses) > 0 || lan.some(l => l.cat === c));
-  const reais = cats.map(c => Math.round(SM(lan.filter(l => l.cat === c).map(l => l.valor)) / (tipo === 'mes' ? 1 : n)));
-  const orc   = cats.map(c => getOrcCat(c, meses));
+  const cats  = CATS.filter(c => getOrcCat(c,meses)>0 || lan.some(l=>l.cat===c));
+  const reais = cats.map(c => Math.round(SM(lan.filter(l=>l.cat===c).map(l=>l.valor))/(tipo==='mes'?1:n)));
+  const orc   = cats.map(c => getOrcCat(c,meses));
 
   // KPIs
   const totReal   = SM(reais);
@@ -3735,14 +3733,15 @@ function renderOrcamento(){
     const bdgCls   = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
     const bdgTxt   = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
     const hasSub   = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
+    // Serializar meses sem aspas duplas para evitar conflito no onclick
+    const mesesStr = meses.map(m=>`'${m}'`).join(',');
     return `
       <div class="kpi" style="padding:12px 14px;position:relative;${hasSub?'cursor:pointer;':''}"
-        ${hasSub?`onclick="orcDetalhePopup('${c}',${JSON.stringify(meses)})" title="Ver subcategorias"`:''}>
+        ${hasSub?`onclick="orcDetalhePopup('${c}',[${mesesStr}])" title="Ver subcategorias"`:''}>
         ${hasSub?`<span style="position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--blue);opacity:.8">↗ subcats</span>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
-            <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>
-            ${c}
+            <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>${c}
           </span>
           <span class="badge ${bdgCls}" style="font-size:10px">${bdgTxt}</span>
         </div>
@@ -3781,26 +3780,30 @@ function renderOrcamento(){
     const st     = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
     const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
     const barW   = pExec !== null ? Math.min(pExec, 100) : 0;
+    const hasSub2 = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
+    const ms2    = meses.map(m=>`'${m}'`).join(',');
+    const catCell = hasSub2
+      ? `<button onclick="orcDetalhePopup('${c}',[${ms2}])" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px" title="Ver subcategorias">${c} ↗</button>`
+      : c;
     return `<tr>
       <td style="font-weight:700;padding:9px 10px">
         <span style="display:inline-flex;align-items:center;gap:5px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>
-          ${DB.orcamentoSub?.[c]&&Object.keys(DB.orcamentoSub[c]).length>0
-            ? `<button onclick="orcDetalhePopup('${c}',${JSON.stringify(meses)})" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px" title="Ver subcategorias">${c} ↗</button>`
-            : c}
+          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${catCell}
         </span>
       </td>
       <td style="padding:9px 10px">${R(orc[i])}</td>
       <td style="padding:9px 10px" class="${cls}">${R(reais[i])}</td>
       <td style="padding:9px 10px" class="${cls}">${d >= 0 ? '+' : ''}${R(d)}</td>
-      <td style="padding:9px 10px" class="${cls}">${p !== null ? (d >= 0 ? '+' : '') + p + '%' : '—'}</td>
-      <td style="padding:9px 10px;min-width:120px">
+      <td style="padding:9px 10px;color:var(--tx2)">${p !== null ? (p >= 0 ? '+' : '') + p + '%' : '—'}</td>
+      <td style="padding:9px 14px;min-width:120px">
         <div style="display:flex;align-items:center;gap:6px">
-          <div class="progress-track" style="flex:1"><div class="progress-fill" style="width:${barW}%;background:${barColor}"></div></div>
-          <span style="font-size:11px;font-weight:700;color:${barColor};min-width:36px;text-align:right">${pExec !== null ? pExec + '%' : '—'}</span>
+          <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${barColor};min-width:30px">${pExec !== null ? pExec + '%' : '—'}</span>
         </div>
       </td>
-      <td style="padding:9px 10px"><span class="badge ${bdg}">${st}</span></td>
+      <td style="padding:9px 10px"><span class="badge ${bdg}" style="font-size:10px">${st}</span></td>
     </tr>`;
   }).join('');
 }
@@ -5419,43 +5422,27 @@ async function carregarDoSupabase(){
     DB.saldos_iniciais = {};
     saldos.forEach(s=>{ DB.saldos_iniciais[s.mes] = parseFloat(s.saldo); });
 
-    // Reconstruir DB.orcamento com suporte a subcategoria e mês específico
-    DB.orcamento    = {};  // { cat: valorMédio }
-    DB.orcamentoSub = {};  // { cat: { sub: { mes|'': val } } }
-    DB.orcamentoMes = {};  // { cat: { mes: totalMes } }
-
-    orcs.forEach(o => {
-      const cat = o.categoria;
-      const sub = o.subcategoria || null;
-      const mes = o.mes || null;
-      const val = parseFloat(o.valor) || 0;
+    DB.orcamento={};DB.orcamentoSub={};DB.orcamentoMes={};
+    orcs.forEach(o=>{
+      const cat=o.categoria,sub=o.subcategoria||null,mes=o.mes||null,val=parseFloat(o.valor)||0;
       if(sub){
-        if(!DB.orcamentoSub[cat])      DB.orcamentoSub[cat] = {};
-        if(!DB.orcamentoSub[cat][sub]) DB.orcamentoSub[cat][sub] = {};
-        DB.orcamentoSub[cat][sub][mes||''] = val;
+        if(!DB.orcamentoSub[cat])DB.orcamentoSub[cat]={};
+        if(!DB.orcamentoSub[cat][sub])DB.orcamentoSub[cat][sub]={};
+        DB.orcamentoSub[cat][sub][mes||'']=val;
       }
       if(mes){
-        if(!DB.orcamentoMes[cat]) DB.orcamentoMes[cat] = {};
-        DB.orcamentoMes[cat][mes] = (DB.orcamentoMes[cat][mes]||0) + val;
-      } else if(!sub){
-        DB.orcamento[cat] = (DB.orcamento[cat]||0) + val;
-      }
+        if(!DB.orcamentoMes[cat])DB.orcamentoMes[cat]={};
+        DB.orcamentoMes[cat][mes]=(DB.orcamentoMes[cat][mes]||0)+val;
+      } else if(!sub){DB.orcamento[cat]=(DB.orcamento[cat]||0)+val;}
     });
-
-    // Consolidar DB.orcamento: usar média dos meses se só tiver por mês
-    Object.keys(DB.orcamentoMes).forEach(cat => {
-      if(!DB.orcamento[cat]){
-        const vals = Object.values(DB.orcamentoMes[cat]);
-        DB.orcamento[cat] = vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0;
-      }
+    Object.keys(DB.orcamentoMes).forEach(cat=>{
+      if(!DB.orcamento[cat]){const v=Object.values(DB.orcamentoMes[cat]);
+        DB.orcamento[cat]=v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):0;}
     });
-    // Fallback: soma das subcategorias sem mês
-    Object.keys(DB.orcamentoSub).forEach(cat => {
+    Object.keys(DB.orcamentoSub).forEach(cat=>{
       if(!DB.orcamento[cat]){
-        const base = Object.values(DB.orcamentoSub[cat])
-          .reduce((s,mMap)=>s+(mMap['']||0), 0);
-        if(base) DB.orcamento[cat] = base;
-      }
+        const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);
+        if(b)DB.orcamento[cat]=b;}
     });
 
     const mAtivos = getMeses();
@@ -5594,91 +5581,6 @@ function atualizarRelogio(){
   });
   el.textContent = `${data} · ${hora}`;
 }
-
-// ══ HELPERS ORÇAMENTO POR PERÍODO ══
-function getOrcSub(cat, sub, meses){
-  const m = DB.orcamentoSub?.[cat]?.[sub] || {};
-  if(meses && meses.length){
-    const vals = meses.map(ms=>m[ms]||0).filter(v=>v>0);
-    if(vals.length) return Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
-  }
-  return m[''] || 0;
-}
-
-function getOrcCat(cat, meses){
-  if(DB.orcamentoMes?.[cat] && meses && meses.length){
-    const vals = meses.map(ms=>DB.orcamentoMes[cat][ms]||0).filter(v=>v>0);
-    if(vals.length) return Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
-  }
-  return DB.orcamento[cat] || 0;
-}
-
-// ══ POPUP DETALHE SUBCATEGORIAS ══
-function orcDetalhePopup(cat, meses){
-  if(typeof meses==='string') try{meses=JSON.parse(meses);}catch(e){meses=[];}
-  const n    = meses.length||1;
-  const tipo = document.getElementById('orc-tipo')?.value||'media';
-  const subcatsOrc = DB.orcamentoSub?.[cat]||{};
-  const subcatReal = {};
-  DB.lancamentos.filter(l=>l.cat===cat&&meses.includes(l.mes))
-    .forEach(l=>{const s=l.subcat||'Outros';subcatReal[s]=(subcatReal[s]||0)+Math.abs(l.valor);});
-  const allSubs=[...new Set([...Object.keys(subcatsOrc),...Object.keys(subcatReal)])].sort();
-  if(!allSubs.length){alert('Nenhuma subcategoria encontrada para '+cat+'.');return;}
-
-  const rows=allSubs.map(sub=>{
-    const o=getOrcSub(cat,sub,meses);
-    const rt=subcatReal[sub]||0;
-    const r=tipo==='mes'?rt:Math.round(rt/n);
-    const d=r-o;
-    const cl=o>0?(d>500?'var(--red)':d>100?'var(--amber)':d<=0?'var(--green)':'var(--tx2)'):'var(--tx2)';
-    const st=o>0?(d<=0?'✓ OK':d<=100?'↑ Leve':d<=500?'⚠ Atenção':'✗ Crítico'):'—';
-    const pe=o>0?Math.min(Math.round(r/o*100),150):null;
-    const bw=pe!==null?Math.min(pe,100):0;
-    const bc=pe===null?'var(--tx3)':pe>120?'var(--red)':pe>100?'var(--amber)':'var(--green)';
-    return `<tr style="border-bottom:1px solid var(--bd)">
-      <td style="padding:8px 10px;font-size:13px">${sub}</td>
-      <td style="padding:8px 10px;font-size:13px;text-align:right">${o>0?R(o):'—'}</td>
-      <td style="padding:8px 10px;font-size:13px;text-align:right;color:${cl}">${R(r)}</td>
-      <td style="padding:8px 10px;font-size:13px;text-align:right;color:${cl};white-space:nowrap">${o>0?(d>=0?'+':'')+R(d):'—'}</td>
-      <td style="padding:8px 12px;font-size:11px;font-weight:700;color:${cl};white-space:nowrap">${st}</td>
-    </tr><tr><td colspan="5" style="padding:0 10px 8px">
-      <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden">
-        <div style="height:100%;width:${bw}%;background:${bc};border-radius:2px"></div>
-      </div></td></tr>`;
-  }).join('');
-
-  const to=allSubs.reduce((s,sub)=>s+getOrcSub(cat,sub,meses),0);
-  const tr2=allSubs.reduce((s,sub)=>s+(tipo==='mes'?(subcatReal[sub]||0):Math.round((subcatReal[sub]||0)/n)),0);
-  const td=tr2-to; const tc=td>0?'var(--red)':'var(--green)';
-
-  document.getElementById('orc-detalhe-title').textContent=cat+' — Subcategorias';
-  document.getElementById('orc-detalhe-periodo').textContent=
-    'Período: '+(meses.length===1?meses[0]:meses[0]+'–'+meses[meses.length-1])+
-    ' · '+(tipo==='mes'?'mês único':'média de '+n+' meses');
-  document.getElementById('orc-detalhe-body').innerHTML=`
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="background:var(--bg3)">
-        <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Subcategoria</th>
-        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Orçado</th>
-        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Realizado</th>
-        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Desvio</th>
-        <th style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Status</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr style="background:var(--bg3)">
-        <td style="padding:9px 10px;font-weight:700;font-size:13px">TOTAL</td>
-        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right">${to>0?R(to):'—'}</td>
-        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right;color:${tc}">${R(tr2)}</td>
-        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right;color:${tc}">${to>0?(td>=0?'+':'')+R(td):'—'}</td>
-        <td></td></tr></tfoot>
-    </table>`;
-  document.getElementById('orc-detalhe-modal').style.display='flex';
-}
-function orcFecharDetalhe(){
-  const m=document.getElementById('orc-detalhe-modal');
-  if(m)m.style.display='none';
-}
-
 atualizarRelogio();
 setInterval(atualizarRelogio, 1000);
 
@@ -6773,4 +6675,66 @@ function updateFilterBadge(){
 }
 
 
+
+function getOrcSub(cat,sub,meses){
+  const m=DB.orcamentoSub?.[cat]?.[sub]||{};
+  if(meses&&meses.length){const v=meses.map(ms=>m[ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
+  return m['']||0;
+}
+function getOrcCat(cat,meses){
+  if(DB.orcamentoMes?.[cat]&&meses&&meses.length){const v=meses.map(ms=>DB.orcamentoMes[cat][ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
+  return DB.orcamento[cat]||0;
+}
+function orcFecharDetalhe(){const m=document.getElementById('orc-detalhe-modal');if(m)m.style.display='none';}
+function orcDetalhePopup(cat,meses){
+  if(typeof meses==='string')try{meses=JSON.parse(meses);}catch(e){meses=[];}
+  const n=meses.length||1;
+  const tipo=document.getElementById('orc-tipo')?.value||'media';
+  const subcatsOrc=DB.orcamentoSub?.[cat]||{};
+  const subcatReal={};
+  DB.lancamentos.filter(l=>l.cat===cat&&meses.includes(l.mes))
+    .forEach(l=>{const s=l.subcat||'Outros';subcatReal[s]=(subcatReal[s]||0)+Math.abs(l.valor);});
+  const allSubs=[...new Set([...Object.keys(subcatsOrc),...Object.keys(subcatReal)])].sort();
+  if(!allSubs.length){alert('Nenhuma subcategoria encontrada para '+cat+'.');return;}
+  const rows=allSubs.map(sub=>{
+    const o=getOrcSub(cat,sub,meses),rt=subcatReal[sub]||0,r=tipo==='mes'?rt:Math.round(rt/n),d=r-o;
+    const cl=o>0?(d>500?'var(--red)':d>100?'var(--amber)':d<=0?'var(--green)':'var(--tx2)'):'var(--tx2)';
+    const st=o>0?(d<=0?'✓ OK':d<=100?'↑ Leve':d<=500?'⚠ Atenção':'✗ Crítico'):'—';
+    const pe=o>0?Math.min(Math.round(r/o*100),150):null,bw=pe!==null?Math.min(pe,100):0;
+    const bc=pe===null?'var(--tx3)':pe>120?'var(--red)':pe>100?'var(--amber)':'var(--green)';
+    return `<tr style="border-bottom:1px solid var(--bd)">
+      <td style="padding:8px 10px;font-size:13px">${sub}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:right">${o>0?R(o):'—'}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:right;color:${cl}">${R(r)}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:right;color:${cl};white-space:nowrap">${o>0?(d>=0?'+':'')+R(d):'—'}</td>
+      <td style="padding:8px 12px;font-size:11px;font-weight:700;color:${cl};white-space:nowrap">${st}</td>
+    </tr><tr><td colspan="5" style="padding:0 10px 8px">
+      <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${bw}%;background:${bc};border-radius:2px"></div>
+      </div></td></tr>`;
+  }).join('');
+  const to=allSubs.reduce((s,sub)=>s+getOrcSub(cat,sub,meses),0);
+  const tr2=allSubs.reduce((s,sub)=>s+(tipo==='mes'?(subcatReal[sub]||0):Math.round((subcatReal[sub]||0)/n)),0);
+  const td=tr2-to,tc=td>0?'var(--red)':'var(--green)';
+  document.getElementById('orc-detalhe-title').textContent=cat+' — Subcategorias';
+  document.getElementById('orc-detalhe-periodo').textContent='Período: '+(meses.length===1?meses[0]:meses[0]+'–'+meses[meses.length-1])+' · '+(tipo==='mes'?'mês único':'média de '+n+' meses');
+  document.getElementById('orc-detalhe-body').innerHTML=`
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--bg3)">
+        <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Subcategoria</th>
+        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Orçado</th>
+        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Realizado</th>
+        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Desvio</th>
+        <th style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Status</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:var(--bg3)">
+        <td style="padding:9px 10px;font-weight:700;font-size:13px">TOTAL</td>
+        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right">${to>0?R(to):'—'}</td>
+        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right;color:${tc}">${R(tr2)}</td>
+        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right;color:${tc}">${to>0?(td>=0?'+':'')+R(td):'—'}</td>
+        <td></td></tr></tfoot>
+    </table>`;
+  document.getElementById('orc-detalhe-modal').style.display='flex';
+}
 </script>
