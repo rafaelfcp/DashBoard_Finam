@@ -6250,6 +6250,7 @@ async function _orcSave(input){
   let   existId = (input.dataset.id || '').trim();
   const sb = getSB();
 
+  console.log('[orc] Iniciando save:', {cat, sub, mes, valor, existId});
   try {
     if(existId){
       // ── CASO 1: ID conhecido → UPDATE por ID ──
@@ -6307,6 +6308,7 @@ async function _orcSave(input){
         }
       } else {
         existId = inserted?.id || '';
+        console.log('[orc] INSERT ok, id:', existId);
       }
 
       // Cachear ID no input e em memória
@@ -6319,11 +6321,12 @@ async function _orcSave(input){
     }
 
   } catch(err){
-    console.error('[orc] Erro:', cat, sub, mes, valor, '→', err.message || err);
+    const msg = err.message || err.details || JSON.stringify(err) || 'Erro desconhecido';
+    console.error('[orc] Erro:', cat, sub, mes, valor, '→', msg, err);
     input.style.borderColor = 'var(--red)';
-    input.title = err.message || 'Erro desconhecido';
-    // Toast de erro visível na tela
-    _orcShowToast('Erro ao salvar ' + cat + (sub?' / '+sub:'') + ': ' + (err.message||err), 'err');
+    input.title = msg;
+    // Alert bloqueante para diagnóstico
+    alert('ERRO AO SALVAR ORÇAMENTO\n\nCategoria: ' + cat + '\nSubcategoria: ' + (sub||'(nenhuma)') + '\nMês: ' + (mes||'(base)') + '\nValor: ' + valor + '\n\nErro: ' + msg + '\n\nCode: ' + (err.code||'N/A') + '\nDetalhes: ' + (err.details||'N/A') + '\nHint: ' + (err.hint||'N/A'));
     return;
   }
 
