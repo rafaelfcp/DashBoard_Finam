@@ -6244,15 +6244,16 @@ async function _orcSaveById(id){ await _orcSave(document.getElementById(id)); }
 async function _orcSave(input){
   if(!input) return;
   const cat   = input.dataset.cat;
-  const sub   = input.dataset.sub  || null; // null = categoria sem subcategoria
-  const mes   = input.dataset.mes  || null; // null = valor base
+  const sub   = input.dataset.sub  || null;
+  const mes   = input.dataset.mes  || null;
   const valor = parseFloat(input.value) || 0;
   let   existId = (input.dataset.id || '').trim();
+  const sb = getSB();
 
   try {
     if(existId){
-      // ID conhecido → UPDATE direto pelo ID
-      const { error } = await getSB()
+      // ── CASO 1: ID conhecido → UPDATE por ID ──
+      const { error } = await sb
         .from('orcamentos')
         .update({ valor })
         .eq('id', existId)
@@ -6260,52 +6261,56 @@ async function _orcSave(input){
       if(error) throw error;
 
     } else {
-      // Sem ID → verificar se já existe pelo composto (categoria+subcategoria+mes)
-      let q = getSB()
+      // ── CASO 2: Sem ID → INSERT direto ──
+      // Se já existir um registro idêntico no banco, buscar o ID e fazer UPDATE
+      const payload = {
+        usuario_id:   usuarioAtual.id,
+        categoria:    cat,
+        subcategoria: sub  || null,
+        valor,
+        mes:          mes  || null,
+        ano:          mes  ? new Date().getFullYear() : null,
+      };
+
+      const { data: inserted, error: errIns } = await sb
         .from('orcamentos')
+        .insert(payload)
         .select('id')
-        .eq('usuario_id', usuarioAtual.id)
-        .eq('categoria', cat);
+        .single();
 
-      // Filtrar subcategoria: NULL ou valor real
-      if(sub) q = q.eq('subcategoria', sub);
-      else     q = q.or('subcategoria.is.null,subcategoria.eq.');
+      if(errIns){
+        // Pode ser conflito de unicidade (23505) — buscar o registro e fazer UPDATE
+        if(errIns.code === '23505' || errIns.message?.includes('duplicate') || errIns.message?.includes('unique')){
+          // Buscar o registro existente
+          let q = sb.from('orcamentos')
+            .select('id')
+            .eq('usuario_id', usuarioAtual.id)
+            .eq('categoria', cat);
+          if(sub)  q = q.eq('subcategoria', sub);
+          else     q = q.is('subcategoria', null);
+          if(mes)  q = q.eq('mes', mes);
+          else     q = q.is('mes', null);
 
-      // Filtrar mes: NULL ou valor real
-      if(mes) q = q.eq('mes', mes);
-      else     q = q.or('mes.is.null,mes.eq.');
+          const { data: found, error: errFind } = await q.maybeSingle();
+          if(errFind) throw errFind;
+          if(!found) throw errIns; // não encontrou → erro real
 
-      const { data: exists } = await q.maybeSingle();
-
-      if(exists?.id){
-        // Existe mas não tínhamos o ID — UPDATE e cachear ID
-        const { error } = await getSB()
-          .from('orcamentos')
-          .update({ valor })
-          .eq('id', exists.id);
-        if(error) throw error;
-        existId = exists.id;
-        input.dataset.id = existId;
+          // Fazer UPDATE com o ID encontrado
+          const { error: errUpd } = await sb
+            .from('orcamentos')
+            .update({ valor })
+            .eq('id', found.id);
+          if(errUpd) throw errUpd;
+          existId = found.id;
+        } else {
+          throw errIns;
+        }
       } else {
-        // Realmente não existe → INSERT
-        const { data: inserted, error } = await getSB()
-          .from('orcamentos')
-          .insert({
-            usuario_id:   usuarioAtual.id,
-            categoria:    cat,
-            subcategoria: sub   || null,
-            valor,
-            mes:          mes   || null,
-            ano:          mes   ? new Date().getFullYear() : null
-          })
-          .select()
-          .single();
-        if(error) throw error;
-        existId = inserted.id;
-        input.dataset.id = existId;
+        existId = inserted?.id || '';
       }
 
-      // Atualizar _orcDados em memória
+      // Cachear ID no input e em memória
+      if(existId) input.dataset.id = existId;
       const subKey = sub || '';
       const mesKey = mes || '';
       if(!_orcDados[cat])          _orcDados[cat] = {};
@@ -6314,21 +6319,23 @@ async function _orcSave(input){
     }
 
   } catch(err){
-    console.error('[orc] Erro ao salvar:', cat, sub, mes, err.message);
+    console.error('[orc] Erro:', cat, sub, mes, valor, '→', err.message || err);
     input.style.borderColor = 'var(--red)';
-    input.title = 'Erro: ' + err.message;
+    input.title = err.message || 'Erro desconhecido';
+    // Toast de erro visível na tela
+    _orcShowToast('Erro ao salvar ' + cat + (sub?' / '+sub:'') + ': ' + (err.message||err), 'err');
     return;
   }
 
-  // Atualizar DB.orcamento[cat] = soma das subcategorias base (para análises)
+  // Atualizar DB.orcamento[cat] = soma das subcategorias base para as análises
   if(!mes){
-    const subs = DB_SUBCATS.filter(s => {
+    const catSubs = DB_SUBCATS.filter(s => {
       const c = DB_CATS.find(x => x.id === s.categoria_id);
       return c?.nome === cat;
     });
-    DB.orcamento[cat] = subs.length > 0
-      ? subs.reduce((s, sb) => s + (_orcDados[cat]?.[sb.nome]?.['']?.valor || 0), 0)
-      : (_orcDados[cat]?.['']?.['']?.valor || valor);
+    DB.orcamento[cat] = catSubs.length > 0
+      ? catSubs.reduce((s, sb) => s + (_orcDados[cat]?.[sb.nome]?.['']?.valor || 0), 0)
+      : valor;
   }
 
   input.style.borderColor = 'var(--green)';
@@ -6337,6 +6344,24 @@ async function _orcSave(input){
   setTimeout(() => { if(input) input.style.borderColor = ''; }, 1800);
   atualizarTotalOrcLinha(cat, sub);
 }
+
+function _orcShowToast(msg, tipo){
+  let toast = document.getElementById('orc-toast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'orc-toast';
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;max-width:400px;text-align:center;transition:opacity .3s';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.background = tipo === 'err' ? 'var(--rd)' : 'var(--gd)';
+  toast.style.color       = tipo === 'err' ? 'var(--red)' : 'var(--green)';
+  toast.style.border      = tipo === 'err' ? '1px solid rgba(248,81,73,.4)' : '1px solid rgba(63,185,80,.4)';
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+}
+
 
 function atualizarTotalOrcLinha(cat, sub){
   const catKey = cat.replace(/[^a-z0-9]/gi,'_');
