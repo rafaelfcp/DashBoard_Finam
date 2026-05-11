@@ -3466,15 +3466,10 @@ function renderCat(){
   document.getElementById('cat-tbody').innerHTML=subs.map((s,i)=>{
     const pct=tot?Math.round(s.total/tot*100):0;
     const cor=clrs[i%clrs.length];
-    const orcSub = getOrcSub(cat, s.nome, mesesFilt);
-    const devSub = s.media - orcSub;
-    const devCls = orcSub>0 ? (devSub>500?'danger':devSub>100?'warn':devSub<=0?'ok':'') : '';
     return `<tr>
       <td style="font-weight:600;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.nome}">${s.nome}</td>
       <td>${R(s.total)}</td>
       <td class="warn">${R(s.media)}</td>
-      <td>${orcSub>0?R(orcSub):'—'}</td>
-      <td class="${devCls}">${orcSub>0?(devSub>=0?'+':'')+R(devSub):'—'}</td>
       <td>${pct}%</td>
       <td><div style="display:flex;align-items:center;gap:5px">
         <div class="progress-track" style="flex:1">
@@ -3661,9 +3656,9 @@ function renderOrcamento(){
 
   // Dados
   const lan  = DB.lancamentos.filter(l => meses.includes(l.mes) && l.cat !== 'Receitas' && l.cat !== 'Investimentos');
-  const cats  = CATS.filter(c => (getOrcCat(c,meses) > 0) || lan.some(l => l.cat === c));
+  const cats  = CATS.filter(c => (DB.orcamento[c] || 0) > 0 || lan.some(l => l.cat === c));
   const reais = cats.map(c => Math.round(SM(lan.filter(l => l.cat === c).map(l => l.valor)) / (tipo === 'mes' ? 1 : n)));
-  const orc   = cats.map(c => getOrcCat(c, meses));
+  const orc   = cats.map(c => DB.orcamento[c] || 0);
 
   // KPIs
   const totReal   = SM(reais);
@@ -3733,9 +3728,13 @@ function renderOrcamento(){
     const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
     const bdgCls   = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
     const bdgTxt   = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
+    const hasSub   = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
+    const mesesEnc = JSON.stringify(meses).replace(/"/g,"'");
     return `
-      <div class="kpi" style="padding:12px 14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="kpi" style="padding:12px 14px;position:relative;${hasSub?'cursor:pointer;transition:box-shadow .15s;':''}"
+        ${hasSub ? `onclick="orcDetalhePopup('${c}',JSON.parse(this.dataset.meses))" data-meses='${JSON.stringify(meses)}' title="Clique para ver subcategorias"` : ''}>
+        ${hasSub ? `<span style="position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--blue);opacity:.8;pointer-events:none">↗ ver subcats</span>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;${hasSub?'padding-right:72px':''}">
           <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
             <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>
             ${c}
@@ -3777,15 +3776,10 @@ function renderOrcamento(){
     const st     = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
     const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
     const barW   = pExec !== null ? Math.min(pExec, 100) : 0;
-    const hasSub = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
-    const mesesStr = JSON.stringify(meses);
-    const catLabel = hasSub
-      ? `<button onclick='orcDetalhePopup("${c}",${mesesStr})' style='background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px' title='Ver subcategorias'>${c}</button>`
-      : c;
     return `<tr>
       <td style="font-weight:700;padding:9px 10px">
         <span style="display:inline-flex;align-items:center;gap:5px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${catLabel}
+          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${c}
         </span>
       </td>
       <td style="padding:9px 10px">${R(orc[i])}</td>
@@ -4666,7 +4660,7 @@ function renderDiagnostico(){
   CATS.forEach(c=>{catTot[c]=Math.round(SM(lanPagos.filter(l=>l.cat===c&&l.pago==='Sim').map(l=>l.valor))/nM);});
   const catsSorted=CATS.filter(c=>catTot[c]>0).sort((a,b)=>catTot[b]-catTot[a]);
   document.getElementById('diag-impacto').innerHTML=catsSorted.slice(0,6).map((c,i)=>{
-    const media=catTot[c],orcado=getOrcCat(c,mesesFilt),desvio=media-orcado;
+    const media=catTot[c],orcado=DB.orcamento[c]||0,desvio=media-orcado;
     const pct=recMedia>0?Math.round(media/recMedia*100):0,pctOrc=recMedia>0?Math.round(orcado/recMedia*100):0;
     const maxRef=Math.max(media,orcado,1);
     const barReal=Math.round(media/maxRef*100),barOrc=orcado>0?Math.round(orcado/maxRef*100):0;
@@ -4694,7 +4688,7 @@ function gerarDiagnostico(){
       const saldoAtual=mesAtual.saldo_atu,tendencia=saldos[saldos.length-1].saldo_atu-saldos[0].saldo_ini;
       const pInv=recMedia>0?Math.round(invMedia/recMedia*100):0,pDesp=recMedia>0?Math.round(despMedia/recMedia*100):0;
       const catTot={};CATS.forEach(c=>{catTot[c]=Math.round(SM(lanPagos.filter(l=>l.cat===c&&l.pago==='Sim').map(l=>l.valor))/nM);});
-      const catDesvio=CATS.filter(c=>catTot[c]>0&&getOrcCat(c,mesesFilt)>0).map(c=>({cat:c,real:catTot[c],orc:getOrcCat(c,mesesFilt),dev:catTot[c]-getOrcCat(c,mesesFilt)})).filter(x=>x.dev>0).sort((a,b)=>b.dev-a.dev);
+      const catDesvio=CATS.filter(c=>catTot[c]>0&&DB.orcamento[c]>0).map(c=>({cat:c,real:catTot[c],orc:DB.orcamento[c],dev:catTot[c]-DB.orcamento[c]})).filter(x=>x.dev>0).sort((a,b)=>b.dev-a.dev);
       const mesesNeg=saldos.filter(s=>s.tem_pago&&s.resultado_pago<0);
       const sec=(icone,titulo,cor='var(--tx)')=>`<div style="font-size:14px;font-weight:800;color:${cor};margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bd)">${icone} ${titulo}</div>`;
       const item=(txt,cor='var(--tx2)')=>`<div style="display:flex;gap:8px;margin:5px 0;padding:7px 12px;background:var(--bg3);border-radius:var(--rs);font-size:12px;color:${cor}"><span style="flex-shrink:0">›</span><span>${txt}</span></div>`;
@@ -5417,52 +5411,7 @@ async function carregarDoSupabase(){
     DB.saldos_iniciais = {};
     saldos.forEach(s=>{ DB.saldos_iniciais[s.mes] = parseFloat(s.saldo); });
 
-    // Reconstruir DB.orcamento e DB.orcamentoSub do Supabase
-    DB.orcamento    = {};  // { categoria: valorBase }
-    DB.orcamentoSub = {};  // { categoria: { subcategoria: { mes|'': valor } } }
-    DB.orcamentoMes = {};  // { categoria: { mes: valor } } — orçamento total por mes
-
-    orcs.forEach(o => {
-      const cat = o.categoria;
-      const sub = o.subcategoria || null;
-      const mes = o.mes || null;
-      const val = parseFloat(o.valor) || 0;
-
-      // Estrutura por subcategoria
-      if(sub){
-        if(!DB.orcamentoSub[cat])       DB.orcamentoSub[cat] = {};
-        if(!DB.orcamentoSub[cat][sub])  DB.orcamentoSub[cat][sub] = {};
-        DB.orcamentoSub[cat][sub][mes||''] = val;
-      }
-
-      // Orçamento mensal da categoria (soma das subcategorias daquele mês)
-      if(mes){
-        if(!DB.orcamentoMes[cat]) DB.orcamentoMes[cat] = {};
-        DB.orcamentoMes[cat][mes] = (DB.orcamentoMes[cat][mes] || 0) + val;
-      } else if(!sub) {
-        // Valor base sem mes e sem subcategoria
-        DB.orcamento[cat] = (DB.orcamento[cat] || 0) + val;
-      }
-    });
-
-    // Consolidar DB.orcamento: se tiver por mês, calcular média
-    // Se só tiver por subcategoria sem mes, somar subcategorias
-    Object.keys(DB.orcamentoSub).forEach(cat => {
-      const subMap = DB.orcamentoSub[cat];
-      // Calcular valor base (sem mês) por subcategoria
-      const baseTotal = Object.values(subMap).reduce((s, mesMap) => {
-        return s + (mesMap[''] || 0);
-      }, 0);
-      if(baseTotal > 0 && !DB.orcamento[cat]) DB.orcamento[cat] = baseTotal;
-    });
-
-    // Se tiver valores mensais mas não base, usar a média dos meses
-    Object.keys(DB.orcamentoMes).forEach(cat => {
-      if(!DB.orcamento[cat] || DB.orcamento[cat] === 0){
-        const vals = Object.values(DB.orcamentoMes[cat]);
-        DB.orcamento[cat] = vals.length > 0 ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0;
-      }
-    });
+    orcs.forEach(o=>{ DB.orcamento[o.categoria] = parseFloat(o.valor); });
 
     const mAtivos = getMeses();
     document.getElementById('sidebar-sub').textContent = `${mAtivos.join('–')} · ${DB.lancamentos.length} registros`;
@@ -6500,20 +6449,17 @@ function cfgFecharModal(){
 
 
 
-// Helper: buscar orçamento de uma subcategoria para um período
+// ── Helpers de orçamento por período ──
 function getOrcSub(cat, sub, meses){
   const subMap = DB.orcamentoSub?.[cat]?.[sub] || {};
-  // Prioridade: valor do mês específico (média dos meses), fallback ao base ''
   if(meses && meses.length > 0){
     const vals = meses.map(m => subMap[m] || 0).filter(v => v > 0);
     if(vals.length > 0) return Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
   }
-  return subMap[''] || 0; // valor base sem mês
+  return subMap[''] || 0;
 }
 
-// Helper: orçamento total da categoria para um período
 function getOrcCat(cat, meses){
-  // Tentar DB.orcamentoMes primeiro
   if(DB.orcamentoMes?.[cat] && meses && meses.length > 0){
     const vals = meses.map(m => DB.orcamentoMes[cat][m] || 0).filter(v => v > 0);
     if(vals.length > 0) return Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
@@ -6521,26 +6467,19 @@ function getOrcCat(cat, meses){
   return DB.orcamento[cat] || 0;
 }
 
-
-// ══ POPUP DETALHE ORÇAMENTO POR SUBCATEGORIA ══
+// ── Popup detalhe subcategorias ──
 function orcDetalhePopup(cat, meses){
-  if(typeof meses === 'string') meses = JSON.parse(meses);
-  const n = meses.length || 1;
+  if(typeof meses === 'string') try{ meses = JSON.parse(meses); }catch(e){ meses = []; }
+  const n    = meses.length || 1;
   const tipo = document.getElementById('orc-tipo')?.value || 'media';
 
-  // Subcategorias com orçamento
   const subcatsOrc = DB.orcamentoSub?.[cat] || {};
-  // Lançamentos da categoria no período
   const subcatReal = {};
   DB.lancamentos
     .filter(l => l.cat === cat && meses.includes(l.mes))
-    .forEach(l => {
-      const s = l.subcat || 'Outros';
-      subcatReal[s] = (subcatReal[s] || 0) + Math.abs(l.valor);
-    });
+    .forEach(l => { const s = l.subcat||'Outros'; subcatReal[s]=(subcatReal[s]||0)+Math.abs(l.valor); });
 
   const allSubs = [...new Set([...Object.keys(subcatsOrc), ...Object.keys(subcatReal)])].sort();
-
   if(!allSubs.length){ alert(`Nenhuma subcategoria encontrada para ${cat}.`); return; }
 
   const rows = allSubs.map(sub => {
@@ -6551,7 +6490,7 @@ function orcDetalhePopup(cat, meses){
     const cls     = orcSub>0 ? (dev>500?'var(--red)':dev>100?'var(--amber)':dev<=0?'var(--green)':'var(--tx2)') : 'var(--tx2)';
     const st      = orcSub>0 ? (dev<=0?'✓ OK':dev<=100?'↑ Leve':dev<=500?'⚠ Atenção':'✗ Crítico') : '—';
     const pExec   = orcSub>0 ? Math.min(Math.round(real/orcSub*100),150) : null;
-    const barW    = pExec !== null ? Math.min(pExec,100) : 0;
+    const barW    = pExec!==null ? Math.min(pExec,100) : 0;
     const barColor= pExec===null?'var(--tx3)':pExec>120?'var(--red)':pExec>100?'var(--amber)':'var(--green)';
     return `<tr style="border-bottom:1px solid var(--bd)">
       <td style="padding:8px 10px;font-size:13px">${sub}</td>
@@ -6569,13 +6508,12 @@ function orcDetalhePopup(cat, meses){
 
   const totOrc  = allSubs.reduce((s,sub)=>s+getOrcSub(cat,sub,meses),0);
   const totReal = allSubs.reduce((s,sub)=>s+(tipo==='mes'?(subcatReal[sub]||0):Math.round((subcatReal[sub]||0)/n)),0);
-  const totDev  = totReal - totOrc;
-  const totCls  = totDev>0 ? 'var(--red)' : 'var(--green)';
+  const totDev  = totReal-totOrc;
+  const totCls  = totDev>0?'var(--red)':'var(--green)';
 
-  document.getElementById('orc-detalhe-title').textContent = `${cat} — Subcategorias`;
+  document.getElementById('orc-detalhe-title').textContent   = `${cat} — Subcategorias`;
   document.getElementById('orc-detalhe-periodo').textContent =
     `Período: ${meses.length===1?meses[0]:meses[0]+'–'+meses[meses.length-1]} · ${tipo==='mes'?'mês único':'média de '+n+' meses'}`;
-
   document.getElementById('orc-detalhe-body').innerHTML = `
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:var(--bg3)">
@@ -6594,7 +6532,6 @@ function orcDetalhePopup(cat, meses){
         <td></td>
       </tr></tfoot>
     </table>`;
-
   document.getElementById('orc-detalhe-modal').style.display = 'flex';
 }
 
