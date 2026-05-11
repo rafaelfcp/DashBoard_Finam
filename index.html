@@ -650,6 +650,96 @@ html.is-mobile .sidebar.open{
     padding-right:0 !important;
   }
 }
+
+/* ── CONFIGURAÇÕES ── */
+.cfg-tab{
+  padding:10px 16px;font-size:13px;font-weight:600;
+  background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--tx2);cursor:pointer;white-space:nowrap;
+  transition:.15s;-webkit-tap-highlight-color:transparent;
+}
+.cfg-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.cfg-tab:active{background:var(--bg3)}
+
+.cfg-item{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;background:var(--bg2);
+  border:1px solid var(--bd);border-radius:var(--rs);
+  margin-bottom:8px;
+}
+.cfg-item-info{flex:1;min-width:0}
+.cfg-item-nome{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cfg-item-sub{font-size:11px;color:var(--tx2);margin-top:2px}
+.cfg-item-actions{display:flex;gap:6px;flex-shrink:0}
+.cfg-badge{
+  display:inline-flex;align-items:center;padding:2px 8px;
+  border-radius:99px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.cfg-badge.receita{background:var(--gd);color:var(--green)}
+.cfg-badge.despesa{background:var(--rd);color:var(--red)}
+.cfg-badge.investimento{background:var(--bld);color:var(--blue)}
+.cfg-badge.debito{background:var(--bld);color:var(--blue)}
+.cfg-badge.credito{background:var(--rd);color:var(--red)}
+.cfg-badge.pix{background:var(--gd);color:var(--green)}
+.cfg-badge.outros{background:rgba(139,148,158,.15);color:var(--tx2)}
+
+.btn-cfg-add{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 16px;font-size:13px;font-weight:700;
+  background:var(--blue);color:#fff;border:none;
+  border-radius:var(--rs);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:.15s;
+}
+.btn-cfg-add:active{opacity:.85}
+
+.btn-cfg-edit{
+  padding:6px 10px;font-size:12px;font-weight:600;
+  background:var(--bg3);border:1px solid var(--bd2);
+  color:var(--tx2);border-radius:var(--rs);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-cfg-edit:active{background:var(--bld);color:var(--blue)}
+
+.btn-cfg-del{
+  padding:6px 10px;font-size:12px;font-weight:600;
+  background:none;border:1px solid rgba(248,81,73,.3);
+  color:var(--red);border-radius:var(--rs);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-cfg-del:active{background:var(--rd)}
+
+.cfg-form-group{margin-bottom:14px}
+.cfg-form-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px}
+.cfg-form-input{width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:10px 12px;font-size:15px;outline:none;box-sizing:border-box;transition:border-color .15s}
+.cfg-form-input:focus{border-color:var(--blue)}
+
+.cfg-orc-row{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;background:var(--bg2);
+  border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:8px;
+}
+.cfg-orc-cat{flex:1;font-size:13px;font-weight:600}
+.cfg-orc-input{
+  width:120px;background:var(--bg3);border:1px solid var(--bd2);
+  color:var(--tx);border-radius:var(--rs);padding:8px 10px;
+  font-size:14px;font-weight:700;text-align:right;outline:none;
+  transition:border-color .15s;
+}
+.cfg-orc-input:focus{border-color:var(--blue)}
+.btn-cfg-orc-save{
+  padding:8px 14px;font-size:12px;font-weight:700;
+  background:var(--blue);color:#fff;border:none;
+  border-radius:var(--rs);cursor:pointer;white-space:nowrap;
+}
+
+#cfg-modal-overlay.open{display:flex !important}
+
+@media(max-width:860px){
+  .cfg-orc-row{flex-wrap:wrap;gap:8px}
+  .cfg-orc-input{width:100%}
+  .cfg-item-nome{font-size:13px}
+}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -830,6 +920,7 @@ html.is-mobile .sidebar.open{
   <div class="nav-sec">Dados</div>
   <div class="nav-item" onclick="navTo('novo',this)"><span class="dot"></span>➕ Novo Lançamento</div>
   <div class="nav-item" onclick="navTo('lancamentos',this)"><span class="dot"></span>Lançamentos</div>
+  <div class="nav-item" onclick="navTo('config',this)"><span class="dot"></span>⚙ Configurações</div>
   <div class="sb-foot">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <span id="sync-status-badge" class="sync-badge offline" style="font-size:11px;padding:4px 10px;border-radius:99px;font-weight:700">● offline</span>
@@ -2123,6 +2214,105 @@ html.is-mobile .sidebar.open{
   </div>
 </div>
 
+
+<!-- ══ CONFIGURAÇÕES ══ -->
+<div class="page" id="pg-config">
+  <div id="cfg-empty" class="empty" style="display:none">
+    <div class="empty-icon">⚙</div>
+    <div class="empty-title">Carregando configurações...</div>
+  </div>
+  <div id="cfg-body">
+
+    <!-- TABS -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--bd);margin-bottom:20px;overflow-x:auto">
+      <button class="cfg-tab active" id="cfg-tab-formas"   onclick="cfgTab('formas')">Formas Pgto.</button>
+      <button class="cfg-tab"        id="cfg-tab-cats"     onclick="cfgTab('cats')">Categorias</button>
+      <button class="cfg-tab"        id="cfg-tab-subcats"  onclick="cfgTab('subcats')">Subcategorias</button>
+      <button class="cfg-tab"        id="cfg-tab-orc"      onclick="cfgTab('orc')">Orçamentos</button>
+    </div>
+
+    <!-- PAINEL FORMAS DE PAGAMENTO -->
+    <div id="cfg-panel-formas">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:700">Formas de Pagamento</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">Cadastre os meios de pagamento que você usa</div>
+        </div>
+        <button class="btn-cfg-add" onclick="cfgNovaForma()">+ Adicionar</button>
+      </div>
+      <div id="cfg-formas-list"></div>
+    </div>
+
+    <!-- PAINEL CATEGORIAS -->
+    <div id="cfg-panel-cats" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:700">Categorias</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">Organize seus gastos por categoria</div>
+        </div>
+        <button class="btn-cfg-add" onclick="cfgNovaCategoria()">+ Adicionar</button>
+      </div>
+      <div id="cfg-cats-list"></div>
+    </div>
+
+    <!-- PAINEL SUBCATEGORIAS -->
+    <div id="cfg-panel-subcats" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:700">Subcategorias</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">Detalhe cada categoria</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="cfg-subcat-cat-sel" onchange="cfgRenderSubcats()" style="background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:8px 12px;font-size:13px;outline:none">
+            <option value="">Selecione a categoria</option>
+          </select>
+          <button class="btn-cfg-add" onclick="cfgNovaSubcat()">+ Adicionar</button>
+        </div>
+      </div>
+      <div id="cfg-subcats-list"></div>
+    </div>
+
+    <!-- PAINEL ORÇAMENTOS -->
+    <div id="cfg-panel-orc" style="display:none">
+      <div style="margin-bottom:14px">
+        <div style="font-size:16px;font-weight:700">Orçamentos</div>
+        <div style="font-size:12px;color:var(--tx2);margin-top:2px">Defina o orçamento por categoria e mês</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <select id="cfg-orc-tipo" onchange="cfgRenderOrc()" style="background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:8px 12px;font-size:13px;outline:none">
+          <option value="base">Valor base (todos os meses)</option>
+          <option value="mes">Por mês específico</option>
+        </select>
+        <select id="cfg-orc-mes" style="display:none;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:8px 12px;font-size:13px;outline:none" onchange="cfgRenderOrc()">
+          <option value="Jan">Janeiro</option><option value="Fev">Fevereiro</option>
+          <option value="Mar">Março</option><option value="Abr">Abril</option>
+          <option value="Mai">Maio</option><option value="Jun">Junho</option>
+          <option value="Jul">Julho</option><option value="Ago">Agosto</option>
+          <option value="Set">Setembro</option><option value="Out">Outubro</option>
+          <option value="Nov">Novembro</option><option value="Dez">Dezembro</option>
+        </select>
+      </div>
+      <div id="cfg-orc-list"></div>
+    </div>
+
+  </div><!-- #cfg-body -->
+
+  <!-- MODAL GENÉRICO -->
+  <div id="cfg-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;padding:20px">
+    <div id="cfg-modal" style="background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;width:100%;max-width:440px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd)">
+        <div style="font-size:15px;font-weight:700" id="cfg-modal-title">Configuração</div>
+        <button onclick="cfgFecharModal()" style="background:none;border:none;color:var(--tx2);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+      </div>
+      <div id="cfg-modal-body" style="padding:20px"></div>
+      <div style="display:flex;gap:10px;padding:16px 20px;border-top:1px solid var(--bd)">
+        <button onclick="cfgFecharModal()" style="flex:1;padding:11px;font-size:14px;font-weight:600;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx2);border-radius:var(--rs);cursor:pointer">Cancelar</button>
+        <button id="cfg-modal-save" style="flex:2;padding:11px;font-size:14px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);cursor:pointer">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #pg-config -->
 </main>
 </div><!-- /.shell-row -->
 <!-- RODAPÉ -->
@@ -2330,7 +2520,7 @@ function closeSidebar(onClosed){
   }
 }
 
-const PAGE_NAMES={visao:'Visão Geral',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
+const PAGE_NAMES={visao:'Visão Geral',config:'Configurações',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
 
 function syncMobileUI(id){
   // Título topbar
@@ -2417,7 +2607,7 @@ const rendered={};
 function renderPage(id){
   if(!DB.lancamentos.length){ return; } // sem dados: empty-state já visível
   if(rendered[id]) return;
-  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
+  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:setupConfig,mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){ rendered[id]=true; fns[id](); } // marca APÓS confirmar que há função
 }
 
@@ -5199,6 +5389,11 @@ async function carregarDoSupabase(){
     for(const k in rendered) delete rendered[k];
     for(const k in CHARTS) delete CHARTS[k];
 
+    // Migrar e carregar tabelas dinâmicas (formas, categorias, subcategorias)
+    await migrarDadosParaSupabase();
+    await carregarTabelasDinamicas();
+    if(typeof initHideValues==='function') initHideValues();
+
     // Re-render após carregar dados
     const _isMob=(window.innerWidth<=860);
     const _mainEl=document.querySelector('.main');
@@ -5347,6 +5542,600 @@ function initHideValues(){
   }
 }
 
+
+// ══ DADOS PADRÃO — MIGRAÇÃO AUTOMÁTICA ══
+const DEFAULT_FORMAS = [
+  { nome:'Débito em Conta',   tipo:'debito',   ordem:1 },
+  { nome:'C.Credito Master',  tipo:'credito',  ordem:2 },
+  { nome:'C.C Master C6',     tipo:'credito',  ordem:3 },
+  { nome:'PIX',               tipo:'pix',      ordem:4 },
+  { nome:'Crédito em Conta',  tipo:'outros',   ordem:5 },
+];
+
+const DEFAULT_CATS = [
+  { nome:'Alimentação',       tipo:'despesa',      cor:'#3fb950', ordem:1  },
+  { nome:'Compras',           tipo:'despesa',      cor:'#8b949e', ordem:2  },
+  { nome:'Doações & Presentes',tipo:'despesa',     cor:'#bc8cff', ordem:3  },
+  { nome:'Educação',          tipo:'despesa',      cor:'#d29922', ordem:4  },
+  { nome:'Giovanna',          tipo:'despesa',      cor:'#ff7b72', ordem:5  },
+  { nome:'Investimentos',     tipo:'investimento', cor:'#58a6ff', ordem:6  },
+  { nome:'Lazer',             tipo:'despesa',      cor:'#ffa657', ordem:7  },
+  { nome:'Moradia',           tipo:'despesa',      cor:'#79c0ff', ordem:8  },
+  { nome:'Outras Despesas',   tipo:'despesa',      cor:'#484f58', ordem:9  },
+  { nome:'Receitas',          tipo:'receita',      cor:'#3fb950', ordem:10 },
+  { nome:'Saúde & Beleza',    tipo:'despesa',      cor:'#ff7b72', ordem:11 },
+  { nome:'Serviços Financeiros',tipo:'despesa',    cor:'#d29922', ordem:12 },
+  { nome:'Transporte',        tipo:'despesa',      cor:'#f85149', ordem:13 },
+  { nome:'Vestuário',         tipo:'despesa',      cor:'#bc8cff', ordem:14 },
+];
+
+const DEFAULT_SUBCATS = {
+  'Alimentação':         ['Padaria','Restaurante','Supermercado','Outras (café, água, sorvetes, etc)'],
+  'Compras':             ['Casa','Informatica','Presentes','Ensaio Fotografico','Outras Compras'],
+  'Doações & Presentes': ['Presentes','Doações'],
+  'Educação':            ['Matricula Escolar/ Mensalidade','Material Escolar','Alimentacao','Outros Educação'],
+  'Giovanna':            ['Natacao','Psicologo','Vestuario','Brinquedo','Outros Gigi'],
+  'Investimentos':       ['Renda Fixa','Outras Poupança & Investimento'],
+  'Lazer':               ['Viagens / Férias','Streaming (Netflix / Amazon / Disney)','Outros Lazer'],
+  'Moradia':             ['Aluguel de imóvel','Internet / TV a cabo','Celular','Gás','Decoração da Casa','Outros Moradia'],
+  'Outras Despesas':     ['Loteria','Outras'],
+  'Receitas':            ['Receita de Aluguel','Outras Receitas','PLR','Férias','Reembolso - Sulamerica'],
+  'Saúde & Beleza':      ['Academia','Farmacia','Cabelereiro','Personal','Outras Saúde'],
+  'Serviços Financeiros':['IOF','Juros Cheque Especial','Outras Financeiro'],
+  'Transporte':          ['Financiamento de Veículo','Combustível','IPVA','Manutenção','Sem Parar / Connecto','Seguro Auto','Estacionamento','Lavagem','Multas','Outros Transporte'],
+  'Vestuário':           ['Roupas','Outras Vestuário'],
+};
+
+const DEFAULT_ORC = {
+  'Moradia':5550,'Alimentação':1050,'Transporte':3675,'Educação':1732,
+  'Lazer':250,'Saúde & Beleza':200,'Serviços Financeiros':100,
+  'Vestuário':0,'Giovanna':660,'Compras':0,'Outras Despesas':0,'Doações & Presentes':0
+};
+
+// ── Cache em memória das tabelas dinâmicas ──
+let DB_FORMAS = [];     // formas_pagamento do Supabase
+let DB_CATS   = [];     // categorias do Supabase
+let DB_SUBCATS = [];    // subcategorias do Supabase
+let _migracaoFeita = false;
+
+// ── Migração automática na primeira vez ──
+async function migrarDadosParaSupabase(){
+  if(!usuarioAtual) return;
+  const sb = getSB();
+
+  // Verificar se já foi migrado (existe pelo menos 1 categoria)
+  const { data: catsExist } = await sb
+    .from('categorias')
+    .select('id')
+    .eq('usuario_id', usuarioAtual.id)
+    .limit(1);
+
+  if(catsExist && catsExist.length > 0){
+    _migracaoFeita = true;
+    return; // Já migrado
+  }
+
+  console.log('[migração] Iniciando migração dos dados padrão...');
+
+  try {
+    // 1. Formas de pagamento
+    const formasPayload = DEFAULT_FORMAS.map(f => ({
+      ...f, usuario_id: usuarioAtual.id
+    }));
+    await sb.from('formas_pagamento').insert(formasPayload);
+
+    // 2. Categorias
+    const catsPayload = DEFAULT_CATS.map(c => ({
+      ...c, usuario_id: usuarioAtual.id
+    }));
+    const { data: catsInseridas } = await sb
+      .from('categorias')
+      .insert(catsPayload)
+      .select();
+
+    // 3. Subcategorias
+    if(catsInseridas){
+      const subcatsPayload = [];
+      for(const cat of catsInseridas){
+        const subs = DEFAULT_SUBCATS[cat.nome] || [];
+        subs.forEach((nome, i) => {
+          subcatsPayload.push({
+            usuario_id: usuarioAtual.id,
+            categoria_id: cat.id,
+            nome, ordem: i+1
+          });
+        });
+      }
+      if(subcatsPayload.length > 0)
+        await sb.from('subcategorias').insert(subcatsPayload);
+    }
+
+    // 4. Orçamentos padrão (sem mês = valor base)
+    const orcPayload = Object.entries(DEFAULT_ORC)
+      .filter(([,v]) => v > 0)
+      .map(([categoria, valor]) => ({
+        usuario_id: usuarioAtual.id,
+        categoria, valor, mes: null, ano: null
+      }));
+    if(orcPayload.length > 0){
+      // Upsert para não duplicar
+      await sb.from('orcamentos').upsert(orcPayload, {
+        onConflict: 'usuario_id,categoria',
+        ignoreDuplicates: true
+      });
+    }
+
+    _migracaoFeita = true;
+    console.log('[migração] Concluída com sucesso.');
+  } catch(err) {
+    console.error('[migração] Erro:', err);
+  }
+}
+
+// ── Carregar tabelas dinâmicas do Supabase ──
+async function carregarTabelasDinamicas(){
+  if(!usuarioAtual) return;
+  const sb = getSB();
+  const [r1, r2, r3] = await Promise.all([
+    sb.from('formas_pagamento').select('*').eq('usuario_id', usuarioAtual.id).eq('ativo', true).order('ordem'),
+    sb.from('categorias').select('*').eq('usuario_id', usuarioAtual.id).eq('ativo', true).order('ordem'),
+    sb.from('subcategorias').select('*').eq('usuario_id', usuarioAtual.id).eq('ativo', true).order('ordem'),
+  ]);
+  if(!r1.error) DB_FORMAS  = r1.data || [];
+  if(!r2.error) DB_CATS    = r2.data || [];
+  if(!r3.error) DB_SUBCATS = r3.data || [];
+
+  // Atualizar SUBCATS em memória a partir do DB_SUBCATS
+  const newSUBCATS = {};
+  for(const cat of DB_CATS){
+    newSUBCATS[cat.nome] = DB_SUBCATS
+      .filter(s => s.categoria_id === cat.id)
+      .map(s => s.nome);
+  }
+  // Atualizar a variável global SUBCATS (usada no app)
+  if(Object.keys(newSUBCATS).length > 0){
+    Object.assign(SUBCATS, newSUBCATS);
+    // Limpar chaves antigas que não existem mais
+    for(const k of Object.keys(SUBCATS)){
+      if(!newSUBCATS[k]) delete SUBCATS[k];
+    }
+  }
+
+  // Atualizar selects de formas de pagamento
+  atualizarSelectsFormas();
+}
+
+// ── Atualizar todos os selects de formas no app ──
+function atualizarSelectsFormas(){
+  const formas = DB_FORMAS.length > 0
+    ? DB_FORMAS.map(f => `<option value="${f.nome}">${f.nome}</option>`).join('')
+    : DEFAULT_FORMAS.map(f => `<option value="${f.nome}">${f.nome}</option>`).join('');
+
+  const opts = `<option value="">Selecione...</option>` + formas;
+
+  // Novo lançamento
+  const nvForma = document.getElementById('nv-forma');
+  if(nvForma) nvForma.innerHTML = opts;
+
+  // Filtro de lançamentos
+  const lanForma = document.getElementById('lan-forma');
+  if(lanForma) lanForma.innerHTML = `<option value="">Todas as formas</option>` + formas;
+
+  // Filtro formas de pagamento
+  const forTipo = document.getElementById('for-tipo');
+  // Não substituir — ele tem opções de tipo (crédito/débito/pix)
+}
+
+
+
+// ══ CONFIGURAÇÕES — CRUD ══
+
+let _cfgTabAtual = 'formas';
+let _cfgModalSaveFn = null;
+let _cfgEditId = null;
+
+// ── Tabs ──
+function cfgTab(tab){
+  _cfgTabAtual = tab;
+  document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('cfg-tab-'+tab)?.classList.add('active');
+  ['formas','cats','subcats','orc'].forEach(p => {
+    const el = document.getElementById('cfg-panel-'+p);
+    if(el) el.style.display = p === tab ? 'block' : 'none';
+  });
+  if(tab === 'formas')   cfgRenderFormas();
+  if(tab === 'cats')     cfgRenderCats();
+  if(tab === 'subcats')  cfgRenderSubcats();
+  if(tab === 'orc')      cfgRenderOrc();
+}
+
+// ── Setup inicial da página de config ──
+function setupConfig(){
+  // popular select de categorias para subcategorias
+  const sel = document.getElementById('cfg-subcat-cat-sel');
+  if(sel){
+    sel.innerHTML = '<option value="">Selecione a categoria</option>' +
+      DB_CATS.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  }
+  // popular orçamentos: mes atual default
+  const mesAtual = getMeses().slice(-1)[0] || 'Mai';
+  const orcMesSel = document.getElementById('cfg-orc-mes');
+  if(orcMesSel){
+    const mesesNomes = {Jan:'Janeiro',Fev:'Fevereiro',Mar:'Março',Abr:'Abril',
+      Mai:'Maio',Jun:'Junho',Jul:'Julho',Ago:'Agosto',
+      Set:'Setembro',Out:'Outubro',Nov:'Novembro',Dez:'Dezembro'};
+    orcMesSel.value = mesAtual;
+  }
+  cfgTab('formas');
+  // Mostrar tipo do cfg-orc-mes
+  document.getElementById('cfg-orc-tipo')?.addEventListener('change', function(){
+    const el = document.getElementById('cfg-orc-mes');
+    if(el) el.style.display = this.value === 'mes' ? 'block' : 'none';
+    cfgRenderOrc();
+  });
+}
+
+// ────────────────────────────────────────────
+// FORMAS DE PAGAMENTO
+// ────────────────────────────────────────────
+function cfgRenderFormas(){
+  const el = document.getElementById('cfg-formas-list');
+  if(!el) return;
+  if(!DB_FORMAS.length){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhuma forma cadastrada</div>'; return; }
+  el.innerHTML = DB_FORMAS.map(f => `
+    <div class="cfg-item">
+      <div class="cfg-item-info">
+        <div class="cfg-item-nome">${f.nome}</div>
+        <div class="cfg-item-sub"><span class="cfg-badge ${f.tipo}">${f.tipo}</span></div>
+      </div>
+      <div class="cfg-item-actions">
+        <button class="btn-cfg-edit" onclick="cfgEditarForma('${f.id}')">Editar</button>
+        <button class="btn-cfg-del"  onclick="cfgDeletarForma('${f.id}','${f.nome}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function cfgNovaForma(){
+  _cfgEditId = null;
+  cfgAbrirModal('Nova Forma de Pagamento', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Nome *</label>
+      <input class="cfg-form-input" id="fm-nome" placeholder="Ex: Cartão Visa, PIX, Dinheiro..." maxlength="50">
+    </div>
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Tipo *</label>
+      <select class="cfg-form-input" id="fm-tipo">
+        <option value="debito">Débito</option>
+        <option value="credito">Crédito</option>
+        <option value="pix">PIX</option>
+        <option value="dinheiro">Dinheiro</option>
+        <option value="outros">Outros</option>
+      </select>
+    </div>
+  `, async () => {
+    const nome = document.getElementById('fm-nome').value.trim();
+    const tipo = document.getElementById('fm-tipo').value;
+    if(!nome){ alert('Informe o nome da forma de pagamento'); return; }
+    const { error } = await getSB().from('formas_pagamento').insert({
+      usuario_id: usuarioAtual.id, nome, tipo, ordem: DB_FORMAS.length + 1
+    });
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderFormas();
+    cfgFecharModal();
+  });
+}
+
+function cfgEditarForma(id){
+  const f = DB_FORMAS.find(x => x.id === id);
+  if(!f) return;
+  _cfgEditId = id;
+  cfgAbrirModal('Editar Forma de Pagamento', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Nome *</label>
+      <input class="cfg-form-input" id="fm-nome" value="${f.nome}" maxlength="50">
+    </div>
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Tipo *</label>
+      <select class="cfg-form-input" id="fm-tipo">
+        <option value="debito" ${f.tipo==='debito'?'selected':''}>Débito</option>
+        <option value="credito" ${f.tipo==='credito'?'selected':''}>Crédito</option>
+        <option value="pix" ${f.tipo==='pix'?'selected':''}>PIX</option>
+        <option value="dinheiro" ${f.tipo==='dinheiro'?'selected':''}>Dinheiro</option>
+        <option value="outros" ${f.tipo==='outros'?'selected':''}>Outros</option>
+      </select>
+    </div>
+  `, async () => {
+    const nome = document.getElementById('fm-nome').value.trim();
+    const tipo = document.getElementById('fm-tipo').value;
+    if(!nome){ alert('Informe o nome'); return; }
+    const { error } = await getSB().from('formas_pagamento').update({ nome, tipo }).eq('id', id);
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderFormas();
+    cfgFecharModal();
+  });
+}
+
+async function cfgDeletarForma(id, nome){
+  if(!confirm(`Remover "${nome}"?
+
+Os lançamentos existentes não serão afetados.`)) return;
+  const { error } = await getSB().from('formas_pagamento').delete().eq('id', id);
+  if(error){ alert('Erro: ' + error.message); return; }
+  await carregarTabelasDinamicas();
+  cfgRenderFormas();
+}
+
+// ────────────────────────────────────────────
+// CATEGORIAS
+// ────────────────────────────────────────────
+function cfgRenderCats(){
+  const el = document.getElementById('cfg-cats-list');
+  if(!el) return;
+  if(!DB_CATS.length){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhuma categoria cadastrada</div>'; return; }
+  el.innerHTML = DB_CATS.map(c => `
+    <div class="cfg-item">
+      <div style="width:10px;height:40px;border-radius:3px;background:${c.cor};flex-shrink:0"></div>
+      <div class="cfg-item-info">
+        <div class="cfg-item-nome">${c.nome}</div>
+        <div class="cfg-item-sub"><span class="cfg-badge ${c.tipo}">${c.tipo}</span></div>
+      </div>
+      <div class="cfg-item-actions">
+        <button class="btn-cfg-edit" onclick="cfgEditarCategoria('${c.id}')">Editar</button>
+        <button class="btn-cfg-del"  onclick="cfgDeletarCategoria('${c.id}','${c.nome}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function cfgNovaCategoria(){
+  _cfgEditId = null;
+  cfgAbrirModal('Nova Categoria', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Nome *</label>
+      <input class="cfg-form-input" id="ct-nome" placeholder="Ex: Saúde, Educação..." maxlength="50">
+    </div>
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Tipo *</label>
+      <select class="cfg-form-input" id="ct-tipo">
+        <option value="despesa">Despesa</option>
+        <option value="receita">Receita</option>
+        <option value="investimento">Investimento</option>
+      </select>
+    </div>
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Cor</label>
+      <input type="color" class="cfg-form-input" id="ct-cor" value="#58a6ff" style="height:44px;padding:4px;cursor:pointer">
+    </div>
+  `, async () => {
+    const nome = document.getElementById('ct-nome').value.trim();
+    const tipo = document.getElementById('ct-tipo').value;
+    const cor  = document.getElementById('ct-cor').value;
+    if(!nome){ alert('Informe o nome da categoria'); return; }
+    const { error } = await getSB().from('categorias').insert({
+      usuario_id: usuarioAtual.id, nome, tipo, cor, ordem: DB_CATS.length + 1
+    });
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderCats();
+    // Atualizar orçamento com valor 0 para nova categoria
+    await getSB().from('orcamentos').upsert({
+      usuario_id: usuarioAtual.id, categoria: nome, valor: 0
+    }, { onConflict: 'usuario_id,categoria', ignoreDuplicates: true });
+    cfgFecharModal();
+  });
+}
+
+function cfgEditarCategoria(id){
+  const c = DB_CATS.find(x => x.id === id);
+  if(!c) return;
+  _cfgEditId = id;
+  cfgAbrirModal('Editar Categoria', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Nome *</label>
+      <input class="cfg-form-input" id="ct-nome" value="${c.nome}" maxlength="50">
+    </div>
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Tipo *</label>
+      <select class="cfg-form-input" id="ct-tipo">
+        <option value="despesa"      ${c.tipo==='despesa'?'selected':''}>Despesa</option>
+        <option value="receita"      ${c.tipo==='receita'?'selected':''}>Receita</option>
+        <option value="investimento" ${c.tipo==='investimento'?'selected':''}>Investimento</option>
+      </select>
+    </div>
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Cor</label>
+      <input type="color" class="cfg-form-input" id="ct-cor" value="${c.cor}" style="height:44px;padding:4px;cursor:pointer">
+    </div>
+  `, async () => {
+    const nome = document.getElementById('ct-nome').value.trim();
+    const tipo = document.getElementById('ct-tipo').value;
+    const cor  = document.getElementById('ct-cor').value;
+    if(!nome){ alert('Informe o nome'); return; }
+    const { error } = await getSB().from('categorias').update({ nome, tipo, cor }).eq('id', id);
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderCats();
+    cfgFecharModal();
+  });
+}
+
+async function cfgDeletarCategoria(id, nome){
+  if(!confirm(`Remover categoria "${nome}"?
+
+As subcategorias serão removidas. Os lançamentos existentes não serão afetados.`)) return;
+  const { error } = await getSB().from('categorias').delete().eq('id', id);
+  if(error){ alert('Erro: ' + error.message); return; }
+  await carregarTabelasDinamicas();
+  cfgRenderCats();
+}
+
+// ────────────────────────────────────────────
+// SUBCATEGORIAS
+// ────────────────────────────────────────────
+function cfgRenderSubcats(){
+  const sel = document.getElementById('cfg-subcat-cat-sel');
+  const catId = sel?.value;
+  const el = document.getElementById('cfg-subcats-list');
+  if(!el) return;
+  if(!catId){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Selecione uma categoria acima</div>'; return; }
+  const subs = DB_SUBCATS.filter(s => s.categoria_id === catId);
+  if(!subs.length){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhuma subcategoria. Clique em + Adicionar.</div>'; return; }
+  el.innerHTML = subs.map(s => `
+    <div class="cfg-item">
+      <div class="cfg-item-info">
+        <div class="cfg-item-nome">${s.nome}</div>
+      </div>
+      <div class="cfg-item-actions">
+        <button class="btn-cfg-edit" onclick="cfgEditarSubcat('${s.id}')">Editar</button>
+        <button class="btn-cfg-del"  onclick="cfgDeletarSubcat('${s.id}','${s.nome}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function cfgNovaSubcat(){
+  const sel = document.getElementById('cfg-subcat-cat-sel');
+  const catId = sel?.value;
+  if(!catId){ alert('Selecione uma categoria primeiro'); return; }
+  _cfgEditId = null;
+  cfgAbrirModal('Nova Subcategoria', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Nome *</label>
+      <input class="cfg-form-input" id="sc-nome" placeholder="Ex: Academia, Farmácia..." maxlength="80">
+    </div>
+  `, async () => {
+    const nome = document.getElementById('sc-nome').value.trim();
+    if(!nome){ alert('Informe o nome'); return; }
+    const { error } = await getSB().from('subcategorias').insert({
+      usuario_id: usuarioAtual.id, categoria_id: catId,
+      nome, ordem: DB_SUBCATS.filter(s => s.categoria_id === catId).length + 1
+    });
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderSubcats();
+    cfgFecharModal();
+  });
+}
+
+function cfgEditarSubcat(id){
+  const s = DB_SUBCATS.find(x => x.id === id);
+  if(!s) return;
+  _cfgEditId = id;
+  cfgAbrirModal('Editar Subcategoria', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Nome *</label>
+      <input class="cfg-form-input" id="sc-nome" value="${s.nome}" maxlength="80">
+    </div>
+  `, async () => {
+    const nome = document.getElementById('sc-nome').value.trim();
+    if(!nome){ alert('Informe o nome'); return; }
+    const { error } = await getSB().from('subcategorias').update({ nome }).eq('id', id);
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderSubcats();
+    cfgFecharModal();
+  });
+}
+
+async function cfgDeletarSubcat(id, nome){
+  if(!confirm(`Remover subcategoria "${nome}"?`)) return;
+  const { error } = await getSB().from('subcategorias').delete().eq('id', id);
+  if(error){ alert('Erro: ' + error.message); return; }
+  await carregarTabelasDinamicas();
+  cfgRenderSubcats();
+}
+
+// ────────────────────────────────────────────
+// ORÇAMENTOS
+// ────────────────────────────────────────────
+async function cfgRenderOrc(){
+  const el = document.getElementById('cfg-orc-list');
+  if(!el) return;
+  const tipo = document.getElementById('cfg-orc-tipo')?.value || 'base';
+  const mes  = tipo === 'mes' ? document.getElementById('cfg-orc-mes')?.value : null;
+
+  // Buscar orçamentos do Supabase
+  let q = getSB().from('orcamentos')
+    .select('*').eq('usuario_id', usuarioAtual.id);
+  if(mes){
+    q = q.eq('mes', mes);
+  } else {
+    q = q.is('mes', null);
+  }
+  const { data: orcs } = await q;
+  const orcMap = {};
+  (orcs || []).forEach(o => { orcMap[o.categoria] = { id: o.id, valor: o.valor }; });
+
+  const cats = DB_CATS.filter(c => c.tipo === 'despesa' || c.tipo === 'investimento');
+  if(!cats.length){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px">Cadastre categorias primeiro</div>'; return; }
+
+  el.innerHTML = cats.map(c => {
+    const orc = orcMap[c.nome] || { id: null, valor: 0 };
+    return `
+    <div class="cfg-orc-row">
+      <div class="cfg-orc-cat">
+        <div style="font-size:13px;font-weight:600">${c.nome}</div>
+        <div style="font-size:10px;color:var(--tx3);text-transform:uppercase">${c.tipo}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--tx2);flex-shrink:0">R$</span>
+        <input class="cfg-orc-input" type="number" id="orc-val-${c.nome.replace(/[^a-z0-9]/gi,'_')}"
+          value="${orc.valor || 0}" min="0" step="50"
+          data-cat="${c.nome}" data-id="${orc.id || ''}" data-mes="${mes || ''}">
+        <button class="btn-cfg-orc-save" onclick="cfgSalvarOrc('${c.nome.replace(/[^a-z0-9]/gi,'_')}')">✓</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function cfgSalvarOrc(key){
+  const input = document.getElementById('orc-val-' + key);
+  if(!input) return;
+  const cat = input.dataset.cat;
+  const mes = input.dataset.mes || null;
+  const valor = parseFloat(input.value) || 0;
+  const existId = input.dataset.id;
+
+  let error;
+  if(existId){
+    ({ error } = await getSB().from('orcamentos').update({ valor }).eq('id', existId));
+  } else {
+    ({ error } = await getSB().from('orcamentos').insert({
+      usuario_id: usuarioAtual.id, categoria: cat, valor, mes: mes || null, ano: mes ? new Date().getFullYear() : null
+    }));
+  }
+  if(error){ alert('Erro ao salvar: ' + error.message); return; }
+  // Atualizar DB.orcamento em memória
+  DB.orcamento[cat] = valor;
+  input.style.borderColor = 'var(--green)';
+  setTimeout(() => { input.style.borderColor = ''; }, 1500);
+}
+
+// ── Modal genérico ──
+function cfgAbrirModal(titulo, corpo, saveFn){
+  _cfgModalSaveFn = saveFn;
+  document.getElementById('cfg-modal-title').textContent = titulo;
+  document.getElementById('cfg-modal-body').innerHTML = corpo;
+  document.getElementById('cfg-modal-overlay').style.display = 'flex';
+  document.getElementById('cfg-modal-save').onclick = async () => {
+    const btn = document.getElementById('cfg-modal-save');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+    try { await saveFn(); } catch(e){ alert('Erro: ' + e.message); }
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+  };
+  // Focar primeiro input
+  setTimeout(() => document.querySelector('#cfg-modal-body input, #cfg-modal-body select')?.focus(), 100);
+}
+
+function cfgFecharModal(){
+  document.getElementById('cfg-modal-overlay').style.display = 'none';
+  document.getElementById('cfg-modal-body').innerHTML = '';
+  _cfgModalSaveFn = null;
+}
+
+
 // ══ FILTER DRAWER MOBILE ══
 
 const PAGE_FILTERS = {
@@ -5389,6 +6178,7 @@ const PAGE_FILTERS = {
   ]},
   simulador: { title:'Simulador', groups:[] },
   metas: { title:'Metas', groups:[] },
+  config: { title:'Configurações', groups:[] },
   novo: { title:'Novo Lançamento', groups:[] },
 };
 
