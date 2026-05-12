@@ -3660,7 +3660,7 @@ function renderOrcamento(){
 
   // Dados
   const lan  = DB.lancamentos.filter(l => meses.includes(l.mes) && l.cat !== 'Receitas' && l.cat !== 'Investimentos');
-  const cats  = CATS.filter(c => getOrcCat(c,meses)>0 || lan.some(l=>l.cat===c));
+  const cats  = CATS.filter(c => getOrcCat(c,meses)>0||lan.some(l=>l.cat===c));
   const reais = cats.map(c => Math.round(SM(lan.filter(l=>l.cat===c).map(l=>l.valor))/(tipo==='mes'?1:n)));
   const orc   = cats.map(c => getOrcCat(c,meses));
 
@@ -3733,11 +3733,10 @@ function renderOrcamento(){
     const bdgCls   = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
     const bdgTxt   = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
     const hasSub   = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
-    // Serializar meses sem aspas duplas para evitar conflito no onclick
-    const mesesStr = meses.map(m=>`'${m}'`).join(',');
+    const ms       = meses.map(m=>`'${m}'`).join(',');
     return `
       <div class="kpi" style="padding:12px 14px;position:relative;${hasSub?'cursor:pointer;':''}"
-        ${hasSub?`onclick="orcDetalhePopup('${c}',[${mesesStr}])" title="Ver subcategorias"`:''}>
+        ${hasSub?`onclick="orcDetalhePopup('${c}',[${ms}])" title="Ver subcategorias"`:''}>
         ${hasSub?`<span style="position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--blue);opacity:.8">↗ subcats</span>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
@@ -3783,7 +3782,7 @@ function renderOrcamento(){
     const hasSub2 = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
     const ms2    = meses.map(m=>`'${m}'`).join(',');
     const catCell = hasSub2
-      ? `<button onclick="orcDetalhePopup('${c}',[${ms2}])" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px" title="Ver subcategorias">${c} ↗</button>`
+      ? `<button onclick="orcDetalhePopup('${c}',[${ms2}])" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px">${c} ↗</button>`
       : c;
     return `<tr>
       <td style="font-weight:700;padding:9px 10px">
@@ -3798,7 +3797,7 @@ function renderOrcamento(){
       <td style="padding:9px 14px;min-width:120px">
         <div style="display:flex;align-items:center;gap:6px">
           <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+            <div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px"></div>
           </div>
           <span style="font-size:11px;font-weight:700;color:${barColor};min-width:30px">${pExec !== null ? pExec + '%' : '—'}</span>
         </div>
@@ -4880,6 +4879,17 @@ function fecharModal(tipo){
   const el = document.getElementById('modal-'+tipo);
   if(el) el.style.display = 'none';
   document.body.style.overflow = '';
+  // Resetar botão de confirmação para evitar travar em estados anteriores
+  if(tipo === 'deletar'){
+    const btn = document.getElementById('btn-del-confirm');
+    if(btn){ btn.disabled = false; btn.textContent = '🗑 Confirmar exclusão'; }
+    const fb = document.getElementById('del-feedback');
+    if(fb) fb.style.display = 'none';
+  }
+  if(tipo === 'editar'){
+    const btn = document.getElementById('btn-edit-save');
+    if(btn){ btn.disabled = false; btn.textContent = '💾 Salvar alterações'; }
+  }
 }
 
 function abrirModal(tipo){
@@ -5047,15 +5057,20 @@ async function executarDeletar(){
   if(!erroSB){
     // Remover do DB local
     DB.lancamentos.splice(idx, 1);
-    fecharModal('deletar');
+    fecharModal('deletar'); // já reseta o botão
     // Invalidar e re-renderizar
     ['lancamentos','visao','mensal','categorias','diagnostico','efetivado'].forEach(p=>{ rendered[p]=false; });
     renderLan();
   } else {
-    btn.disabled=false; btn.textContent='🗑 Confirmar exclusão';
-    fb.style.display='block'; fb.style.background='var(--rd)';
-    fb.style.color='var(--red)'; fb.style.border='1px solid rgba(248,81,73,.3)';
-    fb.textContent = '✗ Erro ao excluir no Supabase: ' + erroSB;
+    btn.disabled = false;
+    btn.textContent = '🗑 Confirmar exclusão';
+    if(fb){
+      fb.style.display = 'block';
+      fb.style.background = 'var(--rd)';
+      fb.style.color = 'var(--red)';
+      fb.style.border = '1px solid rgba(248,81,73,.3)';
+      fb.textContent = '✗ Erro ao excluir: ' + erroSB;
+    }
   }
 }
 
@@ -5440,9 +5455,7 @@ async function carregarDoSupabase(){
         DB.orcamento[cat]=v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):0;}
     });
     Object.keys(DB.orcamentoSub).forEach(cat=>{
-      if(!DB.orcamento[cat]){
-        const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);
-        if(b)DB.orcamento[cat]=b;}
+      if(!DB.orcamento[cat]){const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);if(b)DB.orcamento[cat]=b;}
     });
 
     const mAtivos = getMeses();
@@ -6688,10 +6701,8 @@ function getOrcCat(cat,meses){
 function orcFecharDetalhe(){const m=document.getElementById('orc-detalhe-modal');if(m)m.style.display='none';}
 function orcDetalhePopup(cat,meses){
   if(typeof meses==='string')try{meses=JSON.parse(meses);}catch(e){meses=[];}
-  const n=meses.length||1;
-  const tipo=document.getElementById('orc-tipo')?.value||'media';
-  const subcatsOrc=DB.orcamentoSub?.[cat]||{};
-  const subcatReal={};
+  const n=meses.length||1,tipo=document.getElementById('orc-tipo')?.value||'media';
+  const subcatsOrc=DB.orcamentoSub?.[cat]||{},subcatReal={};
   DB.lancamentos.filter(l=>l.cat===cat&&meses.includes(l.mes))
     .forEach(l=>{const s=l.subcat||'Outros';subcatReal[s]=(subcatReal[s]||0)+Math.abs(l.valor);});
   const allSubs=[...new Set([...Object.keys(subcatsOrc),...Object.keys(subcatReal)])].sort();
