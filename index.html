@@ -755,9 +755,11 @@ html.is-mobile .sidebar.open{
   .cfg-item-nome{font-size:13px}
 }
 
-.lan-chip-mes{flex-shrink:0;padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--bd2);background:var(--bg3);color:var(--tx2);cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap}
-.lan-chip-mes.ativo{background:var(--blue);color:#fff;border-color:var(--blue)}
+#lan-chips-mes{background:var(--bg);border-bottom:1px solid var(--bd)}
 #lan-chips-inner::-webkit-scrollbar{display:none}
+.lan-chip-mes{flex-shrink:0;padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--bd2);background:var(--bg3);color:var(--tx2);cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.lan-chip-mes.ativo{background:var(--blue);color:#fff;border-color:var(--blue)}
+.lan-chip-mes:active{opacity:.7}
 
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1275,6 +1277,8 @@ html.is-mobile .sidebar.open{
               <th style="text-align:left;padding-left:14px">Subcategoria</th>
               <th>Total</th>
               <th>Média/mês</th>
+              <th>Orçado</th>
+              <th>Desvio</th>
               <th>%</th>
               <th style="min-width:90px;padding-right:14px">Participação</th>
             </tr>
@@ -1708,9 +1712,7 @@ html.is-mobile .sidebar.open{
           <tbody id="lan-tbody"></tbody>
         </table>
       </div>
-      <div id="lan-chips-mes" style="display:none;background:var(--bg);border-bottom:1px solid var(--bd)">
-        <div id="lan-chips-inner" style="display:flex;gap:6px;overflow-x:auto;padding:8px 16px;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
-      </div>
+      <div id="lan-chips-mes" style="display:none"><div style="display:flex;gap:6px;overflow-x:auto;padding:8px 16px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="lan-chips-inner"></div></div>
       <!-- Container extrato (lista) -->
       <div id="lan-extrato-wrap" style="display:none;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
         <div id="lan-extrato-content"></div>
@@ -1798,6 +1800,41 @@ html.is-mobile .sidebar.open{
     <!-- Alerta de comprometimento -->
     <div id="car-alerta" class="sbanner sb-danger" style="display:none"></div>
 
+    <!-- Painel Faturas -->
+    <div class="card" style="margin-bottom:14px" id="car-faturas-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div><div class="card-title" style="margin-bottom:2px">Faturas por Cartão</div><div style="font-size:12px;color:var(--tx2)">Total a pagar por cartão de crédito no mês</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--tx3);font-weight:600">MÊS</span>
+          <select id="car-fat-mes" onchange="renderFaturas()" style="background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:7px 12px;font-size:13px;outline:none">
+            <option value="">Mês atual</option>
+            <option>Jan</option><option>Fev</option><option>Mar</option><option>Abr</option>
+            <option>Mai</option><option>Jun</option><option>Jul</option><option>Ago</option>
+            <option>Set</option><option>Out</option><option>Nov</option><option>Dez</option>
+          </select>
+        </div>
+      </div>
+      <div id="car-faturas-list"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--bg3);border-radius:var(--rs);margin-top:8px;border:1px solid var(--bd)">
+        <span style="font-size:14px;font-weight:700">Total das faturas</span>
+        <span id="car-fat-total" style="font-size:18px;font-weight:800;color:var(--red)">R$ 0</span>
+      </div>
+    </div>
+    <!-- Gráfico Cartão vs Receita -->
+    <div class="card" style="margin-bottom:14px" id="car-ratio-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+        <div><div class="card-title" style="margin-bottom:2px">Cartão vs Receita — evolução mensal</div><div style="font-size:12px;color:var(--tx2)">Valor pago no cartão comparado à receita do mês</div></div>
+        <div id="car-ratio-badge"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">Média cartão/mês</div><div id="car-ratio-media-cart" style="font-size:18px;font-weight:800;color:var(--red);margin-top:3px">—</div></div>
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">Média receita/mês</div><div id="car-ratio-media-rec" style="font-size:18px;font-weight:800;color:var(--green);margin-top:3px">—</div></div>
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">% médio da receita</div><div id="car-ratio-pct" style="font-size:18px;font-weight:800;margin-top:3px">—</div></div>
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">Mês mais alto</div><div id="car-ratio-pico" style="font-size:15px;font-weight:800;color:var(--red);margin-top:3px">—</div></div>
+      </div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chart-car-ratio"></canvas></div>
+      <div id="car-ratio-bars" style="margin-top:14px;display:flex;flex-direction:column;gap:6px"></div>
+    </div>
     <!-- Gráfico de evolução mensal do comprometimento -->
     <div class="card" style="margin-bottom:14px" id="car-chart-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -2330,6 +2367,16 @@ html.is-mobile .sidebar.open{
   </div>
 
 </div><!-- #pg-config -->
+
+<div id="orc-detalhe-modal" onclick="if(event.target===this)orcFecharDetalhe()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)">
+  <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;width:100%;max-width:680px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);flex-shrink:0">
+      <div><div id="orc-detalhe-title" style="font-size:16px;font-weight:700"></div><div id="orc-detalhe-periodo" style="font-size:12px;color:var(--tx2);margin-top:2px"></div></div>
+      <button onclick="orcFecharDetalhe()" style="background:none;border:none;color:var(--tx2);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
+    </div>
+    <div id="orc-detalhe-body" style="overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:1"></div>
+  </div>
+</div>
 </main>
 </div><!-- /.shell-row -->
 <!-- RODAPÉ -->
@@ -3460,10 +3507,13 @@ function renderCat(){
   document.getElementById('cat-tbody').innerHTML=subs.map((s,i)=>{
     const pct=tot?Math.round(s.total/tot*100):0;
     const cor=clrs[i%clrs.length];
+    const orcSub=getOrcSub(cat,s.nome,mesesFilt),devSub=s.media-orcSub,devCls=orcSub>0?(devSub>500?'danger':devSub>100?'warn':devSub<=0?'ok':''):'';
     return `<tr>
       <td style="font-weight:600;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.nome}">${s.nome}</td>
       <td>${R(s.total)}</td>
       <td class="warn">${R(s.media)}</td>
+      <td>${orcSub>0?R(orcSub):'—'}</td>
+      <td class="${devCls}">${orcSub>0?(devSub>=0?'+':'')+R(devSub):'—'}</td>
       <td>${pct}%</td>
       <td><div style="display:flex;align-items:center;gap:5px">
         <div class="progress-track" style="flex:1">
@@ -3650,9 +3700,9 @@ function renderOrcamento(){
 
   // Dados
   const lan  = DB.lancamentos.filter(l => meses.includes(l.mes) && l.cat !== 'Receitas' && l.cat !== 'Investimentos');
-  const cats  = CATS.filter(c => (DB.orcamento[c] || 0) > 0 || lan.some(l => l.cat === c));
-  const reais = cats.map(c => Math.round(SM(lan.filter(l => l.cat === c).map(l => l.valor)) / (tipo === 'mes' ? 1 : n)));
-  const orc   = cats.map(c => DB.orcamento[c] || 0);
+  const cats  = CATS.filter(c => getOrcCat(c,meses)>0||lan.some(l=>l.cat===c));
+  const reais = cats.map(c => Math.round(SM(lan.filter(l=>l.cat===c).map(l=>l.valor))/(tipo==='mes'?1:n)));
+  const orc   = cats.map(c => getOrcCat(c,meses));
 
   // KPIs
   const totReal   = SM(reais);
@@ -3716,31 +3766,32 @@ function renderOrcamento(){
   // Mini-cards execução — grid responsivo
   const gridEl = document.getElementById('orc-cat-grid');
   if(gridEl) gridEl.innerHTML = cats.map((c, i) => {
-    const pExec    = orc[i] > 0 ? Math.round(reais[i] / orc[i] * 100) : null;
-    const d        = reais[i] - orc[i];
-    const barW     = pExec !== null ? Math.min(pExec, 100) : 0;
-    const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
-    const bdgCls   = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
-    const bdgTxt   = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
-    return `
-      <div class="kpi" style="padding:12px 14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
-            <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>
-            ${c}
-          </span>
-          <span class="badge ${bdgCls}" style="font-size:10px">${bdgTxt}</span>
-        </div>
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px">
-          <span style="font-size:22px;font-weight:800;color:${d>0?'var(--red)':'var(--green)'}">${pExec !== null ? pExec + '%' : '—'}</span>
-          <span style="font-size:11px;color:var(--tx3)">orç. ${R(orc[i])}</span>
-        </div>
-        <div class="progress-track"><div class="progress-fill" style="width:${barW}%;background:${barColor}"></div></div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
-          <span style="color:var(--tx2)">Real: ${R(reais[i])}</span>
-          <span style="font-weight:700;color:${d>0?'var(--red)':'var(--green)'}">${d >= 0 ? '+' : ''}${R(d)}</span>
-        </div>
-      </div>`;
+    const pExec=orc[i]>0?Math.round(reais[i]/orc[i]*100):null,d=reais[i]-orc[i];
+    const barW=pExec!==null?Math.min(pExec,100):0;
+    const barColor=pExec===null?'var(--tx3)':pExec>120?'var(--red)':pExec>100?'var(--amber)':'var(--green)';
+    const bdgCls=d>500?'b-danger':d>100?'b-warn':d<=0?'b-ok':'b-info';
+    const bdgTxt=d<=0?'OK':d<=100?'Leve':d<=500?'Atenção':'Crítico';
+    const hasSub=DB.orcamentoSub?.[c]&&Object.keys(DB.orcamentoSub[c]).length>0;
+    const ms=meses.map(m=>`'${m}'`).join(',');
+    return `<div class="kpi" style="padding:12px 14px;position:relative;${hasSub?'cursor:pointer;':''}"
+      ${hasSub?`onclick="orcDetalhePopup('${c}',[${ms}])" title="Ver subcategorias"`:''}>
+      ${hasSub?`<span style="position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--blue);opacity:.8">↗ subcats</span>`:''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
+          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>${c}
+        </span>
+        <span class="badge ${bdgCls}" style="font-size:10px">${bdgTxt}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:22px;font-weight:800;color:${d>0?'var(--red)':'var(--green)'}">${pExec!==null?pExec+'%':'—'}</span>
+        <span style="font-size:11px;color:var(--tx3)">orç. ${R(orc[i])}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${barW}%;background:${barColor}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
+        <span style="color:var(--tx2)">Real: ${R(reais[i])}</span>
+        <span style="font-weight:700;color:${d>0?'var(--red)':'var(--green)'}">${d>=0?'+':''}${R(d)}</span>
+      </div>
+    </div>`;
   }).join('');
 
   // Evolução mensal com chips
@@ -3758,31 +3809,24 @@ function renderOrcamento(){
 
   // Tabela
   document.getElementById('orc-tbody').innerHTML = cats.map((c, i) => {
-    const d      = reais[i] - orc[i];
-    const p      = orc[i] > 0 ? Math.round(d / orc[i] * 100) : null;
-    const pExec  = orc[i] > 0 ? Math.min(Math.round(reais[i] / orc[i] * 100), 150) : null;
-    const cls    = d > 500 ? 'danger' : d > 100 ? 'warn' : d <= 0 ? 'ok' : '';
-    const bdg    = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
-    const st     = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
-    const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
-    const barW   = pExec !== null ? Math.min(pExec, 100) : 0;
+    const d=reais[i]-orc[i],p=orc[i]>0?Math.round(d/orc[i]*100):null;
+    const pExec=orc[i]>0?Math.min(Math.round(reais[i]/orc[i]*100),150):null;
+    const cls=d>500?'danger':d>100?'warn':d<=0?'ok':'';
+    const bdg=d>500?'b-danger':d>100?'b-warn':d<=0?'b-ok':'b-info';
+    const st=d<=0?'OK':d<=100?'Leve':d<=500?'Atenção':'Crítico';
+    const barColor=pExec===null?'var(--tx3)':pExec>120?'var(--red)':pExec>100?'var(--amber)':'var(--green)';
+    const barW=pExec!==null?Math.min(pExec,100):0;
+    const hasSub2=DB.orcamentoSub?.[c]&&Object.keys(DB.orcamentoSub[c]).length>0;
+    const ms2=meses.map(m=>`'${m}'`).join(',');
+    const catCell=hasSub2?`<button onclick="orcDetalhePopup('${c}',[${ms2}])" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px">${c} ↗</button>`:c;
     return `<tr>
-      <td style="font-weight:700;padding:9px 10px">
-        <span style="display:inline-flex;align-items:center;gap:5px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${c}
-        </span>
-      </td>
+      <td style="font-weight:700;padding:9px 10px"><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${catCell}</span></td>
       <td style="padding:9px 10px">${R(orc[i])}</td>
       <td style="padding:9px 10px" class="${cls}">${R(reais[i])}</td>
-      <td style="padding:9px 10px" class="${cls}">${d >= 0 ? '+' : ''}${R(d)}</td>
-      <td style="padding:9px 10px" class="${cls}">${p !== null ? (d >= 0 ? '+' : '') + p + '%' : '—'}</td>
-      <td style="padding:9px 10px;min-width:120px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="progress-track" style="flex:1"><div class="progress-fill" style="width:${barW}%;background:${barColor}"></div></div>
-          <span style="font-size:11px;font-weight:700;color:${barColor};min-width:36px;text-align:right">${pExec !== null ? pExec + '%' : '—'}</span>
-        </div>
-      </td>
-      <td style="padding:9px 10px"><span class="badge ${bdg}">${st}</span></td>
+      <td style="padding:9px 10px" class="${cls}">${d>=0?'+':''}${R(d)}</td>
+      <td style="padding:9px 10px;color:var(--tx2)">${p!==null?(p>=0?'+':'')+p+'%':'—'}</td>
+      <td style="padding:9px 14px;min-width:120px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px"></div></div><span style="font-size:11px;font-weight:700;color:${barColor};min-width:30px">${pExec!==null?pExec+'%':'—'}</span></div></td>
+      <td style="padding:9px 10px"><span class="badge ${bdg}" style="font-size:10px">${st}</span></td>
     </tr>`;
   }).join('');
 }
@@ -4030,7 +4074,7 @@ function setupLan(){
   showBody('lan');
   const elOrd = document.getElementById('lan-ord');
   if(elOrd && !elOrd.dataset.userChanged) elOrd.value = 'extrato';
-  // Mobile: filtrar pelo mês mais recente com dados por padrão
+  // No mobile: filtrar mês atual por padrão
   const elMes = document.getElementById('lan-mes');
   if(elMes && !elMes.value && window.innerWidth <= 860){
     const m = getMesAtualDados() || getMeses().slice(-1)[0] || '';
@@ -4184,7 +4228,6 @@ function renderLan(){
   if(ord === 'extrato'){
     if(tblWrap) tblWrap.style.display = 'none';
     if(extWrap) extWrap.style.display = 'block';
-    if(typeof renderChipsMes==='function') renderChipsMes();
     renderExtrato(lanComIdx);
     const subLabel = document.getElementById('lan-sub');
     if(subLabel) subLabel.textContent = `Extrato com saldo acumulado · ${lanComIdx.length} lançamentos`;
@@ -4384,6 +4427,8 @@ function renderCartao(){
   document.getElementById('car-legend').innerHTML=todasCats.map(c=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:${clrs[c]||'#8b949e'};display:inline-block"></span>${c}</span>`).join('');
   if(vis==='mensal')renderCartaoMensal(comprometimento,mesesFut,todasCats,catFiltro);
   else renderCartaoDetalhe(parcsAtivas);
+  renderCarRatio();
+  renderFaturas();
 }
 
 function renderCartaoMensal(comprometimento,mesesFut,todasCats,catFiltro){
@@ -4657,7 +4702,7 @@ function renderDiagnostico(){
   CATS.forEach(c=>{catTot[c]=Math.round(SM(lanPagos.filter(l=>l.cat===c&&l.pago==='Sim').map(l=>l.valor))/nM);});
   const catsSorted=CATS.filter(c=>catTot[c]>0).sort((a,b)=>catTot[b]-catTot[a]);
   document.getElementById('diag-impacto').innerHTML=catsSorted.slice(0,6).map((c,i)=>{
-    const media=catTot[c],orcado=DB.orcamento[c]||0,desvio=media-orcado;
+    const media=catTot[c],orcado=getOrcCat(c,mesesFilt),desvio=media-orcado;
     const pct=recMedia>0?Math.round(media/recMedia*100):0,pctOrc=recMedia>0?Math.round(orcado/recMedia*100):0;
     const maxRef=Math.max(media,orcado,1);
     const barReal=Math.round(media/maxRef*100),barOrc=orcado>0?Math.round(orcado/maxRef*100):0;
@@ -4685,7 +4730,7 @@ function gerarDiagnostico(){
       const saldoAtual=mesAtual.saldo_atu,tendencia=saldos[saldos.length-1].saldo_atu-saldos[0].saldo_ini;
       const pInv=recMedia>0?Math.round(invMedia/recMedia*100):0,pDesp=recMedia>0?Math.round(despMedia/recMedia*100):0;
       const catTot={};CATS.forEach(c=>{catTot[c]=Math.round(SM(lanPagos.filter(l=>l.cat===c&&l.pago==='Sim').map(l=>l.valor))/nM);});
-      const catDesvio=CATS.filter(c=>catTot[c]>0&&DB.orcamento[c]>0).map(c=>({cat:c,real:catTot[c],orc:DB.orcamento[c],dev:catTot[c]-DB.orcamento[c]})).filter(x=>x.dev>0).sort((a,b)=>b.dev-a.dev);
+      const catDesvio=CATS.filter(c=>catTot[c]>0&&getOrcCat(c,mesesFilt)>0).map(c=>({cat:c,real:catTot[c],orc:getOrcCat(c,mesesFilt),dev:catTot[c]-getOrcCat(c,mesesFilt)})).filter(x=>x.dev>0).sort((a,b)=>b.dev-a.dev);
       const mesesNeg=saldos.filter(s=>s.tem_pago&&s.resultado_pago<0);
       const sec=(icone,titulo,cor='var(--tx)')=>`<div style="font-size:14px;font-weight:800;color:${cor};margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bd)">${icone} ${titulo}</div>`;
       const item=(txt,cor='var(--tx2)')=>`<div style="display:flex;gap:8px;margin:5px 0;padding:7px 12px;background:var(--bg3);border-radius:var(--rs);font-size:12px;color:${cor}"><span style="flex-shrink:0">›</span><span>${txt}</span></div>`;
@@ -5053,154 +5098,80 @@ function renderExtrato(lanComIdx){
   const maisEl = document.getElementById('lan-mais');
   if(maisEl) maisEl.style.display = 'none';
 
-  const isMob = window.innerWidth <= 860;
-
   // Ordenar por data crescente
   const sorted = [...lanComIdx].sort((a,b)=>{
-    const da = a.l.data||`2026-${String(MESES_ORD.indexOf(a.l.mes)+1).padStart(2,'0')}-01`;
-    const db = b.l.data||`2026-${String(MESES_ORD.indexOf(b.l.mes)+1).padStart(2,'0')}-01`;
-    return da.localeCompare(db)||(a.l.desc||'').localeCompare(b.l.desc||'');
+    const da = a.l.data || `2026-${String(MESES_ORD.indexOf(a.l.mes)+1).padStart(2,'0')}-01`;
+    const db = b.l.data || `2026-${String(MESES_ORD.indexOf(b.l.mes)+1).padStart(2,'0')}-01`;
+    return da.localeCompare(db) || (a.l.desc||'').localeCompare(b.l.desc||'');
   });
 
-  // Saldo acumulado
+  // Saldo inicial real
   let saldoAcum = 0;
   const saldosObj = getSaldosPorMes();
-  if(saldosObj.length>0) saldoAcum = saldosObj[0].saldo_ini||0;
-  if(sorted.length>0){
-    const pData = sorted[0].l.data||'';
+  if(saldosObj.length > 0) saldoAcum = saldosObj[0].saldo_ini || 0;
+
+  // Calcular acumulado até antes do primeiro item filtrado
+  if(sorted.length > 0){
+    const primeiraData = sorted[0].l.data || '';
     DB.lancamentos
-      .filter(l=>l.pago==='Sim'&&(l.data||'')<pData)
+      .filter(l => l.pago === 'Sim' && (l.data||'') < primeiraData)
       .sort((a,b)=>(a.data||'').localeCompare(b.data||''))
-      .forEach(l=>{ saldoAcum += l.cat==='Receitas'?l.valor:-l.valor; });
+      .forEach(l => { saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor; });
   }
 
   // Agrupar por data
   const porDia = {};
-  sorted.forEach(item=>{
-    const dia = item.l.data||`${item.l.mes}/2026`;
-    if(!porDia[dia]) porDia[dia]=[];
+  sorted.forEach(item => {
+    const dia = item.l.data || `${item.l.mes}/2026`;
+    if(!porDia[dia]) porDia[dia] = [];
     porDia[dia].push(item);
   });
 
-  const fmtDia = d=>{
-    try{ return new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}); }
-    catch(e){ return d; }
+  const fmtDia = d => {
+    try {
+      return new Date(d+'T12:00:00').toLocaleDateString('pt-BR',
+        {weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    } catch(e){ return d; }
   };
 
-  // ── MOBILE: layout de cards compactos ──
-  if(isMob){
-    let out = '';
-    Object.keys(porDia).sort().forEach(dia=>{
-      const items = porDia[dia];
-      // calcular saldo acumulado do dia (todos os lançamentos)
-      items.forEach(({l})=>{
-        saldoAcum += l.cat==='Receitas'?l.valor:-l.valor;
-      });
-      const saldoFim = saldoAcum;
-      const corSaldo = saldoFim>=0?'var(--green)':'var(--red)';
-
-      // Formatar data compacta
-      let dtLabel = dia;
-      try{
-        const dt = new Date(dia+'T12:00:00');
-        const wd = dt.toLocaleDateString('pt-BR',{weekday:'long'});
-        const day = dt.getDate();
-        const mon = dt.toLocaleDateString('pt-BR',{month:'long'});
-        const yr  = dt.getFullYear();
-        dtLabel = `${wd.toUpperCase()}, ${day} DE ${mon.toUpperCase()} DE ${yr}`;
-      }catch(e){}
-
-      out += `<div style="background:var(--bg3);padding:10px 14px;border-bottom:1px solid var(--bd)">
-        <div style="font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.06em">${dtLabel}</div>
-        <div style="font-size:13px;font-weight:800;color:${corSaldo};margin-top:3px">Saldo: ${saldoFim>=0?'':'-'}${R(Math.abs(saldoFim))}</div>
-      </div>`;
-
-      items.forEach(({l,idx})=>{
-        const isRec  = l.cat==='Receitas';
-        const isInv  = l.cat==='Investimentos';
-        const isPago = l.pago==='Sim';
-        const catColor = CORES[l.cat]||'#8b949e';
-        const valColor = isRec?'var(--green)':isInv?'var(--blue)':'var(--red)';
-        const valSinal = isRec?'+':isInv?'':'-';
-        const alpha    = isPago?'1':'.7';
-
-        // Iniciais da categoria para o ícone
-        const words = (l.cat||'?').split(' ');
-        const initials = words.length>1
-          ? (words[0][0]+words[1][0]).toUpperCase()
-          : (l.cat||'?').substring(0,2).toUpperCase();
-
-        out += `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(48,54,61,.6);background:${!isPago&&!isRec?'rgba(248,81,73,.03)':isRec?'rgba(63,185,80,.02)':'transparent'};opacity:${alpha}">
-          <!-- Ícone -->
-          <div style="width:42px;height:42px;border-radius:50%;background:${catColor}22;border:1.5px solid ${catColor}66;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <span style="font-size:11px;font-weight:800;color:${catColor}">${initials}</span>
-          </div>
-          <!-- Info central -->
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.desc||l.subcat||l.cat||'—'}</div>
-            <div style="font-size:11px;color:var(--tx3);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-              <span style="display:inline-flex;align-items:center;gap:3px">
-                <span style="width:5px;height:5px;border-radius:50%;background:${catColor}"></span>
-                <span>${l.subcat||l.cat}</span>
-              </span>
-              ${l.forma?`<span>·</span><span style="opacity:.8">${l.forma}</span>`:''}
-            </div>
-          </div>
-          <!-- Valor + ações -->
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-            <div style="font-size:16px;font-weight:800;color:${valColor}">${valSinal}${R(l.valor)}</div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <button onclick="togglePago(${idx},this)"
-                style="padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;
-                  background:${isPago?'var(--gd)':'var(--rd)'};color:${isPago?'var(--green)':'var(--red)'};
-                  border:1px solid ${isPago?'rgba(63,185,80,.3)':'rgba(248,81,73,.3)'}">
-                ${isPago?'✓ Pago':'⏳ Pendente'}
-              </button>
-              <button onclick="abrirEditar(${idx})"
-                style="background:var(--bld);border:none;color:var(--blue);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;-webkit-tap-highlight-color:transparent">✏</button>
-              <button onclick="confirmarDeletar(${idx})"
-                style="background:var(--rd);border:none;color:var(--red);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;-webkit-tap-highlight-color:transparent">🗑</button>
-            </div>
-          </div>
-        </div>`;
-      });
-    });
-
-    container.innerHTML = `<div style="display:flex;flex-direction:column">${out}</div>`;
-    return;
-  }
-
-  // ── DESKTOP: tabela existente ──
+  // Construir tabela com header de dia integrado
   let rows = '';
-  Object.keys(porDia).sort().forEach(dia=>{
-    const items = porDia[dia];
-    let saldoDia = 0;
-    items.forEach(({l})=>{
-      saldoAcum += l.cat==='Receitas'?l.valor:-l.valor;
-      if(l.pago==='Sim') saldoDia += l.cat==='Receitas'?l.valor:-l.valor;
-    });
-    const saldoDiaFim = saldoAcum;
-    const corSaldo = saldoDiaFim>=0?'var(--green)':'var(--red)';
+  let saldoDia = saldoAcum;
 
+  Object.entries(porDia).forEach(([dia, items]) => {
+    // Calcular saldo do dia (só pagos)
+    let saldoDiaFim = saldoDia;
+    items.forEach(({l}) => {
+      if(l.pago === 'Sim') saldoDiaFim += l.cat==='Receitas' ? l.valor : -l.valor;
+    });
+
+    const corSaldo = saldoDiaFim >= 0 ? 'var(--green)' : 'var(--red)';
+
+    // Linha separadora de dia — colspan cobrindo todas as 9 colunas
     rows += `<tr style="background:var(--bg3)">
-      <td colspan="6" style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)">${fmtDia(dia)}</td>
-      <td colspan="3" style="padding:8px 14px;text-align:right;font-size:12px;font-weight:800;color:${corSaldo}">Saldo: ${saldoDiaFim>=0?'':'-'}${R(Math.abs(saldoDiaFim))}</td>
+      <td colspan="6" style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)">
+        ${fmtDia(dia)}
+      </td>
+      <td colspan="3" style="padding:8px 14px;text-align:right;font-size:12px;font-weight:800;color:${corSaldo}">
+        Saldo: ${saldoDiaFim>=0?'':'-'}${R(Math.abs(saldoDiaFim))}
+      </td>
     </tr>`;
 
-    items.forEach(({l,idx})=>{
-      const isRec  = l.cat==='Receitas';
-      const isInv  = l.cat==='Investimentos';
-      const isPago = l.pago==='Sim';
-      const catColor = CORES[l.cat]||'#8b949e';
-      const valColor = isRec?'var(--green)':isInv?'var(--blue)':'var(--red)';
-      const valSinal = isRec?'+':isInv?'':'-';
-      const rowAlpha = isPago?'':'opacity:.65;';
-      const rowBg    = !isPago&&!isRec?'background:rgba(248,81,73,.04);':isRec?'background:rgba(63,185,80,.03);':'';
+    // Linhas dos lançamentos do dia — colunas alinhadas
+    items.forEach(({l, idx}) => {
+      const isRec  = l.cat === 'Receitas';
+      const isInv  = l.cat === 'Investimentos';
+      const isPago = l.pago === 'Sim';
+      const catColor = CORES[l.cat] || '#8b949e';
+      const valColor = isRec ? 'var(--green)' : isInv ? 'var(--blue)' : 'var(--red)';
+      const valSinal = isRec ? '+' : isInv ? '' : '-';
+      const rowAlpha = isPago ? '' : 'opacity:.65;';
+      const rowBg    = !isPago && !isRec ? 'background:rgba(248,81,73,.04);' : isRec ? 'background:rgba(63,185,80,.03);' : '';
 
       rows += `<tr style="${rowAlpha}${rowBg}">
         <td style="padding:8px 14px;text-align:center;white-space:nowrap;font-size:12px;font-family:monospace;color:var(--tx3)">${l.data||l.mes}</td>
         <td style="padding:8px 14px;text-align:center">
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:12px">
             <span style="width:7px;height:7px;border-radius:50%;background:${catColor};flex-shrink:0"></span>${l.cat}
           </span>
         </td>
@@ -5226,21 +5197,40 @@ function renderExtrato(lanComIdx){
             onmouseover="this.style.background='var(--rd)'" onmouseout="this.style.background='none'">🗑</button>
         </td>
       </tr>`;
+
+      if(isPago) saldoDia += isRec ? l.valor : -l.valor;
     });
+
+    saldoDia = saldoDiaFim;
   });
 
-  container.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-    <table class="dtable" style="min-width:700px">
-      <thead><tr>
-        <th>Data</th><th>Categoria</th><th>Subcategoria</th><th>Descrição</th>
-        <th>Forma Pgto.</th><th>Mês</th><th>Valor</th><th>Pago</th><th>Ações</th>
-      </tr></thead>
+  if(!rows){
+    rows = `<tr><td colspan="9" style="padding:32px;text-align:center;color:var(--tx3)">
+      Nenhum lançamento encontrado.</td></tr>`;
+  }
+
+  // Renderizar como tabela com thead dentro do container
+  container.innerHTML = `
+    <table class="dtable" style="width:100%">
+      <thead style="background:var(--bg3)">
+        <tr>
+          <th style="padding:10px 14px;text-align:center;white-space:nowrap">Data</th>
+          <th style="padding:10px 14px;text-align:center">Categoria</th>
+          <th style="padding:10px 14px;text-align:center">Subcategoria</th>
+          <th style="padding:10px 14px;text-align:center">Descrição</th>
+          <th style="padding:10px 14px;text-align:center">Forma Pgto</th>
+          <th style="padding:10px 14px;text-align:center">Mês</th>
+          <th style="padding:10px 14px;text-align:center">Valor</th>
+          <th style="padding:10px 14px;text-align:center">Pago</th>
+          <th style="padding:10px 14px;text-align:center;width:80px">Ações</th>
+        </tr>
+      </thead>
       <tbody>${rows}</tbody>
-    </table>
-  </div>`;
+    </table>`;
 }
 
 
+// ══ TEMA ══
 function toggleTheme(){
   const isLight=document.documentElement.classList.toggle('light');
   document.getElementById('tog').classList.toggle('on',isLight);
@@ -5463,7 +5453,34 @@ async function carregarDoSupabase(){
     DB.saldos_iniciais = {};
     saldos.forEach(s=>{ DB.saldos_iniciais[s.mes] = parseFloat(s.saldo); });
 
-    orcs.forEach(o=>{ DB.orcamento[o.categoria] = parseFloat(o.valor); });
+    DB.orcamento={};DB.orcamentoSub={};DB.orcamentoMes={};
+    orcs.forEach(o=>{
+      const cat=o.categoria,sub=o.subcategoria||null,mes=o.mes||null,val=parseFloat(o.valor)||0;
+      if(sub){
+        if(!DB.orcamentoSub[cat])DB.orcamentoSub[cat]={};
+        if(!DB.orcamentoSub[cat][sub])DB.orcamentoSub[cat][sub]={};
+        DB.orcamentoSub[cat][sub][mes||'']=val;
+      }
+      if(mes){
+        if(!DB.orcamentoMes[cat])DB.orcamentoMes[cat]={};
+        DB.orcamentoMes[cat][mes]=(DB.orcamentoMes[cat][mes]||0)+val;
+      } else if(!sub){
+        DB.orcamento[cat]=(DB.orcamento[cat]||0)+val;
+      }
+    });
+    // Consolidar DB.orcamento: média dos meses se só tiver por mês
+    Object.keys(DB.orcamentoMes).forEach(cat=>{
+      if(!DB.orcamento[cat]){
+        const v=Object.values(DB.orcamentoMes[cat]);
+        DB.orcamento[cat]=v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):0;
+      }
+    });
+    Object.keys(DB.orcamentoSub).forEach(cat=>{
+      if(!DB.orcamento[cat]){
+        const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);
+        if(b)DB.orcamento[cat]=b;
+      }
+    });
 
     const mAtivos = getMeses();
     document.getElementById('sidebar-sub').textContent = `${mAtivos.join('–')} · ${DB.lancamentos.length} registros`;
@@ -6696,7 +6713,139 @@ function updateFilterBadge(){
 
 
 
-// ── CHIPS MÊS MOBILE ──
+function getOrcSub(cat,sub,meses){
+  const m=DB.orcamentoSub?.[cat]?.[sub]||{};
+  if(meses&&meses.length){const v=meses.map(ms=>m[ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
+  return m['']||0;
+}
+function getOrcCat(cat,meses){
+  if(DB.orcamentoMes?.[cat]&&meses&&meses.length){const v=meses.map(ms=>DB.orcamentoMes[cat][ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
+  return DB.orcamento[cat]||0;
+}
+function orcFecharDetalhe(){const m=document.getElementById('orc-detalhe-modal');if(m)m.style.display='none';}
+function orcDetalhePopup(cat,meses){
+  if(typeof meses==='string')try{meses=JSON.parse(meses);}catch(e){meses=[];}
+  const n=meses.length||1,tipo=document.getElementById('orc-tipo')?.value||'media';
+  const subcatsOrc=DB.orcamentoSub?.[cat]||{},subcatReal={};
+  DB.lancamentos.filter(l=>l.cat===cat&&meses.includes(l.mes))
+    .forEach(l=>{const s=l.subcat||'Outros';subcatReal[s]=(subcatReal[s]||0)+Math.abs(l.valor);});
+  const allSubs=[...new Set([...Object.keys(subcatsOrc),...Object.keys(subcatReal)])].sort();
+  if(!allSubs.length){alert('Nenhuma subcategoria encontrada para '+cat+'.');return;}
+  const rows=allSubs.map(sub=>{
+    const o=getOrcSub(cat,sub,meses),rt=subcatReal[sub]||0,r=tipo==='mes'?rt:Math.round(rt/n),d=r-o;
+    const cl=o>0?(d>500?'var(--red)':d>100?'var(--amber)':d<=0?'var(--green)':'var(--tx2)'):'var(--tx2)';
+    const st=o>0?(d<=0?'✓ OK':d<=100?'↑ Leve':d<=500?'⚠ Atenção':'✗ Crítico'):'—';
+    const pe=o>0?Math.min(Math.round(r/o*100),150):null,bw=pe!==null?Math.min(pe,100):0;
+    const bc=pe===null?'var(--tx3)':pe>120?'var(--red)':pe>100?'var(--amber)':'var(--green)';
+    return `<tr style="border-bottom:1px solid var(--bd)">
+      <td style="padding:8px 10px;font-size:13px">${sub}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:right">${o>0?R(o):'—'}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:right;color:${cl}">${R(r)}</td>
+      <td style="padding:8px 10px;font-size:13px;text-align:right;color:${cl};white-space:nowrap">${o>0?(d>=0?'+':'')+R(d):'—'}</td>
+      <td style="padding:8px 12px;font-size:11px;font-weight:700;color:${cl};white-space:nowrap">${st}</td>
+    </tr><tr><td colspan="5" style="padding:0 10px 8px">
+      <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${bw}%;background:${bc};border-radius:2px"></div>
+      </div></td></tr>`;
+  }).join('');
+  const to=allSubs.reduce((s,sub)=>s+getOrcSub(cat,sub,meses),0);
+  const tr2=allSubs.reduce((s,sub)=>s+(tipo==='mes'?(subcatReal[sub]||0):Math.round((subcatReal[sub]||0)/n)),0);
+  const td=tr2-to,tc=td>0?'var(--red)':'var(--green)';
+  document.getElementById('orc-detalhe-title').textContent=cat+' — Subcategorias';
+  document.getElementById('orc-detalhe-periodo').textContent='Período: '+(meses.length===1?meses[0]:meses[0]+'–'+meses[meses.length-1])+' · '+(tipo==='mes'?'mês único':'média de '+n+' meses');
+  document.getElementById('orc-detalhe-body').innerHTML=`
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--bg3)">
+        <th style="text-align:left;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Subcategoria</th>
+        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Orçado</th>
+        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Realizado</th>
+        <th style="text-align:right;padding:8px 10px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Desvio</th>
+        <th style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--tx3);border-bottom:2px solid var(--bd)">Status</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:var(--bg3)">
+        <td style="padding:9px 10px;font-weight:700;font-size:13px">TOTAL</td>
+        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right">${to>0?R(to):'—'}</td>
+        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right;color:${tc}">${R(tr2)}</td>
+        <td style="padding:9px 10px;font-weight:700;font-size:13px;text-align:right;color:${tc}">${to>0?(td>=0?'+':'')+R(td):'—'}</td>
+        <td></td></tr></tfoot>
+    </table>`;
+  document.getElementById('orc-detalhe-modal').style.display='flex';
+}
+
+// ══ FATURAS POR CARTÃO ══
+const CART_FECHAMENTO={'C.Credito Master':{fechaDia:3,pagaDia:10},'C.C Master C6':{fechaDia:3,pagaDia:10}};
+function getCartoes(){
+  const f=DB_FORMAS.length>0?DB_FORMAS:[{nome:'C.Credito Master',tipo:'credito'},{nome:'C.C Master C6',tipo:'credito'}];
+  return f.filter(x=>x.tipo==='credito');
+}
+function renderFaturas(){
+  const el=document.getElementById('car-faturas-list');
+  const tEl=document.getElementById('car-fat-total');
+  if(!el||!tEl)return;
+  const mes=document.getElementById('car-fat-mes')?.value||getMeses().slice(-1)[0]||'Mai';
+  const carts=getCartoes();
+  if(!carts.length){el.innerHTML='<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhum cartão de crédito cadastrado.</div>';return;}
+  let tot=0;
+  el.innerHTML=carts.map(c=>{
+    const lan=DB.lancamentos.filter(l=>l.forma===c.nome&&l.mes===mes&&l.cat!=='Receitas');
+    const v=Math.abs(lan.reduce((s,l)=>s+l.valor,0));tot+=v;
+    const cfg=CART_FECHAMENTO[c.nome]||{fechaDia:3,pagaDia:10};
+    const logo=c.nome.includes('C6')?'C6':c.nome.toLowerCase().includes('master')?'MC':c.nome.substring(0,2).toUpperCase();
+    const bg=logo==='MC'?'#eb001b':logo==='C6'?'#242424':'var(--bg4)';
+    const q=lan.length,qp=lan.filter(l=>/\d+\/\d+/.test(l.desc||'')).length;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:8px">
+      <div style="width:44px;height:32px;border-radius:6px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0">${logo}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700">${c.nome}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">Fecha dia ${cfg.fechaDia} · Paga dia ${cfg.pagaDia} · ${q} lançamento${q!==1?'s':''}${qp>0?` · <span style="color:var(--amber)">${qp} parc.</span>`:''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:18px;font-weight:800;color:${v>0?'var(--red)':'var(--tx3)'}">${v>0?R(v):'—'}</div>
+        <div style="font-size:11px;color:var(--tx3)">${mes} · ${q} itens</div>
+      </div>
+    </div>`;
+  }).join('');
+  tEl.textContent=R(tot);tEl.style.color=tot>0?'var(--red)':'var(--green)';
+}
+
+// ══ GRÁFICO CARTÃO vs RECEITA ══
+function renderCarRatio(){
+  const meses=getMeses();if(!meses.length)return;
+  const reCarFn=f=>f&&(f.toLowerCase().includes('credito')||f.toLowerCase().includes('master')||f.toLowerCase().includes('c.c'));
+  const dados=meses.map(mes=>{
+    const rec=Math.abs(SM(DB.lancamentos.filter(l=>l.mes===mes&&l.cat==='Receitas').map(l=>l.valor)));
+    const cart=Math.abs(SM(DB.lancamentos.filter(l=>l.mes===mes&&reCarFn(l.forma)&&l.cat!=='Receitas').map(l=>l.valor)));
+    return{mes,rec,cart,pct:rec>0?Math.round(cart/rec*100):0};
+  });
+  const mC=Math.round(dados.reduce((s,d)=>s+d.cart,0)/meses.length);
+  const mR=Math.round(dados.reduce((s,d)=>s+d.rec,0)/meses.length);
+  const mP=mR>0?Math.round(mC/mR*100):0;
+  const pico=dados.reduce((a,b)=>b.pct>a.pct?b:a,dados[0]);
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  s('car-ratio-media-cart',R(mC));s('car-ratio-media-rec',R(mR));
+  s('car-ratio-pct',mP+'%');s('car-ratio-pico',pico?`${pico.mes} (${pico.pct}%)`:'—');
+  const pctEl=document.getElementById('car-ratio-pct');
+  if(pctEl)pctEl.style.color=mP>50?'var(--red)':mP>30?'var(--amber)':'var(--green)';
+  const badgeEl=document.getElementById('car-ratio-badge');
+  if(badgeEl){const cls=mP>50?'b-danger':mP>30?'b-warn':'b-ok';const msg=mP>50?'⚠ Acima de 50% da receita':mP>30?'↑ Entre 30–50% da receita':'✓ Dentro do limite';badgeEl.innerHTML=`<span class="badge ${cls}">${msg}</span>`;}
+  mkChart('chart-car-ratio',{type:'bar',data:{labels:meses,datasets:[
+    {label:'Receita',data:dados.map(d=>d.rec),backgroundColor:'rgba(63,185,80,.25)',borderColor:'rgba(63,185,80,.8)',borderWidth:2,borderRadius:4,order:2},
+    {label:'Cartão',data:dados.map(d=>d.cart),backgroundColor:dados.map(d=>d.pct>50?'rgba(248,81,73,.75)':d.pct>30?'rgba(210,153,34,.75)':'rgba(88,166,255,.65)'),borderColor:dados.map(d=>d.pct>50?'#f85149':d.pct>30?'#d29922':'#58a6ff'),borderWidth:2,borderRadius:4,order:1},
+    {label:'% da Receita',data:dados.map(d=>d.pct),type:'line',yAxisID:'pct',borderColor:'rgba(188,140,255,.9)',backgroundColor:'rgba(188,140,255,.1)',borderWidth:2,pointRadius:4,tension:0.3,fill:false,order:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true,position:'top',labels:{color:'#8b949e',boxWidth:12,font:{size:11}}},
+      tooltip:{callbacks:{label(ctx){return ctx.dataset.label==='% da Receita'?` ${ctx.dataset.label}: ${ctx.raw}%`:` ${ctx.dataset.label}: R$ ${(ctx.raw||0).toLocaleString('pt-BR')}`;}}}},
+    scales:{x:{ticks:{color:'#8b949e',font:{size:11}},grid:{color:'rgba(48,54,61,.5)'}},
+      y:{ticks:{color:'#8b949e',font:{size:11},callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'rgba(48,54,61,.5)'}},
+      pct:{position:'right',ticks:{color:'#bc8cff',font:{size:11},callback:v=>v+'%'},grid:{display:false},min:0,max:Math.max(100,...dados.map(d=>d.pct))+10}}}});
+  const bEl=document.getElementById('car-ratio-bars');
+  if(bEl)bEl.innerHTML=dados.map(d=>{const pw=Math.min(d.pct,100);const cor=d.pct>50?'var(--red)':d.pct>30?'var(--amber)':'var(--green)';const bg=d.pct>50?'var(--rd)':d.pct>30?'rgba(210,153,34,.12)':'var(--gd)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:${bg};border-radius:6px"><span style="font-size:12px;font-weight:700;color:var(--tx);width:28px">${d.mes}</span><div style="flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pw}%;background:${cor};border-radius:4px"></div></div><span style="font-size:11px;font-weight:700;color:${cor};width:36px;text-align:right">${d.pct}%</span><span style="font-size:11px;color:var(--tx3);width:90px;text-align:right">${R(d.cart)} / ${R(d.rec)}</span></div>`;
+  }).join('');
+}
+
+// ══ CHIPS MÊS MOBILE ══
 function renderChipsMes(){
   const wrap=document.getElementById('lan-chips-mes');
   const inner=document.getElementById('lan-chips-inner');
@@ -6705,8 +6854,7 @@ function renderChipsMes(){
   wrap.style.display=isMob?'block':'none';
   if(!isMob)return;
   const meses=getMeses(),mesSel=document.getElementById('lan-mes')?.value||'';
-  inner.innerHTML=
-    `<button class="lan-chip-mes ${!mesSel?'ativo':''}" onclick="filtrarMesChip('')">Todos</button>`+
+  inner.innerHTML=`<button class="lan-chip-mes ${!mesSel?'ativo':''}" onclick="filtrarMesChip('')">Todos</button>`+
     meses.map(m=>`<button class="lan-chip-mes ${mesSel===m?'ativo':''}" onclick="filtrarMesChip('${m}')">${m}</button>`).join('');
   setTimeout(()=>{const a=inner.querySelector('.ativo');if(a)a.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});},100);
 }
