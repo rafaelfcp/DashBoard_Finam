@@ -754,6 +754,13 @@ html.is-mobile .sidebar.open{
   .cfg-orc-input{width:100%}
   .cfg-item-nome{font-size:13px}
 }
+
+#lan-chips-mes{background:var(--bg);border-bottom:1px solid var(--bd)}
+#lan-chips-inner::-webkit-scrollbar{display:none}
+.lan-chip-mes{flex-shrink:0;padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;border:1.5px solid var(--bd2);background:var(--bg3);color:var(--tx2);cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.lan-chip-mes.ativo{background:var(--blue);color:#fff;border-color:var(--blue)}
+.lan-chip-mes:active{opacity:.7}
+
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1705,6 +1712,7 @@ html.is-mobile .sidebar.open{
           <tbody id="lan-tbody"></tbody>
         </table>
       </div>
+      <div id="lan-chips-mes" style="display:none"><div style="display:flex;gap:6px;overflow-x:auto;padding:8px 16px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="lan-chips-inner"></div></div>
       <!-- Container extrato (lista) -->
       <div id="lan-extrato-wrap" style="display:none;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
         <div id="lan-extrato-content"></div>
@@ -1792,6 +1800,41 @@ html.is-mobile .sidebar.open{
     <!-- Alerta de comprometimento -->
     <div id="car-alerta" class="sbanner sb-danger" style="display:none"></div>
 
+    <!-- Painel Faturas -->
+    <div class="card" style="margin-bottom:14px" id="car-faturas-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div><div class="card-title" style="margin-bottom:2px">Faturas por Cartão</div><div style="font-size:12px;color:var(--tx2)">Total a pagar por cartão de crédito no mês</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--tx3);font-weight:600">MÊS</span>
+          <select id="car-fat-mes" onchange="renderFaturas()" style="background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:7px 12px;font-size:13px;outline:none">
+            <option value="">Mês atual</option>
+            <option>Jan</option><option>Fev</option><option>Mar</option><option>Abr</option>
+            <option>Mai</option><option>Jun</option><option>Jul</option><option>Ago</option>
+            <option>Set</option><option>Out</option><option>Nov</option><option>Dez</option>
+          </select>
+        </div>
+      </div>
+      <div id="car-faturas-list"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--bg3);border-radius:var(--rs);margin-top:8px;border:1px solid var(--bd)">
+        <span style="font-size:14px;font-weight:700">Total das faturas</span>
+        <span id="car-fat-total" style="font-size:18px;font-weight:800;color:var(--red)">R$ 0</span>
+      </div>
+    </div>
+    <!-- Gráfico Cartão vs Receita -->
+    <div class="card" style="margin-bottom:14px" id="car-ratio-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+        <div><div class="card-title" style="margin-bottom:2px">Cartão vs Receita — evolução mensal</div><div style="font-size:12px;color:var(--tx2)">Valor pago no cartão comparado à receita do mês</div></div>
+        <div id="car-ratio-badge"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">Média cartão/mês</div><div id="car-ratio-media-cart" style="font-size:18px;font-weight:800;color:var(--red);margin-top:3px">—</div></div>
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">Média receita/mês</div><div id="car-ratio-media-rec" style="font-size:18px;font-weight:800;color:var(--green);margin-top:3px">—</div></div>
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">% médio da receita</div><div id="car-ratio-pct" style="font-size:18px;font-weight:800;margin-top:3px">—</div></div>
+        <div style="flex:1;min-width:100px;padding:10px 12px;background:var(--bg3);border-radius:var(--rs);border:1px solid var(--bd)"><div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase">Mês mais alto</div><div id="car-ratio-pico" style="font-size:15px;font-weight:800;color:var(--red);margin-top:3px">—</div></div>
+      </div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chart-car-ratio"></canvas></div>
+      <div id="car-ratio-bars" style="margin-top:14px;display:flex;flex-direction:column;gap:6px"></div>
+    </div>
     <!-- Gráfico de evolução mensal do comprometimento -->
     <div class="card" style="margin-bottom:14px" id="car-chart-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -2328,10 +2371,7 @@ html.is-mobile .sidebar.open{
 <div id="orc-detalhe-modal" onclick="if(event.target===this)orcFecharDetalhe()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)">
   <div style="background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;width:100%;max-width:680px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);flex-shrink:0">
-      <div>
-        <div id="orc-detalhe-title" style="font-size:16px;font-weight:700"></div>
-        <div id="orc-detalhe-periodo" style="font-size:12px;color:var(--tx2);margin-top:2px"></div>
-      </div>
+      <div><div id="orc-detalhe-title" style="font-size:16px;font-weight:700"></div><div id="orc-detalhe-periodo" style="font-size:12px;color:var(--tx2);margin-top:2px"></div></div>
       <button onclick="orcFecharDetalhe()" style="background:none;border:none;color:var(--tx2);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
     </div>
     <div id="orc-detalhe-body" style="overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:1"></div>
@@ -3726,34 +3766,32 @@ function renderOrcamento(){
   // Mini-cards execução — grid responsivo
   const gridEl = document.getElementById('orc-cat-grid');
   if(gridEl) gridEl.innerHTML = cats.map((c, i) => {
-    const pExec    = orc[i] > 0 ? Math.round(reais[i] / orc[i] * 100) : null;
-    const d        = reais[i] - orc[i];
-    const barW     = pExec !== null ? Math.min(pExec, 100) : 0;
-    const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
-    const bdgCls   = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
-    const bdgTxt   = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
-    const hasSub   = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
-    const ms       = meses.map(m=>`'${m}'`).join(',');
-    return `
-      <div class="kpi" style="padding:12px 14px;position:relative;${hasSub?'cursor:pointer;':''}"
-        ${hasSub?`onclick="orcDetalhePopup('${c}',[${ms}])" title="Ver subcategorias"`:''}>
-        ${hasSub?`<span style="position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--blue);opacity:.8">↗ subcats</span>`:''}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
-            <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>${c}
-          </span>
-          <span class="badge ${bdgCls}" style="font-size:10px">${bdgTxt}</span>
-        </div>
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px">
-          <span style="font-size:22px;font-weight:800;color:${d>0?'var(--red)':'var(--green)'}">${pExec !== null ? pExec + '%' : '—'}</span>
-          <span style="font-size:11px;color:var(--tx3)">orç. ${R(orc[i])}</span>
-        </div>
-        <div class="progress-track"><div class="progress-fill" style="width:${barW}%;background:${barColor}"></div></div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
-          <span style="color:var(--tx2)">Real: ${R(reais[i])}</span>
-          <span style="font-weight:700;color:${d>0?'var(--red)':'var(--green)'}">${d >= 0 ? '+' : ''}${R(d)}</span>
-        </div>
-      </div>`;
+    const pExec=orc[i]>0?Math.round(reais[i]/orc[i]*100):null,d=reais[i]-orc[i];
+    const barW=pExec!==null?Math.min(pExec,100):0;
+    const barColor=pExec===null?'var(--tx3)':pExec>120?'var(--red)':pExec>100?'var(--amber)':'var(--green)';
+    const bdgCls=d>500?'b-danger':d>100?'b-warn':d<=0?'b-ok':'b-info';
+    const bdgTxt=d<=0?'OK':d<=100?'Leve':d<=500?'Atenção':'Crítico';
+    const hasSub=DB.orcamentoSub?.[c]&&Object.keys(DB.orcamentoSub[c]).length>0;
+    const ms=meses.map(m=>`'${m}'`).join(',');
+    return `<div class="kpi" style="padding:12px 14px;position:relative;${hasSub?'cursor:pointer;':''}"
+      ${hasSub?`onclick="orcDetalhePopup('${c}',[${ms}])" title="Ver subcategorias"`:''}>
+      ${hasSub?`<span style="position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--blue);opacity:.8">↗ subcats</span>`:''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700">
+          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'};flex-shrink:0"></span>${c}
+        </span>
+        <span class="badge ${bdgCls}" style="font-size:10px">${bdgTxt}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:22px;font-weight:800;color:${d>0?'var(--red)':'var(--green)'}">${pExec!==null?pExec+'%':'—'}</span>
+        <span style="font-size:11px;color:var(--tx3)">orç. ${R(orc[i])}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${barW}%;background:${barColor}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px">
+        <span style="color:var(--tx2)">Real: ${R(reais[i])}</span>
+        <span style="font-weight:700;color:${d>0?'var(--red)':'var(--green)'}">${d>=0?'+':''}${R(d)}</span>
+      </div>
+    </div>`;
   }).join('');
 
   // Evolução mensal com chips
@@ -3771,37 +3809,23 @@ function renderOrcamento(){
 
   // Tabela
   document.getElementById('orc-tbody').innerHTML = cats.map((c, i) => {
-    const d      = reais[i] - orc[i];
-    const p      = orc[i] > 0 ? Math.round(d / orc[i] * 100) : null;
-    const pExec  = orc[i] > 0 ? Math.min(Math.round(reais[i] / orc[i] * 100), 150) : null;
-    const cls    = d > 500 ? 'danger' : d > 100 ? 'warn' : d <= 0 ? 'ok' : '';
-    const bdg    = d > 500 ? 'b-danger' : d > 100 ? 'b-warn' : d <= 0 ? 'b-ok' : 'b-info';
-    const st     = d <= 0 ? 'OK' : d <= 100 ? 'Leve' : d <= 500 ? 'Atenção' : 'Crítico';
-    const barColor = pExec === null ? 'var(--tx3)' : pExec > 120 ? 'var(--red)' : pExec > 100 ? 'var(--amber)' : 'var(--green)';
-    const barW   = pExec !== null ? Math.min(pExec, 100) : 0;
-    const hasSub2 = DB.orcamentoSub?.[c] && Object.keys(DB.orcamentoSub[c]).length > 0;
-    const ms2    = meses.map(m=>`'${m}'`).join(',');
-    const catCell = hasSub2
-      ? `<button onclick="orcDetalhePopup('${c}',[${ms2}])" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px">${c} ↗</button>`
-      : c;
+    const d=reais[i]-orc[i],p=orc[i]>0?Math.round(d/orc[i]*100):null;
+    const pExec=orc[i]>0?Math.min(Math.round(reais[i]/orc[i]*100),150):null;
+    const cls=d>500?'danger':d>100?'warn':d<=0?'ok':'';
+    const bdg=d>500?'b-danger':d>100?'b-warn':d<=0?'b-ok':'b-info';
+    const st=d<=0?'OK':d<=100?'Leve':d<=500?'Atenção':'Crítico';
+    const barColor=pExec===null?'var(--tx3)':pExec>120?'var(--red)':pExec>100?'var(--amber)':'var(--green)';
+    const barW=pExec!==null?Math.min(pExec,100):0;
+    const hasSub2=DB.orcamentoSub?.[c]&&Object.keys(DB.orcamentoSub[c]).length>0;
+    const ms2=meses.map(m=>`'${m}'`).join(',');
+    const catCell=hasSub2?`<button onclick="orcDetalhePopup('${c}',[${ms2}])" style="background:none;border:none;color:var(--tx);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline dotted;text-underline-offset:3px">${c} ↗</button>`:c;
     return `<tr>
-      <td style="font-weight:700;padding:9px 10px">
-        <span style="display:inline-flex;align-items:center;gap:5px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${catCell}
-        </span>
-      </td>
+      <td style="font-weight:700;padding:9px 10px"><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${CORES[c]||'#8b949e'}"></span>${catCell}</span></td>
       <td style="padding:9px 10px">${R(orc[i])}</td>
       <td style="padding:9px 10px" class="${cls}">${R(reais[i])}</td>
-      <td style="padding:9px 10px" class="${cls}">${d >= 0 ? '+' : ''}${R(d)}</td>
-      <td style="padding:9px 10px;color:var(--tx2)">${p !== null ? (p >= 0 ? '+' : '') + p + '%' : '—'}</td>
-      <td style="padding:9px 14px;min-width:120px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px"></div>
-          </div>
-          <span style="font-size:11px;font-weight:700;color:${barColor};min-width:30px">${pExec !== null ? pExec + '%' : '—'}</span>
-        </div>
-      </td>
+      <td style="padding:9px 10px" class="${cls}">${d>=0?'+':''}${R(d)}</td>
+      <td style="padding:9px 10px;color:var(--tx2)">${p!==null?(p>=0?'+':'')+p+'%':'—'}</td>
+      <td style="padding:9px 14px;min-width:120px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px"></div></div><span style="font-size:11px;font-weight:700;color:${barColor};min-width:30px">${pExec!==null?pExec+'%':'—'}</span></div></td>
       <td style="padding:9px 10px"><span class="badge ${bdg}" style="font-size:10px">${st}</span></td>
     </tr>`;
   }).join('');
@@ -4048,10 +4072,16 @@ function getMesAtualDados(){
 
 function setupLan(){
   showBody('lan');
-  // Definir ordenação padrão: não pagos/mês atual
   const elOrd = document.getElementById('lan-ord');
   if(elOrd && !elOrd.dataset.userChanged) elOrd.value = 'extrato';
+  // No mobile: filtrar mês atual por padrão
+  const elMes = document.getElementById('lan-mes');
+  if(elMes && !elMes.value && window.innerWidth <= 860){
+    const m = getMesAtualDados() || getMeses().slice(-1)[0] || '';
+    if(m) elMes.value = m;
+  }
   renderLan();
+  if(typeof renderChipsMes === 'function') renderChipsMes();
 }
 
 function limparFiltrosLan(){
@@ -4397,6 +4427,8 @@ function renderCartao(){
   document.getElementById('car-legend').innerHTML=todasCats.map(c=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:${clrs[c]||'#8b949e'};display:inline-block"></span>${c}</span>`).join('');
   if(vis==='mensal')renderCartaoMensal(comprometimento,mesesFut,todasCats,catFiltro);
   else renderCartaoDetalhe(parcsAtivas);
+  renderCarRatio();
+  renderFaturas();
 }
 
 function renderCartaoMensal(comprometimento,mesesFut,todasCats,catFiltro){
@@ -4879,17 +4911,6 @@ function fecharModal(tipo){
   const el = document.getElementById('modal-'+tipo);
   if(el) el.style.display = 'none';
   document.body.style.overflow = '';
-  // Resetar botão de confirmação para evitar travar em estados anteriores
-  if(tipo === 'deletar'){
-    const btn = document.getElementById('btn-del-confirm');
-    if(btn){ btn.disabled = false; btn.textContent = '🗑 Confirmar exclusão'; }
-    const fb = document.getElementById('del-feedback');
-    if(fb) fb.style.display = 'none';
-  }
-  if(tipo === 'editar'){
-    const btn = document.getElementById('btn-edit-save');
-    if(btn){ btn.disabled = false; btn.textContent = '💾 Salvar alterações'; }
-  }
 }
 
 function abrirModal(tipo){
@@ -5057,20 +5078,15 @@ async function executarDeletar(){
   if(!erroSB){
     // Remover do DB local
     DB.lancamentos.splice(idx, 1);
-    fecharModal('deletar'); // já reseta o botão
+    fecharModal('deletar');
     // Invalidar e re-renderizar
     ['lancamentos','visao','mensal','categorias','diagnostico','efetivado'].forEach(p=>{ rendered[p]=false; });
     renderLan();
   } else {
-    btn.disabled = false;
-    btn.textContent = '🗑 Confirmar exclusão';
-    if(fb){
-      fb.style.display = 'block';
-      fb.style.background = 'var(--rd)';
-      fb.style.color = 'var(--red)';
-      fb.style.border = '1px solid rgba(248,81,73,.3)';
-      fb.textContent = '✗ Erro ao excluir: ' + erroSB;
-    }
+    btn.disabled=false; btn.textContent='🗑 Confirmar exclusão';
+    fb.style.display='block'; fb.style.background='var(--rd)';
+    fb.style.color='var(--red)'; fb.style.border='1px solid rgba(248,81,73,.3)';
+    fb.textContent = '✗ Erro ao excluir no Supabase: ' + erroSB;
   }
 }
 
@@ -5448,14 +5464,22 @@ async function carregarDoSupabase(){
       if(mes){
         if(!DB.orcamentoMes[cat])DB.orcamentoMes[cat]={};
         DB.orcamentoMes[cat][mes]=(DB.orcamentoMes[cat][mes]||0)+val;
-      } else if(!sub){DB.orcamento[cat]=(DB.orcamento[cat]||0)+val;}
+      } else if(!sub){
+        DB.orcamento[cat]=(DB.orcamento[cat]||0)+val;
+      }
     });
+    // Consolidar DB.orcamento: média dos meses se só tiver por mês
     Object.keys(DB.orcamentoMes).forEach(cat=>{
-      if(!DB.orcamento[cat]){const v=Object.values(DB.orcamentoMes[cat]);
-        DB.orcamento[cat]=v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):0;}
+      if(!DB.orcamento[cat]){
+        const v=Object.values(DB.orcamentoMes[cat]);
+        DB.orcamento[cat]=v.length?Math.round(v.reduce((s,x)=>s+x,0)/v.length):0;
+      }
     });
     Object.keys(DB.orcamentoSub).forEach(cat=>{
-      if(!DB.orcamento[cat]){const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);if(b)DB.orcamento[cat]=b;}
+      if(!DB.orcamento[cat]){
+        const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);
+        if(b)DB.orcamento[cat]=b;
+      }
     });
 
     const mAtivos = getMeses();
@@ -6747,5 +6771,95 @@ function orcDetalhePopup(cat,meses){
         <td></td></tr></tfoot>
     </table>`;
   document.getElementById('orc-detalhe-modal').style.display='flex';
+}
+
+// ══ FATURAS POR CARTÃO ══
+const CART_FECHAMENTO={'C.Credito Master':{fechaDia:3,pagaDia:10},'C.C Master C6':{fechaDia:3,pagaDia:10}};
+function getCartoes(){
+  const f=DB_FORMAS.length>0?DB_FORMAS:[{nome:'C.Credito Master',tipo:'credito'},{nome:'C.C Master C6',tipo:'credito'}];
+  return f.filter(x=>x.tipo==='credito');
+}
+function renderFaturas(){
+  const el=document.getElementById('car-faturas-list');
+  const tEl=document.getElementById('car-fat-total');
+  if(!el||!tEl)return;
+  const mes=document.getElementById('car-fat-mes')?.value||getMeses().slice(-1)[0]||'Mai';
+  const carts=getCartoes();
+  if(!carts.length){el.innerHTML='<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhum cartão de crédito cadastrado.</div>';return;}
+  let tot=0;
+  el.innerHTML=carts.map(c=>{
+    const lan=DB.lancamentos.filter(l=>l.forma===c.nome&&l.mes===mes&&l.cat!=='Receitas');
+    const v=Math.abs(lan.reduce((s,l)=>s+l.valor,0));tot+=v;
+    const cfg=CART_FECHAMENTO[c.nome]||{fechaDia:3,pagaDia:10};
+    const logo=c.nome.includes('C6')?'C6':c.nome.toLowerCase().includes('master')?'MC':c.nome.substring(0,2).toUpperCase();
+    const bg=logo==='MC'?'#eb001b':logo==='C6'?'#242424':'var(--bg4)';
+    const q=lan.length,qp=lan.filter(l=>/\d+\/\d+/.test(l.desc||'')).length;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:8px">
+      <div style="width:44px;height:32px;border-radius:6px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0">${logo}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700">${c.nome}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">Fecha dia ${cfg.fechaDia} · Paga dia ${cfg.pagaDia} · ${q} lançamento${q!==1?'s':''}${qp>0?` · <span style="color:var(--amber)">${qp} parc.</span>`:''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:18px;font-weight:800;color:${v>0?'var(--red)':'var(--tx3)'}">${v>0?R(v):'—'}</div>
+        <div style="font-size:11px;color:var(--tx3)">${mes} · ${q} itens</div>
+      </div>
+    </div>`;
+  }).join('');
+  tEl.textContent=R(tot);tEl.style.color=tot>0?'var(--red)':'var(--green)';
+}
+
+// ══ GRÁFICO CARTÃO vs RECEITA ══
+function renderCarRatio(){
+  const meses=getMeses();if(!meses.length)return;
+  const reCarFn=f=>f&&(f.toLowerCase().includes('credito')||f.toLowerCase().includes('master')||f.toLowerCase().includes('c.c'));
+  const dados=meses.map(mes=>{
+    const rec=Math.abs(SM(DB.lancamentos.filter(l=>l.mes===mes&&l.cat==='Receitas').map(l=>l.valor)));
+    const cart=Math.abs(SM(DB.lancamentos.filter(l=>l.mes===mes&&reCarFn(l.forma)&&l.cat!=='Receitas').map(l=>l.valor)));
+    return{mes,rec,cart,pct:rec>0?Math.round(cart/rec*100):0};
+  });
+  const mC=Math.round(dados.reduce((s,d)=>s+d.cart,0)/meses.length);
+  const mR=Math.round(dados.reduce((s,d)=>s+d.rec,0)/meses.length);
+  const mP=mR>0?Math.round(mC/mR*100):0;
+  const pico=dados.reduce((a,b)=>b.pct>a.pct?b:a,dados[0]);
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  s('car-ratio-media-cart',R(mC));s('car-ratio-media-rec',R(mR));
+  s('car-ratio-pct',mP+'%');s('car-ratio-pico',pico?`${pico.mes} (${pico.pct}%)`:'—');
+  const pctEl=document.getElementById('car-ratio-pct');
+  if(pctEl)pctEl.style.color=mP>50?'var(--red)':mP>30?'var(--amber)':'var(--green)';
+  const badgeEl=document.getElementById('car-ratio-badge');
+  if(badgeEl){const cls=mP>50?'b-danger':mP>30?'b-warn':'b-ok';const msg=mP>50?'⚠ Acima de 50% da receita':mP>30?'↑ Entre 30–50% da receita':'✓ Dentro do limite';badgeEl.innerHTML=`<span class="badge ${cls}">${msg}</span>`;}
+  mkChart('chart-car-ratio',{type:'bar',data:{labels:meses,datasets:[
+    {label:'Receita',data:dados.map(d=>d.rec),backgroundColor:'rgba(63,185,80,.25)',borderColor:'rgba(63,185,80,.8)',borderWidth:2,borderRadius:4,order:2},
+    {label:'Cartão',data:dados.map(d=>d.cart),backgroundColor:dados.map(d=>d.pct>50?'rgba(248,81,73,.75)':d.pct>30?'rgba(210,153,34,.75)':'rgba(88,166,255,.65)'),borderColor:dados.map(d=>d.pct>50?'#f85149':d.pct>30?'#d29922':'#58a6ff'),borderWidth:2,borderRadius:4,order:1},
+    {label:'% da Receita',data:dados.map(d=>d.pct),type:'line',yAxisID:'pct',borderColor:'rgba(188,140,255,.9)',backgroundColor:'rgba(188,140,255,.1)',borderWidth:2,pointRadius:4,tension:0.3,fill:false,order:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true,position:'top',labels:{color:'#8b949e',boxWidth:12,font:{size:11}}},
+      tooltip:{callbacks:{label(ctx){return ctx.dataset.label==='% da Receita'?` ${ctx.dataset.label}: ${ctx.raw}%`:` ${ctx.dataset.label}: R$ ${(ctx.raw||0).toLocaleString('pt-BR')}`;}}}},
+    scales:{x:{ticks:{color:'#8b949e',font:{size:11}},grid:{color:'rgba(48,54,61,.5)'}},
+      y:{ticks:{color:'#8b949e',font:{size:11},callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'rgba(48,54,61,.5)'}},
+      pct:{position:'right',ticks:{color:'#bc8cff',font:{size:11},callback:v=>v+'%'},grid:{display:false},min:0,max:Math.max(100,...dados.map(d=>d.pct))+10}}}});
+  const bEl=document.getElementById('car-ratio-bars');
+  if(bEl)bEl.innerHTML=dados.map(d=>{const pw=Math.min(d.pct,100);const cor=d.pct>50?'var(--red)':d.pct>30?'var(--amber)':'var(--green)';const bg=d.pct>50?'var(--rd)':d.pct>30?'rgba(210,153,34,.12)':'var(--gd)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:${bg};border-radius:6px"><span style="font-size:12px;font-weight:700;color:var(--tx);width:28px">${d.mes}</span><div style="flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pw}%;background:${cor};border-radius:4px"></div></div><span style="font-size:11px;font-weight:700;color:${cor};width:36px;text-align:right">${d.pct}%</span><span style="font-size:11px;color:var(--tx3);width:90px;text-align:right">${R(d.cart)} / ${R(d.rec)}</span></div>`;
+  }).join('');
+}
+
+// ══ CHIPS MÊS MOBILE ══
+function renderChipsMes(){
+  const wrap=document.getElementById('lan-chips-mes');
+  const inner=document.getElementById('lan-chips-inner');
+  if(!wrap||!inner)return;
+  const isMob=window.innerWidth<=860;
+  wrap.style.display=isMob?'block':'none';
+  if(!isMob)return;
+  const meses=getMeses(),mesSel=document.getElementById('lan-mes')?.value||'';
+  inner.innerHTML=`<button class="lan-chip-mes ${!mesSel?'ativo':''}" onclick="filtrarMesChip('')">Todos</button>`+
+    meses.map(m=>`<button class="lan-chip-mes ${mesSel===m?'ativo':''}" onclick="filtrarMesChip('${m}')">${m}</button>`).join('');
+  setTimeout(()=>{const a=inner.querySelector('.ativo');if(a)a.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});},100);
+}
+function filtrarMesChip(mes){
+  const el=document.getElementById('lan-mes');if(el)el.value=mes;
+  renderLan();renderChipsMes();
 }
 </script>
