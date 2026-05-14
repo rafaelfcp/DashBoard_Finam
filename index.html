@@ -839,7 +839,7 @@ html.is-mobile .sidebar.open{
   <button class="btn-hide-values" id="btn-hide-values" onclick="toggleHideValues()" aria-label="Ocultar valores" title="Ocultar valores">
     <svg id="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
   </button>
-  <button onclick="recarregarDados()" style="background:none;border:none;color:var(--tx2);font-size:20px;cursor:pointer;padding:6px 8px;border-radius:8px;-webkit-tap-highlight-color:transparent;line-height:1" title="Atualizar dados">↻</button>
+  <button onclick="recarregarDados()" title="Atualizar dados" style="background:none;border:none;color:var(--tx2);font-size:20px;cursor:pointer;padding:6px 8px;border-radius:8px;-webkit-tap-highlight-color:transparent;line-height:1">↻</button>
   <button class="btn-filter-mobile" id="btn-filter-mobile" onclick="openFilterDrawer()" aria-label="Filtros">
     <span>⊞</span><span id="filter-badge-count"></span>Filtrar
   </button>
@@ -3005,10 +3005,9 @@ function renderVisao(){
   if(!DB.lancamentos.length)return;
   showBody('vg');
   rendered.visao=true;
-  const _agora=Date.now();
-  if(!window._ultimoCargaTS)window._ultimoCargaTS=_agora;
-  if((_agora-window._ultimoCargaTS)/60000>3&&usuarioAtual){
-    window._ultimoCargaTS=_agora;
+  if(!window._ultimoCargaTS)window._ultimoCargaTS=Date.now();
+  if((Date.now()-window._ultimoCargaTS)/60000>3&&usuarioAtual){
+    window._ultimoCargaTS=Date.now();
     carregarDoSupabase().then(()=>{delete rendered.visao;renderPage('visao');}).catch(console.error);
     return;
   }
@@ -5110,24 +5109,24 @@ function renderExtrato(lanComIdx){
   const maisEl = document.getElementById('lan-mais');
   if(maisEl) maisEl.style.display = 'none';
 
+  const isMob = window.innerWidth <= 860;
+
   // Ordenar por data crescente
   const sorted = [...lanComIdx].sort((a,b)=>{
-    const da = a.l.data || `2026-${String(MESES_ORD.indexOf(a.l.mes)+1).padStart(2,'0')}-01`;
-    const db = b.l.data || `2026-${String(MESES_ORD.indexOf(b.l.mes)+1).padStart(2,'0')}-01`;
-    return da.localeCompare(db) || (a.l.desc||'').localeCompare(b.l.desc||'');
+    const da = a.l.data||`2026-${String(MESES_ORD.indexOf(a.l.mes)+1).padStart(2,'0')}-01`;
+    const db = b.l.data||`2026-${String(MESES_ORD.indexOf(b.l.mes)+1).padStart(2,'0')}-01`;
+    return da.localeCompare(db)||(a.l.desc||'').localeCompare(b.l.desc||'');
   });
 
-  // Saldo inicial real
+  // Saldo acumulado inicial
   let saldoAcum = 0;
   const saldosObj = getSaldosPorMes();
   if(saldosObj.length > 0) saldoAcum = saldosObj[0].saldo_ini || 0;
-
-  // Calcular acumulado até antes do primeiro item filtrado
   if(sorted.length > 0){
-    const primeiraData = sorted[0].l.data || '';
+    const pData = sorted[0].l.data || '';
     DB.lancamentos
-      .filter(l => l.pago === 'Sim' && (l.data||'') < primeiraData)
-      .sort((a,b)=>(a.data||'').localeCompare(b.data||''))
+      .filter(l => l.pago==='Sim' && (l.data||'') < pData)
+      .sort((a,b) => (a.data||'').localeCompare(b.data||''))
       .forEach(l => { saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor; });
   }
 
@@ -5140,50 +5139,130 @@ function renderExtrato(lanComIdx){
   });
 
   const fmtDia = d => {
-    try {
-      return new Date(d+'T12:00:00').toLocaleDateString('pt-BR',
-        {weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    } catch(e){ return d; }
+    try{ return new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}); }
+    catch(e){ return d; }
   };
 
-  // Construir tabela com header de dia integrado
-  let rows = '';
-  let saldoDia = saldoAcum;
+  // ══════════════════════════════════════════════
+  // MOBILE: cards compactos (igual ao app de referência)
+  // ══════════════════════════════════════════════
+  if(isMob){
+    let out = '';
 
-  Object.entries(porDia).forEach(([dia, items]) => {
-    // Calcular saldo do dia (só pagos)
-    let saldoDiaFim = saldoDia;
-    items.forEach(({l}) => {
-      if(l.pago === 'Sim') saldoDiaFim += l.cat==='Receitas' ? l.valor : -l.valor;
+    Object.keys(porDia).sort().forEach(dia => {
+      const items = porDia[dia];
+
+      // Acumular saldo do dia
+      items.forEach(({l}) => { saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor; });
+      const saldoFim = saldoAcum;
+      const corSaldo = saldoFim >= 0 ? 'var(--green)' : 'var(--red)';
+
+      // Header do dia
+      let dtLabel = dia;
+      try {
+        const dt = new Date(dia+'T12:00:00');
+        const wd  = dt.toLocaleDateString('pt-BR',{weekday:'long'}).toUpperCase();
+        const day = dt.getDate();
+        const mon = dt.toLocaleDateString('pt-BR',{month:'long'}).toUpperCase();
+        const yr  = dt.getFullYear();
+        dtLabel = `${wd}, ${day} DE ${mon} DE ${yr}`;
+      } catch(e){}
+
+      out += `<div style="background:var(--bg3);padding:10px 16px;border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5">
+        <div style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.05em">${dtLabel}</div>
+        <div style="font-size:13px;font-weight:800;color:${corSaldo};margin-top:2px">Saldo: ${saldoFim>=0?'':'-'}${R(Math.abs(saldoFim))}</div>
+      </div>`;
+
+      // Cards dos lançamentos
+      items.forEach(({l, idx}) => {
+        const isRec    = l.cat === 'Receitas';
+        const isInv    = l.cat === 'Investimentos';
+        const isPago   = l.pago === 'Sim';
+        const catColor = CORES[l.cat] || '#8b949e';
+        const valColor = isRec ? 'var(--green)' : isInv ? 'var(--blue)' : 'var(--red)';
+        const valSinal = isRec ? '+' : isInv ? '' : '-';
+        const alpha    = isPago ? '1' : '.65';
+
+        // Iniciais para o ícone
+        const words    = (l.cat||'?').split(/[\s&]+/);
+        const initials = words.length > 1
+          ? (words[0][0] + words[1][0]).toUpperCase()
+          : (l.cat||'?').substring(0,2).toUpperCase();
+
+        out += `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(48,54,61,.5);background:${!isPago&&!isRec?'rgba(248,81,73,.04)':isRec?'rgba(63,185,80,.03)':'transparent'};opacity:${alpha}">
+          <!-- Ícone categoria -->
+          <div style="width:42px;height:42px;border-radius:50%;background:${catColor}25;border:1.5px solid ${catColor}66;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <span style="font-size:11px;font-weight:800;color:${catColor}">${initials}</span>
+          </div>
+          <!-- Descrição + subcategoria -->
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.desc||l.subcat||l.cat||'—'}</div>
+            <div style="font-size:11px;color:var(--tx3);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:3px">
+                <span style="width:5px;height:5px;border-radius:50%;background:${catColor}"></span>
+                ${l.subcat||l.cat}
+              </span>
+              ${l.forma ? `<span style="color:var(--bd2)">·</span><span>${l.forma}</span>` : ''}
+            </div>
+          </div>
+          <!-- Valor + ações -->
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+            <div style="font-size:16px;font-weight:800;color:${valColor}">${valSinal}${R(l.valor)}</div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <button onclick="togglePago(${idx},this)"
+                style="padding:3px 9px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;
+                  background:${isPago?'var(--gd)':'var(--rd)'};color:${isPago?'var(--green)':'var(--red)'};
+                  border:1px solid ${isPago?'rgba(63,185,80,.3)':'rgba(248,81,73,.3)'}">
+                ${isPago?'✓ Pago':'⏳ Pendente'}
+              </button>
+              <button onclick="abrirEditar(${idx})"
+                style="background:var(--bld);border:none;color:var(--blue);cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px;-webkit-tap-highlight-color:transparent" title="Editar">✏</button>
+              <button onclick="confirmarDeletar(${idx})"
+                style="background:var(--rd);border:none;color:var(--red);cursor:pointer;font-size:15px;padding:4px 7px;border-radius:6px;-webkit-tap-highlight-color:transparent" title="Excluir">🗑</button>
+            </div>
+          </div>
+        </div>`;
+      });
     });
 
+    container.innerHTML = `<div style="display:flex;flex-direction:column">${out}</div>`;
+    return; // ← encerra aqui no mobile
+  }
+
+  // ══════════════════════════════════════════════
+  // DESKTOP: tabela (sem alteração)
+  // ══════════════════════════════════════════════
+  let rows = '';
+  Object.keys(porDia).sort().forEach(dia => {
+    const items = porDia[dia];
+    let saldoDia = 0;
+    items.forEach(({l}) => {
+      saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor;
+      if(l.pago==='Sim') saldoDia += l.cat==='Receitas' ? l.valor : -l.valor;
+    });
+    const saldoDiaFim = saldoAcum;
     const corSaldo = saldoDiaFim >= 0 ? 'var(--green)' : 'var(--red)';
 
-    // Linha separadora de dia — colspan cobrindo todas as 9 colunas
     rows += `<tr style="background:var(--bg3)">
-      <td colspan="6" style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)">
-        ${fmtDia(dia)}
-      </td>
-      <td colspan="3" style="padding:8px 14px;text-align:right;font-size:12px;font-weight:800;color:${corSaldo}">
-        Saldo: ${saldoDiaFim>=0?'':'-'}${R(Math.abs(saldoDiaFim))}
-      </td>
+      <td colspan="6" style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)">${fmtDia(dia)}</td>
+      <td colspan="3" style="padding:8px 14px;text-align:right;font-size:12px;font-weight:800;color:${corSaldo}">Saldo: ${saldoDiaFim>=0?'':'-'}${R(Math.abs(saldoDiaFim))}</td>
     </tr>`;
 
-    // Linhas dos lançamentos do dia — colunas alinhadas
     items.forEach(({l, idx}) => {
-      const isRec  = l.cat === 'Receitas';
-      const isInv  = l.cat === 'Investimentos';
-      const isPago = l.pago === 'Sim';
+      const isRec    = l.cat === 'Receitas';
+      const isInv    = l.cat === 'Investimentos';
+      const isPago   = l.pago === 'Sim';
       const catColor = CORES[l.cat] || '#8b949e';
       const valColor = isRec ? 'var(--green)' : isInv ? 'var(--blue)' : 'var(--red)';
       const valSinal = isRec ? '+' : isInv ? '' : '-';
       const rowAlpha = isPago ? '' : 'opacity:.65;';
-      const rowBg    = !isPago && !isRec ? 'background:rgba(248,81,73,.04);' : isRec ? 'background:rgba(63,185,80,.03);' : '';
+      const rowBg    = !isPago&&!isRec ? 'background:rgba(248,81,73,.04);' : isRec ? 'background:rgba(63,185,80,.03);' : '';
 
       rows += `<tr style="${rowAlpha}${rowBg}">
         <td style="padding:8px 14px;text-align:center;white-space:nowrap;font-size:12px;font-family:monospace;color:var(--tx3)">${l.data||l.mes}</td>
         <td style="padding:8px 14px;text-align:center">
-          <span style="display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:12px">
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px">
             <span style="width:7px;height:7px;border-radius:50%;background:${catColor};flex-shrink:0"></span>${l.cat}
           </span>
         </td>
@@ -5209,40 +5288,21 @@ function renderExtrato(lanComIdx){
             onmouseover="this.style.background='var(--rd)'" onmouseout="this.style.background='none'">🗑</button>
         </td>
       </tr>`;
-
-      if(isPago) saldoDia += isRec ? l.valor : -l.valor;
     });
-
-    saldoDia = saldoDiaFim;
   });
 
-  if(!rows){
-    rows = `<tr><td colspan="9" style="padding:32px;text-align:center;color:var(--tx3)">
-      Nenhum lançamento encontrado.</td></tr>`;
-  }
-
-  // Renderizar como tabela com thead dentro do container
-  container.innerHTML = `
-    <table class="dtable" style="width:100%">
-      <thead style="background:var(--bg3)">
-        <tr>
-          <th style="padding:10px 14px;text-align:center;white-space:nowrap">Data</th>
-          <th style="padding:10px 14px;text-align:center">Categoria</th>
-          <th style="padding:10px 14px;text-align:center">Subcategoria</th>
-          <th style="padding:10px 14px;text-align:center">Descrição</th>
-          <th style="padding:10px 14px;text-align:center">Forma Pgto</th>
-          <th style="padding:10px 14px;text-align:center">Mês</th>
-          <th style="padding:10px 14px;text-align:center">Valor</th>
-          <th style="padding:10px 14px;text-align:center">Pago</th>
-          <th style="padding:10px 14px;text-align:center;width:80px">Ações</th>
-        </tr>
-      </thead>
+  container.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <table class="dtable" style="min-width:700px">
+      <thead><tr>
+        <th>Data</th><th>Categoria</th><th>Subcategoria</th><th>Descrição</th>
+        <th>Forma Pgto.</th><th>Mês</th><th>Valor</th><th>Pago</th><th>Ações</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table>
+  </div>`;
 }
 
 
-// ══ TEMA ══
 function toggleTheme(){
   const isLight=document.documentElement.classList.toggle('light');
   document.getElementById('tog').classList.toggle('on',isLight);
@@ -5460,7 +5520,7 @@ async function carregarDoSupabase(){
       cat: l.categoria, subcat: l.subcategoria||'Outros',
       desc: l.descricao||'', forma: l.forma_pagamento||'',
       valor: parseFloat(l.valor),
-      pago: (l.pago===true||l.pago==='Sim'||l.pago==='sim'||l.pago==='S')?'Sim':'Não'
+      pago: (l.pago===true||l.pago==='Sim'||l.pago==='sim')?'Sim':'Não'
     }));
 
     DB.saldos_iniciais = {};
@@ -5481,13 +5541,13 @@ async function carregarDoSupabase(){
         DB.orcamento[cat]=(DB.orcamento[cat]||0)+val;
       }
     });
-    // Consolidar DB.orcamento: orcamentoMes SEMPRE tem prioridade (mais específico)
-    // 1. Primeiro: média dos valores mensais (por subcategoria → soma por mês → média dos meses)
+    // Consolidar DB.orcamento: média dos meses se só tiver por mês
+    // orcamentoMes tem PRIORIDADE — sempre sobrescreve o valor base antigo
     Object.keys(DB.orcamentoMes).forEach(cat=>{
       const v=Object.values(DB.orcamentoMes[cat]).filter(x=>x>0);
       if(v.length) DB.orcamento[cat]=Math.round(v.reduce((s,x)=>s+x,0)/v.length);
     });
-    // 2. Fallback: base sem mês (só se não tiver nenhum mês específico)
+    // Fallback: base sem mês (só se não tiver orcamentoMes)
     Object.keys(DB.orcamentoSub).forEach(cat=>{
       if(!DB.orcamento[cat]){
         const b=Object.values(DB.orcamentoSub[cat]).reduce((s,m)=>s+(m['']||0),0);
@@ -5499,7 +5559,7 @@ async function carregarDoSupabase(){
     document.getElementById('sidebar-sub').textContent = `${mAtivos.join('–')} · ${DB.lancamentos.length} registros`;
     document.getElementById('sync-status-badge').textContent = '● online';
     document.getElementById('sync-status-badge').className = 'sync-badge';
-    window._ultimoCargaTS = Date.now();
+    window._ultimoCargaTS=Date.now();
 
     // Mostrar info compacta no rodapé
     const elReg = document.getElementById('sb-registros');
@@ -6877,21 +6937,21 @@ function filtrarMesChip(mes){
   renderLan();renderChipsMes();
 }
 
-// ── RECARREGAR DADOS ──
+// ── Recarregar dados do Supabase ──
 async function recarregarDados(){
-  if(!usuarioAtual) return;
-  const btn = document.getElementById('btn-reload-dados');
-  if(btn){ btn.disabled=true; btn.textContent='⟳ Carregando...'; }
-  const badge = document.getElementById('sync-status-badge');
+  if(!usuarioAtual)return;
+  const btn=document.getElementById('btn-reload-dados');
+  if(btn){btn.disabled=true;btn.textContent='⟳ Carregando...';}
   try{
     await carregarDoSupabase();
-    window._ultimoCargaTS = Date.now();
-    Object.keys(rendered).forEach(p=>{ delete rendered[p]; });
-    Object.keys(CHARTS).forEach(k=>{ try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k]; });
-    const pAtiva = document.querySelector('.page.active');
-    if(pAtiva) renderPage(pAtiva.id.replace('pg-',''));
-    if(badge){ badge.textContent='● online'; badge.className='sync-badge'; }
-  } catch(err){ console.error('[reload]',err); }
-  if(btn){ btn.disabled=false; btn.textContent='↻ Atualizar'; }
+    window._ultimoCargaTS=Date.now();
+    Object.keys(rendered).forEach(p=>{delete rendered[p];});
+    Object.keys(CHARTS).forEach(k=>{try{CHARTS[k].destroy();}catch(e){}delete CHARTS[k];});
+    const pAtiva=document.querySelector('.page.active');
+    if(pAtiva)renderPage(pAtiva.id.replace('pg-',''));
+    const badge=document.getElementById('sync-status-badge');
+    if(badge){badge.textContent='● online';badge.className='sync-badge';}
+  }catch(err){console.error('[reload]',err);}
+  if(btn){btn.disabled=false;btn.textContent='↻ Atualizar';}
 }
 </script>
