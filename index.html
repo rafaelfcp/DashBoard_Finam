@@ -2172,7 +2172,7 @@ html.is-mobile .sidebar.open{
         <!-- Data -->
         <div>
           <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Data *</label>
-          <input type="date" id="nv-data" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+          <input type="date" id="nv-data" oninput="sincronizarMesData('nv-data','nv-mes')" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
         </div>
         <!-- Valor -->
         <div>
@@ -2414,7 +2414,7 @@ html.is-mobile .sidebar.open{
       <input type="hidden" id="edit-id">
       <div class="modal-g2">
         <div><label class="modal-label">Data</label>
-          <input type="date" id="edit-data" class="modal-input"></div>
+          <input type="date" id="edit-data" class="modal-input" oninput="sincronizarMesData('edit-data','edit-mes')"></div>
         <div><label class="modal-label">Valor (R$)</label>
           <input type="number" id="edit-valor" class="modal-input" step="0.01" min="0"></div>
       </div>
@@ -2504,6 +2504,15 @@ const _Rfmt = (v,d=0) => 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFracti
 const R = (v,d=0) => _valuesHidden ? 'R$ ••••' : _Rfmt(v,d);
 const SM = arr => arr.reduce((a,b)=>a+b,0);
 const MESES_ORD = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// Sincroniza automaticamente o campo Mês conforme a Data informada
+function sincronizarMesData(idData, idMes){
+  const elData = document.getElementById(idData);
+  const elMes  = document.getElementById(idMes);
+  if(!elData || !elMes || !elData.value) return;
+  const mes = MESES_ORD[new Date(elData.value + 'T00:00:00').getMonth()];
+  if(mes) elMes.value = mes;
+}
 
 function getMeses(){ return MESES_ORD.filter(m=>DB.lancamentos.some(l=>l.mes===m)); }
 function getLan(mes,cat){ return DB.lancamentos.filter(l=>(!mes||l.mes===mes)&&(!cat||l.cat===cat)); }
@@ -4084,9 +4093,9 @@ function setupLan(){
   showBody('lan');
   const elOrd = document.getElementById('lan-ord');
   if(elOrd && !elOrd.dataset.userChanged) elOrd.value = 'extrato';
-  // No mobile: filtrar mês atual por padrão
+  // Filtrar mês atual por padrão (desktop e mobile)
   const elMes = document.getElementById('lan-mes');
-  if(elMes && !elMes.value && window.innerWidth <= 860){
+  if(elMes && !elMes.value){
     const m = getMesAtualDados() || getMeses().slice(-1)[0] || '';
     if(m) elMes.value = m;
   }
@@ -4161,6 +4170,9 @@ async function togglePago(idx, btn){
   // Invalidar cache das páginas que dependem do campo pago
   ['visao','diagnostico','efetivado','mensal','categorias','transporte','orcamento'].forEach(p=>{ delete rendered[p]; });
   Object.keys(CHARTS).forEach(k=>{ try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k]; });
+
+  // Re-renderizar lista de lançamentos para atualizar saldos diários em tempo real
+  renderLan();
 }
 
 function renderLan(){
