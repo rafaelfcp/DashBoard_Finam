@@ -2505,13 +2505,14 @@ const R = (v,d=0) => _valuesHidden ? 'R$ ••••' : _Rfmt(v,d);
 const SM = arr => arr.reduce((a,b)=>a+b,0);
 const MESES_ORD = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-// Sincroniza automaticamente o campo Mês conforme a Data informada
+// ── Auto-sync Mês conforme Data digitada ──
 function sincronizarMesData(idData, idMes){
   const elData = document.getElementById(idData);
   const elMes  = document.getElementById(idMes);
   if(!elData || !elMes || !elData.value) return;
-  const mes = MESES_ORD[new Date(elData.value + 'T00:00:00').getMonth()];
-  if(mes) elMes.value = mes;
+  // new Date(YYYY-MM-DD) interpreta como UTC; forçar local com T00:00:00
+  const m = MESES_ORD[new Date(elData.value + 'T00:00:00').getMonth()];
+  if(m) elMes.value = m;
 }
 
 function getMeses(){ return MESES_ORD.filter(m=>DB.lancamentos.some(l=>l.mes===m)); }
@@ -4093,7 +4094,7 @@ function setupLan(){
   showBody('lan');
   const elOrd = document.getElementById('lan-ord');
   if(elOrd && !elOrd.dataset.userChanged) elOrd.value = 'extrato';
-  // Filtrar mês atual por padrão (desktop e mobile)
+  // Filtrar mês atual por padrão — desktop e mobile
   const elMes = document.getElementById('lan-mes');
   if(elMes && !elMes.value){
     const m = getMesAtualDados() || getMeses().slice(-1)[0] || '';
@@ -4171,7 +4172,7 @@ async function togglePago(idx, btn){
   ['visao','diagnostico','efetivado','mensal','categorias','transporte','orcamento'].forEach(p=>{ delete rendered[p]; });
   Object.keys(CHARTS).forEach(k=>{ try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k]; });
 
-  // Re-renderizar lista de lançamentos para atualizar saldos diários em tempo real
+  // Re-renderizar extrato para recalcular saldos diários com o novo status
   renderLan();
 }
 
@@ -5158,9 +5159,14 @@ function renderExtrato(lanComIdx){
     let out = '';
     Object.keys(porDia).sort().forEach(dia => {
       const items = porDia[dia];
-      items.forEach(({l}) => { saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor; });
+      // Saldo do dia: somar apenas lançamentos EFETIVADOS (pago==='Sim')
+      items.forEach(({l}) => {
+        if(l.pago !== 'Sim') return;
+        saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor;
+      });
       const sf = saldoAcum;
       const cs = sf >= 0 ? 'var(--green)' : 'var(--red)';
+      const temPendente = items.some(({l}) => l.pago !== 'Sim' && l.cat !== 'Receitas');
 
       let dtL = dia;
       try{
@@ -5173,7 +5179,7 @@ function renderExtrato(lanComIdx){
       out += `<div style="background:var(--bg3);padding:8px 14px;border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.04em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">${dtL}</span>
-          <span style="font-size:12px;font-weight:800;color:${cs};white-space:nowrap;flex-shrink:0">Saldo: ${sf>=0?'':'-'}${R(Math.abs(sf))}</span>
+          <span style="font-size:12px;font-weight:800;color:${cs};white-space:nowrap;flex-shrink:0">Saldo: ${sf>=0?'':'-'}${R(Math.abs(sf))}${temPendente?' <span style="font-size:9px;color:var(--amber);font-weight:600">+pend.</span>':''}</span>
         </div>
       </div>`;
 
@@ -5255,11 +5261,17 @@ function renderExtrato(lanComIdx){
   let rows = '';
   Object.keys(porDia).sort().forEach(dia => {
     const items = porDia[dia];
-    items.forEach(({l}) => { saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor; });
+    // Saldo do dia: somar apenas lançamentos EFETIVADOS (pago==='Sim')
+    items.forEach(({l}) => {
+      if(l.pago !== 'Sim') return;
+      saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor;
+    });
     const sf = saldoAcum, cs = sf>=0 ? 'var(--green)' : 'var(--red)';
+    // Verifica se há pendentes no dia para exibir indicador
+    const temPendente = items.some(({l}) => l.pago !== 'Sim' && l.cat !== 'Receitas');
     rows += `<tr style="background:var(--bg3)">
       <td colspan="6" style="padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2)">${fmtDia(dia)}</td>
-      <td colspan="3" style="padding:8px 14px;text-align:right;font-size:12px;font-weight:800;color:${cs}">Saldo: ${sf>=0?'':'-'}${R(Math.abs(sf))}</td>
+      <td colspan="3" style="padding:8px 14px;text-align:right;font-size:12px;font-weight:800;color:${cs}">Saldo: ${sf>=0?'':'-'}${R(Math.abs(sf))}${temPendente?' <span style="font-size:10px;color:var(--amber);font-weight:600">(+pendentes)</span>':''}</td>
     </tr>`;
     items.forEach(({l, idx}) => {
       const isRec=l.cat==='Receitas',isInv=l.cat==='Investimentos',isPago=l.pago==='Sim';
