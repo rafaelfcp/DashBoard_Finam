@@ -139,6 +139,7 @@ input[type=range]{flex:1;accent-color:var(--blue);cursor:pointer}
 .dtable td{font-size:12px;padding:8px 0;border-bottom:1px solid var(--bd);color:var(--tx2)}
 .dtable td:first-child{color:var(--tx)}
 .dtable tr:last-child td{border-bottom:none}
+.dtable td.danger{color:var(--red)}.dtable td.warn{color:var(--amber)}.dtable td.ok{color:var(--green)}.dtable td.info{color:var(--blue)}
 select{background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:7px 12px;font-size:12px;cursor:pointer;outline:none}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
 /* ─ MELHORIAS VISUAIS ─ */
@@ -3567,9 +3568,9 @@ function renderCat(){
   const mesesFilt=getCatMeses();
   const tipo=document.getElementById('cat-tipo')?.value||'tudo';
   const n=mesesFilt.length||1;
-  const periodoLbl=tipo==='mes'?mesesFilt[0]:tipo==='intervalo'?`${mesesFilt[0]}–${mesesFilt[mesesFilt.length-1]}`:`${n} meses`;
+  const periodoLbl=tipo==='mes'?mkLabel(mesesFilt[0]):tipo==='intervalo'?`${mkLabel(mesesFilt[0])}–${mkLabel(mesesFilt[mesesFilt.length-1])}`:`${n} meses`;
 
-  const lanCat=DB.lancamentos.filter(l=>l.cat===cat&&mesesFilt.includes(l.mes));
+  const lanCat=DB.lancamentos.filter(l=>l.cat===cat&&mesesFilt.some(m=>matchMes(l,m)));
   const mp={};
   lanCat.forEach(l=>{ mp[l.subcat]=(mp[l.subcat]||0)+l.valor; });
   const subs=Object.entries(mp).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1])
@@ -3781,9 +3782,9 @@ function renderOrcamento(){
   const meses = getOrcMeses();
   const n     = meses.length || 1;
   const tipo  = document.getElementById('orc-tipo')?.value || 'media';
-  const lbl   = meses.length === 1 ? meses[0]
+  const lbl   = meses.length === 1 ? mkLabel(meses[0])
               : meses.length === getMeses().length ? 'Todos'
-              : meses[0] + '–' + meses[meses.length - 1];
+              : mkLabel(meses[0]) + '–' + mkLabel(meses[meses.length - 1]);
 
   // Textos dinâmicos
   document.getElementById('orc-sub').textContent         = `Período: ${lbl} · ${tipo==='mes' ? 'mês único' : 'média de '+n+' meses'}`;
@@ -3794,7 +3795,7 @@ function renderOrcamento(){
   document.getElementById('orc-chart-title').textContent = tipo === 'mes' ? `Comparativo — ${lbl}` : 'Comparativo — média mensal';
 
   // Dados
-  const lan  = DB.lancamentos.filter(l => meses.includes(l.mes) && l.cat !== 'Receitas' && l.cat !== 'Investimentos');
+  const lan  = DB.lancamentos.filter(l => meses.some(m=>matchMes(l,m)) && l.cat !== 'Receitas' && l.cat !== 'Investimentos');
   const cats  = CATS.filter(c => getOrcCat(c,meses)>0||lan.some(l=>l.cat===c));
   const reais = cats.map(c => Math.round(SM(lan.filter(l=>l.cat===c).map(l=>l.valor))/(tipo==='mes'?1:n)));
   const orc   = cats.map(c => getOrcCat(c,meses));
@@ -4426,7 +4427,7 @@ function buildComprometimento(){
   });
   let mkCorte=null;
   todos.forEach(l=>{if(l.pago==='Sim'&&(mkCorte===null||l.mk>mkCorte))mkCorte=l.mk;});
-  if(mkCorte===null) mkCorte = getMeses().length ? getMeses()[getMeses().length-1] : null;
+  if(mkCorte===null) mkCorte = getMesAtualDados() || (getMeses().length ? getMeses()[getMeses().length-1] : null);
   const grupos={};
   todos.forEach(l=>{
     const chave=normDesc(l.desc)+'|'+l.valor+'|'+l.total;
@@ -4506,7 +4507,7 @@ function renderCartao(){
     document.getElementById('car-ticket').textContent=R(ticket);
   }
   document.getElementById('car-total').textContent=R(totalGeral);
-  const mesAtualMk=getMeses().length>0?getMeses()[getMeses().length-1]:null;
+  const mesAtualMk=getMesAtualDados()||(getMeses().length>0?getMeses()[getMeses().length-1]:null);
   const proximoMes=mesesFut.find(m=>mesAtualMk===null||m>mesAtualMk);
   const valProximo=proximoMes?totMesCat(proximoMes,catFiltro):0;
   document.getElementById('car-proximo').textContent=proximoMes?R(valProximo):'—';
@@ -4797,8 +4798,8 @@ function renderDiagnostico(){
     const isMesAtual=s.mes===mesAtual.mes;
     return `<tr style="${isMesAtual?'background:rgba(88,166,255,.07)':''}"><td style="padding:9px 10px;font-weight:${isMesAtual?'700':'400'}">${isMesAtual?'<span class="tag tag-info" style="margin-right:5px">atual</span>':''}${mkLabel(s.mes)}</td><td style="padding:9px 10px;text-align:right;font-size:12px">${fmtS(s.saldo_ini)}</td><td style="padding:9px 10px;text-align:right">${fmtS(s.resultado_pago)}</td><td style="padding:9px 10px;text-align:right">${fmtS(s.saldo_atu,true)}</td><td style="padding:9px 10px;text-align:right;font-size:12px">${fmtS(s.saldo_pre)}</td></tr>`;
   }).join('');
-  const lanAll=DB.lancamentos.filter(l=>comPago.map(s=>s.mes).includes(l.mes));
-  const lanPagos=lanAll.filter(l=>comPago.map(s=>s.mes).includes(l.mes));
+  const lanAll=DB.lancamentos.filter(l=>comPago.some(s=>matchMes(l,s.mes)));
+  const lanPagos=lanAll;
   const nM=Math.max(comPago.length,1);
   const recMedia=Math.round(SM(lanPagos.filter(l=>l.cat==='Receitas'&&l.pago==='Sim').map(l=>l.valor))/nM);
   const catTot={};
@@ -4825,8 +4826,8 @@ function gerarDiagnostico(){
       const comPago=saldos.filter(s=>s.tem_pago);
       const mesAtual=comPago.length>0?comPago[comPago.length-1]:saldos[saldos.length-1];
       const nM=Math.max(comPago.length,1);
-      const lanAll=DB.lancamentos.filter(l=>mesesFilt.includes(l.mes));
-      const lanPagos=lanAll.filter(l=>comPago.map(s=>s.mes).includes(l.mes));
+      const lanAll=DB.lancamentos.filter(l=>mesesFilt.some(m=>matchMes(l,m)));
+      const lanPagos=lanAll.filter(l=>comPago.some(s=>matchMes(l,s.mes)));
       const recMedia=Math.round(SM(lanPagos.filter(l=>l.cat==='Receitas'&&l.pago==='Sim').map(l=>l.valor))/nM);
       const despMedia=Math.round(SM(lanPagos.filter(l=>l.cat!=='Receitas'&&l.cat!=='Investimentos'&&l.pago==='Sim').map(l=>l.valor))/nM);
       const invMedia=Math.round(SM(lanPagos.filter(l=>l.cat==='Investimentos'&&l.pago==='Sim').map(l=>l.valor))/nM);
@@ -6146,7 +6147,8 @@ async function setupConfig(){
       DB_CATS.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
   }
   // popular orçamentos: mes atual default
-  const mesAtual = getMeses().slice(-1)[0] || 'Mai';
+  const mkAtualCfg = getMesAtualDados() || getMeses().slice(-1)[0] || null;
+  const mesAtual = mkAtualCfg ? mkParse(mkAtualCfg).mes : 'Mai';
   const orcMesSel = document.getElementById('cfg-orc-mes');
   if(orcMesSel){
     const mesesNomes = {Jan:'Janeiro',Fev:'Fevereiro',Mar:'Março',Abr:'Abril',
@@ -6974,11 +6976,11 @@ function updateFilterBadge(){
 
 function getOrcSub(cat,sub,meses){
   const m=DB.orcamentoSub?.[cat]?.[sub]||{};
-  if(meses&&meses.length){const v=meses.map(ms=>m[ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
+  if(meses&&meses.length){const sig=meses.map(ms=>{const p=mkParse(ms);return p?p.mes:ms;});const v=sig.map(ms=>m[ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
   return m['']||0;
 }
 function getOrcCat(cat,meses){
-  if(DB.orcamentoMes?.[cat]&&meses&&meses.length){const v=meses.map(ms=>DB.orcamentoMes[cat][ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
+  if(DB.orcamentoMes?.[cat]&&meses&&meses.length){const sig=meses.map(ms=>{const p=mkParse(ms);return p?p.mes:ms;});const v=sig.map(ms=>DB.orcamentoMes[cat][ms]||0).filter(x=>x>0);if(v.length)return Math.round(v.reduce((s,x)=>s+x,0)/v.length);}
   return DB.orcamento[cat]||0;
 }
 function orcFecharDetalhe(){const m=document.getElementById('orc-detalhe-modal');if(m)m.style.display='none';}
@@ -6986,7 +6988,7 @@ function orcDetalhePopup(cat,meses){
   if(typeof meses==='string')try{meses=JSON.parse(meses);}catch(e){meses=[];}
   const n=meses.length||1,tipo=document.getElementById('orc-tipo')?.value||'media';
   const subcatsOrc=DB.orcamentoSub?.[cat]||{},subcatReal={};
-  DB.lancamentos.filter(l=>l.cat===cat&&meses.includes(l.mes))
+  DB.lancamentos.filter(l=>l.cat===cat&&meses.some(m=>matchMes(l,m)))
     .forEach(l=>{const s=l.subcat||'Outros';subcatReal[s]=(subcatReal[s]||0)+Math.abs(l.valor);});
   const allSubs=[...new Set([...Object.keys(subcatsOrc),...Object.keys(subcatReal)])].sort();
   if(!allSubs.length){alert('Nenhuma subcategoria encontrada para '+cat+'.');return;}
@@ -7011,7 +7013,7 @@ function orcDetalhePopup(cat,meses){
   const tr2=allSubs.reduce((s,sub)=>s+(tipo==='mes'?(subcatReal[sub]||0):Math.round((subcatReal[sub]||0)/n)),0);
   const td=tr2-to,tc=td>0?'var(--red)':'var(--green)';
   document.getElementById('orc-detalhe-title').textContent=cat+' — Subcategorias';
-  document.getElementById('orc-detalhe-periodo').textContent='Período: '+(meses.length===1?meses[0]:meses[0]+'–'+meses[meses.length-1])+' · '+(tipo==='mes'?'mês único':'média de '+n+' meses');
+  document.getElementById('orc-detalhe-periodo').textContent='Período: '+(meses.length===1?mkLabel(meses[0]):mkLabel(meses[0])+'–'+mkLabel(meses[meses.length-1]))+' · '+(tipo==='mes'?'mês único':'média de '+n+' meses');
   document.getElementById('orc-detalhe-body').innerHTML=`
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:var(--bg3)">
@@ -7050,7 +7052,7 @@ function renderFaturas(){
     selEl.innerHTML='<option value="">Mês atual</option>'+opts;
     if(valorAtual && getMeses().includes(valorAtual)) selEl.value=valorAtual;
   }
-  const mes=selEl?.value||getMeses().slice(-1)[0]||null;
+  const mes=selEl?.value||getMesAtualDados()||getMeses().slice(-1)[0]||null;
   const carts=getCartoes();
   if(!carts.length){el.innerHTML='<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhum cartão de crédito cadastrado.</div>';return;}
   let tot=0;
