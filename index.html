@@ -20,9 +20,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0c1210;--bg2:#121a16;--bg3:#1a241e;--bg4:#26332b;
-  --bd:rgba(140,168,150,.10);--bd2:rgba(140,168,150,.18);
-  --tx:#e6ece6;--tx2:#8a9a8c;--tx3:#56655a;
+  --bg:#13161a;--bg2:#1a1e23;--bg3:#21262c;--bg4:#2e343b;
+  --bd:rgba(150,168,158,.09);--bd2:rgba(150,168,158,.16);
+  --tx:#e6ece6;--tx2:#8a9690;--tx3:#5c6660;
   --green:#5fd99a;--gd:rgba(95,217,154,.14);--green-tx:#bdf2d4;
   --red:#d97a7a;--rd:rgba(217,122,122,.14);--red-tx:#f3bcbc;
   --amber:#e0b35f;--ad:rgba(224,179,95,.14);--amber-tx:#f5dcb0;
@@ -771,7 +771,7 @@ html.is-mobile .sidebar.open{
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ctrl Financeiro">
-<meta name="theme-color" content="#0c1210">
+<meta name="theme-color" content="#13161a">
 <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -1318,6 +1318,17 @@ html.is-mobile .sidebar.open{
       </div>
       <div class="chart-wrap" style="height:220px"><canvas id="chart-cat-trend" role="img" aria-label="Tendência mensal"></canvas></div>
       <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--tx2)" id="cat-trend-legend"></div>
+    </div>
+
+    <!-- Subcategoria x Mês -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <span class="card-title" style="margin:0" id="cat-grid-title">Subcategorias por mês</span>
+        <span id="cat-grid-badge" class="badge b-info" style="font-size:11px"></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="dtable" id="cat-grid-table" style="min-width:760px"></table>
+      </div>
     </div>
 
   </div>
@@ -2631,7 +2642,7 @@ function getMesesFiltrados(){
 }
 
 // ══ CHARTS ══
-const CC={grid:'rgba(140,168,150,.10)',tick:'#56655a',font:'Inter,system-ui,sans-serif'};
+const CC={grid:'rgba(150,168,158,.09)',tick:'#5c6660',font:'Inter,system-ui,sans-serif'};
 function mkChart(id,cfg,_retry){
   const c=document.getElementById(id); if(!c)return;
   const ex=Chart.getChart(c); if(ex)ex.destroy();
@@ -3667,6 +3678,65 @@ function renderCat(){
   document.getElementById('cat-trend-legend').innerHTML=`
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${CORES[cat]||'#6fb8c9'};display:inline-block"></span>${cat}</span>
     ${orcVal>0?`<span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:20px;height:0;border-top:2px dashed rgba(255,255,255,.3)"></span>Orçado ${R(orcVal)}/mês</span>`:''}`;
+
+  renderCatGrid(cat, mesesFilt, subs);
+}
+
+// ══ Tabela Subcategoria × Mês ══
+// Linhas = subcategorias da categoria selecionada (mesma ordenação da tabela "Subcategorias —"),
+// colunas = sempre os 12 meses do ano (Jan–Dez). Se os dados cobrem mais de um ano, as colunas
+// se repetem em blocos de 12 por ano, na ordem cronológica (ex: Jan/26..Dez/26, Jan/27..Dez/27).
+function renderCatGrid(cat, mesesFilt, subs){
+  const tbl = document.getElementById('cat-grid-table');
+  if(!tbl) return;
+
+  // Anos presentes dentro do período filtrado (PERÍODO do topo da página), em ordem cronológica
+  const anos = [...new Set(mesesFilt.map(mk=>mkParse(mk).ano))].sort((a,b)=>a-b);
+  if(anos.length===0){ tbl.innerHTML=''; document.getElementById('cat-grid-badge').textContent=''; return; }
+
+  // Colunas: bloco de 12 meses (Jan–Dez) por ano presente
+  const colsPorAno = anos.map(ano => MESES_ORD.map(mes => mkOf(mes, ano)));
+  const totalCols = anos.length * 12;
+
+  document.getElementById('cat-grid-title').textContent = `Subcategorias por mês — ${cat}`;
+  document.getElementById('cat-grid-badge').textContent = anos.length>1 ? `${anos[0]}–${anos[anos.length-1]}` : `${anos[0]}`;
+
+  // Cabeçalho: uma linha de anos (apenas quando há mais de 1) + uma linha de meses
+  const headAno = anos.length>1
+    ? `<tr><th style="text-align:left"></th>${anos.map(a=>`<th colspan="12" style="text-align:center;border-bottom:1px solid var(--bd2);color:var(--tx2);font-weight:600">${a}</th>`).join('')}<th></th></tr>`
+    : '';
+  const headMes = `<tr>
+    <th style="text-align:left">Subcategoria</th>
+    ${colsPorAno.flat().map(mk=>`<th>${mkParse(mk).mes}</th>`).join('')}
+    <th>Total</th>
+  </tr>`;
+
+  // Corpo: uma linha por subcategoria (mesma lista/ordem de `subs`, já ordenada por total desc)
+  const body = subs.map(s=>{
+    const valoresPorMes = colsPorAno.flat().map(mk=>{
+      const v = Math.round(SM(DB.lancamentos.filter(l=>l.cat===cat && l.subcat===s.nome && matchMes(l,mk)).map(l=>l.valor)));
+      return v;
+    });
+    const totalLinha = SM(valoresPorMes);
+    return `<tr>
+      <td style="font-weight:600;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.nome}">${s.nome}</td>
+      ${valoresPorMes.map(v=>`<td>${v>0?R(v):'<span style="color:var(--tx3)">—</span>'}</td>`).join('')}
+      <td style="font-weight:700">${R(totalLinha)}</td>
+    </tr>`;
+  }).join('');
+
+  // Linha de total geral por mês, no rodapé
+  const totaisColuna = colsPorAno.flat().map(mk=>
+    Math.round(SM(DB.lancamentos.filter(l=>l.cat===cat && matchMes(l,mk)).map(l=>l.valor)))
+  );
+  const totalGeral = SM(totaisColuna);
+  const footer = `<tr style="background:var(--bg3);font-weight:700">
+    <td>Total</td>
+    ${totaisColuna.map(v=>`<td>${v>0?R(v):'<span style="color:var(--tx3)">—</span>'}</td>`).join('')}
+    <td>${R(totalGeral)}</td>
+  </tr>`;
+
+  tbl.innerHTML = `<thead>${headAno}${headMes}</thead><tbody>${body}${footer}</tbody>`;
 }
 
 // ══ TRANSPORTE ══
