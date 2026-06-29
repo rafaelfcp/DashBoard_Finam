@@ -5488,11 +5488,13 @@ async function fatConfirmarImportacao(){
     data: it.data, mes: it.mes, ano: it.ano,
     cat: it.cat, subcat: it.subcat||'Outros',
     desc: it.desc, forma: FAT_FORMA_PAGAMENTO,
-    valor: it.valor, pago: 'Não', origem: 'fatura_c6'
+    valor: it.valor, pago: 'Não', origem: 'import'
   }));
 
   let erroSupabase = null;
-  if(usuarioAtual){
+  if(!usuarioAtual){
+    erroSupabase = 'Sessão de usuário não encontrada. Faça login novamente antes de importar.';
+  } else {
     try{
       const registros = itens.map(it=>({
         usuario_id: usuarioAtual.id, mes: it.mes, ano: it.ano, data: it.data,
@@ -5507,9 +5509,13 @@ async function fatConfirmarImportacao(){
       console.error('Erro Supabase insert (fatura):', e);
     }
   }
-  itens.forEach(it=>{ if(!it.id) it.id = Date.now()+'-'+Math.random().toString(36).slice(2,7); });
-  itens.forEach(it=> DB.lancamentos.push(it));
-  invalidarAnosCache();
+  // Só adiciona ao DB em memória se o insert realmente teve sucesso —
+  // evita "sucesso fantasma" que se perde no F5 sem nunca ter ido pro banco.
+  if(!erroSupabase){
+    itens.forEach(it=>{ if(!it.id) it.id = Date.now()+'-'+Math.random().toString(36).slice(2,7); });
+    itens.forEach(it=> DB.lancamentos.push(it));
+    invalidarAnosCache();
+  }
 
   fb.style.display='block';
   if(!erroSupabase){
@@ -5521,15 +5527,18 @@ async function fatConfirmarImportacao(){
   }
 
   btn.disabled = false; btn.textContent = '✓ Confirmar Importação em Lote';
-  FAT_STAGING = [];
-  document.getElementById('fat-staging-card').style.display='none';
-  document.getElementById('fat-file-input').value = '';
+  // Só limpa o staging em caso de sucesso — em erro, mantém a tabela visível
+  // para o usuário poder tentar novamente sem reimportar o arquivo.
+  if(!erroSupabase){
+    FAT_STAGING = [];
+    document.getElementById('fat-staging-card').style.display='none';
+    document.getElementById('fat-file-input').value = '';
+    ['visao','mensal','categorias','lancamentos','orcamento','efetivado','formas','diagnostico','transporte','cartao'].forEach(p=>{ delete rendered[p]; });
+    Object.keys(CHARTS).forEach(k=>{ try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k]; });
+    if(typeof populaFiltros==='function') populaFiltros();
+  }
 
-  ['visao','mensal','categorias','lancamentos','orcamento','efetivado','formas','diagnostico','transporte','cartao'].forEach(p=>{ delete rendered[p]; });
-  Object.keys(CHARTS).forEach(k=>{ try{CHARTS[k].destroy();}catch(e){} delete CHARTS[k]; });
-  if(typeof populaFiltros==='function') populaFiltros();
-
-  setTimeout(()=>{ fb.style.display='none'; }, 6000);
+  setTimeout(()=>{ fb.style.display='none'; }, erroSupabase ? 10000 : 6000);
 }
 
 
