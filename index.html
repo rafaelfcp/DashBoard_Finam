@@ -3656,6 +3656,7 @@ function renderCat(){
   const tipo=document.getElementById('cat-tipo')?.value||'tudo';
   const n=mesesFilt.length||1;
   const anoCat=getAnoApuracao();
+  const meses=getMesesAno(anoCat); // eixo X do gráfico de evolução mensal: os 12 meses do exercício
   const periodoLbl=tipo==='mes'?mkLabel(mesesFilt[0]):tipo==='intervalo'?`${mkLabel(mesesFilt[0])}–${mkLabel(mesesFilt[mesesFilt.length-1])}`:`Exercício ${anoCat}`;
 
   const lanCat=DB.lancamentos.filter(l=>l.cat===cat&&mesesFilt.some(m=>matchMes(l,m)));
