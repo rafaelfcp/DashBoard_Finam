@@ -9,7 +9,7 @@
 <meta http-equiv="Expires" content="0">
 
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ctrl Finan - RFPC</title>
+<title>Controle Finan - RFC</title>
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAADxUlEQVRYhcWWX0xbVRzHv+fPvb0tbVFK2yEbK2TS1SB/XJTELNHpmDr1gWQxJmriFo3J4oMm7kV8MDNGkz2oydz2oPFlvijBqAlx06jTGWVZJMwxwCEgQXHQlW0t7W17zzk+LNxRKKHMW/y+nfP7nfP5nvM7555LcEMk0hB9Vkr5fF7KOiWsgFIw4IQo0ozxOKdshOv6q2Mj58/aUACIRCKGpMYnZjbzoMjnPY5AV5BuGJc0rh+ZHBs+CAAMAPFXbejJpFOPSSH0csIBQFiWV0m1LRjeQK4k4qdJpCG6N501D5d75UvlMtx/c93oYP7KqiPZrNmwnnAAkJblY5pWT/NS1q03HAAUAGmJGFdCBJyenLk16D43PDW3Ij09h1wyA5HJL8sTIh/iUklnrtqCCEFVUx3uOfQUCKNQQuLMgY8xe3YMUKogVSlVQR2FA9D9bkSfewCEXZ+aMIrGfTug+91F8x03AABq6UqhoKQqmuu4gYrNAYx/+guUkNfhQuLiB9/BmjeL5nMn4ZrPwLbXn8DsmVH8tP9DuG7x4NroDHLX0ivugKMGml7eDSPow6ZH2xBq34JTz7yPXKr4yhfkWAlC9zaitqPZbv/2Tu+qcMcMaD4Dza88brenTgzgnx+GShpbUgk0rwuxFx/Gxp13YvrUIIaOfgMznrTjTS89AiPoAwBkL6dw4b2vSja/qoFAWwStXZ1whysBALW7WhDevhW/f/Q9Jrr7EGy/HbW7Wuz8c4e+RC6ZKdkACd1Wp4RlLQtQnWPrCztRv6cdhJKig5PjM9D9HrgCXgDAXycH0P/GZyXDGefFd6AyWoPWrk746kN2X+5qGqPHf8Sm3W12/+J49nIKg++WvvULKjRACLY8vR2N+3aA8hvnc+bnixh4+3NkEylMdPchsqcdjXvvB/e47Jy1br2NXFyCjQ+1oPW1TjsozBwGD5/A5Be/LntIjGofYvs7UHPfHRjv7sPQ0a/XDF+xBAAwd34K/W/2ID2VKBo340n0H+xBP3rWDF6sAgNTJ88BhIJrHNPfXoASErpR/BW7GVn5HKQQBX3LbgFlDLpWnn/T3BIDRUsghYAp1n6YblaUEJpeN9oSEUrSlHHt0v9lgFE+Rymjw6T4h67s4oxNUErZAd1lTK87nGvzYOQYu5qYnQ0Ew7oU6m4phWv1of9dlFDl9nh7J/8Y7mIAcCURP10dCmugNCYs4S0nnHNt3u3x9mo0/2QikRAF1d8ca75Lmtm3hBRRYVnVUKrCCSghMCnT4pzRP8HIscnRkeMLsX8BxX5ixtuwbucAAAAASUVORK5CYII=">
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -931,6 +931,10 @@ html.is-mobile .sidebar.open{
   <div class="theme-row" onclick="toggleTheme()">
     <span id="theme-lbl">🌙 Tema escuro</span>
     <div class="tog" id="tog"><div class="tog-thumb"></div></div>
+  </div>
+  <div id="sel-ano-apuracao-wrap" style="display:none;margin:8px 12px 4px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);padding:0 2px 4px">Exercício</div>
+    <select id="sel-ano-apuracao" onchange="setAnoApuracao(this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--bd);color:var(--tx);border-radius:var(--rs);padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer"></select>
   </div>
   <div class="nav-sec">Análise Financeira</div>
   <div class="nav-item active" onclick="navTo('visao',this)"><span class="dot"></span>Visão Geral</div>
@@ -2582,7 +2586,13 @@ function _anosMultiplos(){
   if(_anosCache===null) _anosCache = new Set(DB.lancamentos.map(l=>l.ano)).size > 1;
   return _anosCache;
 }
-function invalidarAnosCache(){ _anosCache = null; }
+function invalidarAnosCache(){
+  _anosCache = null;
+  // Se o exercício selecionado deixou de existir nos dados (ex.: usuário apagou o ano),
+  // volta para null e getAnoApuracao() recalcula o default no próximo acesso.
+  if(_anoApuracao!==null && typeof getAnos==='function' && !getAnos().includes(_anoApuracao)) _anoApuracao=null;
+  if(typeof atualizarSeletorExercicio==='function') atualizarSeletorExercicio();
+}
 
 // ── Auto-sync Mês/Ano conforme Data digitada ──
 function sincronizarMesData(idData, idMes, idAno){
@@ -2628,7 +2638,7 @@ function getSubcats(cat){
 }
 
 function getMesesFiltrados(){
-  const todos=getMeses();
+  const todos=getMesesAno(getAnoApuracao());
   const tipo=document.getElementById('vg-tipo')?.value||'tudo';
   if(tipo==='mes'){ const m=document.getElementById('vg-mes').value; return m?[m]:todos; }
   if(tipo==='intervalo'){
@@ -2640,6 +2650,64 @@ function getMesesFiltrados(){
   }
   return todos;
 }
+
+// ══ EXERCÍCIO CONTÁBIL (apuração anual — Jan a Dez por ano) ══
+// getMeses() acima continua retornando TODOS os mk de todos os anos: é usado pela
+// Evolução Mensal (exceção explícita da regra de negócio) e pelo carry-over de saldo
+// em getSaldosPorMes, que precisa da série completa para arrastar o saldo Dez/26→Jan/27
+// corretamente. As páginas analíticas, em vez disso, usam getMesesAno(ano) como "todos".
+const ANO_APURACAO_KEY='ctrl-ano-apuracao';
+let _anoApuracao=null;
+
+function getAnos(){
+  return Array.from(new Set(DB.lancamentos.map(l=>l.ano).filter(Boolean))).sort((a,b)=>a-b);
+}
+function getMesesAno(ano){
+  return getMeses().filter(mk=>mk.startsWith(ano+'-'));
+}
+function getAnoApuracao(){
+  if(_anoApuracao===null){
+    const anos=getAnos();
+    let salvo=null;
+    try{ salvo=parseInt(localStorage.getItem(ANO_APURACAO_KEY),10); }catch(e){}
+    _anoApuracao=(salvo&&anos.includes(salvo))?salvo:(anos[anos.length-1]||new Date().getFullYear());
+  }
+  return _anoApuracao;
+}
+// Páginas cuja apuração é anual — recarregadas ao trocar de exercício. Evolução Mensal
+// (mensal) fica de fora de propósito: mantém a granularidade mensal corrida, sem recorte.
+const PAGINAS_ANUAIS=['visao','diagnostico','categorias','transporte','cartao','formas','efetivado','orcamento'];
+// Selects de período (tri-state tudo/mês/intervalo) que precisam resetar para "tudo"
+// ao trocar de exercício, para não herdar seleção de mês que pertencia ao ano anterior.
+const TIPOS_PERIODO_ANUAL=['vg-tipo','cat-tipo','diag-tipo','orc-tipo'];
+const SELECTS_MES_ANUAL=['tra-mes','for-mes','efe-mes'];
+
+function setAnoApuracao(ano){
+  ano=parseInt(ano,10);
+  if(!ano||ano===_anoApuracao)return;
+  _anoApuracao=ano;
+  try{ localStorage.setItem(ANO_APURACAO_KEY,String(ano)); }catch(e){}
+  TIPOS_PERIODO_ANUAL.forEach(id=>{ const el=document.getElementById(id); if(el) el.value='tudo'; });
+  SELECTS_MES_ANUAL.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  if(typeof populaFiltros==='function') populaFiltros();
+  if(typeof populaOrcFiltros==='function') populaOrcFiltros();
+  PAGINAS_ANUAIS.forEach(id=>{ delete rendered[id]; });
+  const pgAtiva=document.querySelector('.page.active')?.id?.replace('pg-','');
+  if(pgAtiva&&PAGINAS_ANUAIS.includes(pgAtiva)) renderPage(pgAtiva);
+  atualizarSeletorExercicio();
+}
+function atualizarSeletorExercicio(){
+  const sel=document.getElementById('sel-ano-apuracao');
+  const wrap=document.getElementById('sel-ano-apuracao-wrap');
+  if(!sel)return;
+  const anos=getAnos();
+  if(!anos.length){ if(wrap)wrap.style.display='none'; return; }
+  if(wrap)wrap.style.display=anos.length>1?'block':'none'; // 1 único ano: seletor não agrega valor
+  const atual=getAnoApuracao();
+  sel.innerHTML=anos.map(a=>`<option value="${a}" ${a===atual?'selected':''}>Exercício ${a}</option>`).join('');
+}
+// Rótulo padrão "Jan/AAAA a Dez/AAAA" para quando a apuração cobre o exercício inteiro
+function labelExercicioCompleto(ano){ return `Jan/${ano} a Dez/${ano}`; }
 
 // ══ CHARTS ══
 const CC={grid:'rgba(150,168,158,.09)',tick:'#5c6660',font:'Inter,system-ui,sans-serif'};
@@ -3042,7 +3110,9 @@ function setStatus(msg,cls){
 }
 
 function populaFiltros(){
-  const meses=getMeses();
+  const mesesTodos=getMeses();
+  const optsTodos=mesesTodos.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
+  const meses=getMesesAno(getAnoApuracao()); // páginas anuais: recortadas ao exercício ativo
   const opts=meses.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
 
   // Visão Geral
@@ -3061,9 +3131,9 @@ function populaFiltros(){
   const traMes=document.getElementById('tra-mes');
   if(traMes) traMes.innerHTML='<option value="">Todos os meses</option>'+opts;
 
-  // Lançamentos
+  // Lançamentos — extrato bruto, fora da regra de apuração anual: mantém histórico completo
   const lanMes=document.getElementById('lan-mes');
-  if(lanMes) lanMes.innerHTML='<option value="">Todos os meses</option>'+opts;
+  if(lanMes) lanMes.innerHTML='<option value="">Todos os meses</option>'+optsTodos;
   // Garantir que filtro de pago existe
   const lanPagoFiltro=document.getElementById('lan-pago-filtro');
   if(lanPagoFiltro && !lanPagoFiltro.value) lanPagoFiltro.value='';
@@ -3083,6 +3153,7 @@ function populaFiltros(){
     lanFormaEl.innerHTML = '<option value="">Todas as formas</option>'
       + formas.map(f=>`<option value="${f}">${f}</option>`).join('');
   }
+  atualizarSeletorExercicio();
 }
 
 // ══ FILTRO PERÍODO ══
@@ -3119,7 +3190,8 @@ function renderVisao(){
   const tRec=SM(rm.map(r=>r.rec)),tInv=SM(rm.map(r=>r.inv)),tDesp=SM(rm.map(r=>r.desp));
   const aRec=Math.round(tRec/n),aInv=Math.round(tInv/n),aDesp=Math.round(tDesp/n);
   const aSaldo=Math.round(SM(rm.map(r=>r.saldo))/n);
-  const lbl=mf.length===1?mkLabel(mf[0]):mf.length===getMeses().length?'Todos os meses':mkLabel(mf[0])+'–'+mkLabel(mf[mf.length-1]);
+  const anoVg=getAnoApuracao();
+  const lbl=mf.length===1?mkLabel(mf[0]):mf.length===getMesesAno(anoVg).length?`Exercício ${anoVg} (${labelExercicioCompleto(anoVg)})`:mkLabel(mf[0])+'–'+mkLabel(mf[mf.length-1]);
   const pInv=aRec>0?Math.round(aInv/aRec*100):0;
   const pDesp=aRec>0?Math.round(aDesp/aRec*100):0;
 
@@ -3291,8 +3363,8 @@ function renderVisao(){
   document.getElementById('vg-score-badge').className='badge '+scoreCls;
   document.getElementById('vg-score-badge').textContent=`Score: ${score}/100 — ${scoreLabel}`;
 
-  // Gráfico Receitas & Despesas — barras agrupadas + linha de saldo
-  const todosM = getMeses();
+  // Gráfico Receitas & Despesas — barras agrupadas + linha de saldo (recortado ao exercício ativo)
+  const todosM = getMesesAno(getAnoApuracao());
   const rmTodos = getResumo();
   mkChart('chart-vg-receitas', {
     type: 'bar',
@@ -3543,7 +3615,7 @@ function renderMensal(){
 // ══ CATEGORIAS ══
 function setupCat(){
   showBody('cat');
-  const meses=getMeses();
+  const meses=getMesesAno(getAnoApuracao());
   const opts=meses.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
   ['cat-mes','cat-de','cat-ate'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
   const elAte=document.getElementById('cat-ate');
@@ -3562,7 +3634,7 @@ function onCatTipo(){
 }
 
 function getCatMeses(){
-  const todos=getMeses();
+  const todos=getMesesAno(getAnoApuracao());
   const t=document.getElementById('cat-tipo')?.value||'tudo';
   if(t==='mes'){
     const m=document.getElementById('cat-mes').value;
@@ -3580,11 +3652,11 @@ function getCatMeses(){
 
 function renderCat(){
   const cat=document.getElementById('cat-sel').value; if(!cat)return;
-  const meses=getMeses();
   const mesesFilt=getCatMeses();
   const tipo=document.getElementById('cat-tipo')?.value||'tudo';
   const n=mesesFilt.length||1;
-  const periodoLbl=tipo==='mes'?mkLabel(mesesFilt[0]):tipo==='intervalo'?`${mkLabel(mesesFilt[0])}–${mkLabel(mesesFilt[mesesFilt.length-1])}`:`${n} meses`;
+  const anoCat=getAnoApuracao();
+  const periodoLbl=tipo==='mes'?mkLabel(mesesFilt[0]):tipo==='intervalo'?`${mkLabel(mesesFilt[0])}–${mkLabel(mesesFilt[mesesFilt.length-1])}`:`Exercício ${anoCat}`;
 
   const lanCat=DB.lancamentos.filter(l=>l.cat===cat&&mesesFilt.some(m=>matchMes(l,m)));
   const mp={};
@@ -3743,11 +3815,12 @@ function renderCatGrid(cat, mesesFilt, subs){
 function renderTransporte(){
   showBody('tra');
   const mesFiltro=document.getElementById('tra-mes')?.value||'';
-  const meses=getMeses();
+  const anoTra=getAnoApuracao();
+  const meses=getMesesAno(anoTra);
   const n=mesFiltro?1:(meses.length||1);
-  const lan=DB.lancamentos.filter(l=>l.cat==='Transporte'&&(!mesFiltro||matchMes(l,mesFiltro)));
+  const lan=DB.lancamentos.filter(l=>l.cat==='Transporte'&&(mesFiltro?matchMes(l,mesFiltro):meses.some(m=>matchMes(l,m))));
 
-  document.getElementById('tra-sub').textContent=mesFiltro?`Análise detalhada — ${mkLabel(mesFiltro)}`:`Média de ${n} meses importados`;
+  document.getElementById('tra-sub').textContent=mesFiltro?`Análise detalhada — ${mkLabel(mesFiltro)}`:`Contabilidade anual — Exercício ${anoTra}`;
 
   const bannerEl=document.getElementById('tra-banner');
   if(bannerEl) bannerEl.style.display=mesFiltro?'none':'flex';
@@ -3833,7 +3906,7 @@ function onOrcTipo(){
 }
 
 function getOrcMeses(){
-  const todos = getMeses(), t = document.getElementById('orc-tipo')?.value || 'media';
+  const todos = getMesesAno(getAnoApuracao()), t = document.getElementById('orc-tipo')?.value || 'media';
   if(t==='mes'){
     const m = document.getElementById('orc-mes').value;
     return m ? [m] : todos;
@@ -3857,8 +3930,9 @@ function renderOrcamento(){
   const meses = getOrcMeses();
   const n     = meses.length || 1;
   const tipo  = document.getElementById('orc-tipo')?.value || 'media';
+  const anoOrc = getAnoApuracao();
   const lbl   = meses.length === 1 ? mkLabel(meses[0])
-              : meses.length === getMeses().length ? 'Todos'
+              : meses.length === getMesesAno(anoOrc).length ? `Exercício ${anoOrc}`
               : mkLabel(meses[0]) + '–' + mkLabel(meses[meses.length - 1]);
 
   // Textos dinâmicos
@@ -4050,7 +4124,7 @@ function renderOrcEvolucao(meses){
 }
 
 function populaOrcFiltros(){
-  const meses = getMeses(), opts = meses.map(m => `<option value="${m}">${mkLabel(m)}</option>`).join('');
+  const meses = getMesesAno(getAnoApuracao()), opts = meses.map(m => `<option value="${m}">${mkLabel(m)}</option>`).join('');
   ['orc-mes','orc-de','orc-ate'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
   const elAte = document.getElementById('orc-ate');
   if(elAte && meses.length) elAte.value = meses[meses.length - 1];
@@ -4534,7 +4608,7 @@ function buildComprometimento(){
       if(mkCorte===null || mkFut>mkCorte)projecoesFuturas.push({mkFut,i});
     }
     if(projecoesFuturas.length===0)return;
-    parcelasUnicas.push({...lans[0],parc_atual:ultimoPago.atual,parc_total:ultimoPago.total,restantes:projecoesFuturas.length,ultimo_pago_mes:ultimoPago.mes});
+    parcelasUnicas.push({...lans[0],parc_atual:ultimoPago.atual,parc_total:ultimoPago.total,restantes:projecoesFuturas.length,ultimo_pago_mes:ultimoPago.mes,mesesFuturos:projecoesFuturas.map(p=>p.mkFut)});
     projecoesFuturas.forEach(({mkFut,i})=>{
       if(!comprometimento[mkFut])comprometimento[mkFut]={};
       if(!comprometimento[mkFut][lans[0].cat])comprometimento[mkFut][lans[0].cat]=[];
@@ -4560,7 +4634,9 @@ function renderCartao(){
   const{comprometimento,parcelasUnicas}=buildComprometimento();
   const catFiltro=document.getElementById('car-cat-filtro').value;
   const vis=document.getElementById('car-vis').value;
-  const mesesFut=Object.keys(comprometimento).sort(); // mk (AAAA-MM) já ordena lexicograficamente
+  const anoCar=getAnoApuracao();
+  const mesesFut=Object.keys(comprometimento).filter(m=>m.startsWith(anoCar+'-')).sort(); // mk (AAAA-MM) já ordena lexicograficamente, recortado ao exercício ativo
+  document.getElementById('car-sub').textContent=`Comprometimento futuro por compras parceladas — Exercício ${anoCar}`;
   function totMesCat(mes,cat){
     const cats=comprometimento[mes]||{};
     if(cat)return SM((cats[cat]||[]).map(l=>l.valor));
@@ -4591,7 +4667,9 @@ function renderCartao(){
   const valProximo=proximoMes?totMesCat(proximoMes,catFiltro):0;
   document.getElementById('car-proximo').textContent=proximoMes?R(valProximo):'—';
   document.getElementById('car-proximo-lbl').textContent=proximoMes?`em ${mkLabel(proximoMes)}`:'sem comprometimento';
-  const parcsAtivas=catFiltro?parcelasUnicas.filter(p=>p.cat===catFiltro):parcelasUnicas;
+  const parcsAtivas=(catFiltro?parcelasUnicas.filter(p=>p.cat===catFiltro):parcelasUnicas)
+    .filter(p=>p.mesesFuturos.some(mk=>mk.startsWith(anoCar+'-')))
+    .map(p=>({...p,restantes:p.mesesFuturos.filter(mk=>mk.startsWith(anoCar+'-')).length}));
   document.getElementById('car-nparcelas').textContent=parcsAtivas.length;
   if(parcsAtivas.length>0){
     const maior=[...parcsAtivas].sort((a,b)=>b.valor-a.valor)[0];
@@ -4667,7 +4745,7 @@ function renderCartaoDetalhe(parcsAtivas){
 // ══ FORMAS DE PAGAMENTO ══
 function setupFormas(){
   showBody('for');
-  const meses=getMeses();
+  const meses=getMesesAno(getAnoApuracao());
   const el=document.getElementById('for-mes');
   if(el)el.innerHTML='<option value="">Todos os meses</option>'+meses.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
   renderFormas();
@@ -4687,15 +4765,17 @@ function renderFormas(){
     if(tipoFiltro==='outros')return!isCartao(f)&&!isDebPix(f)&&!isCred(f);
     return true;
   };
-  let lan=DB.lancamentos.filter(l=>(!mesFiltro||matchMes(l,mesFiltro))&&matchTipo(l.forma||''));
-  const meses=getMeses();
+  const anoFor=getAnoApuracao();
+  const mesesAnoFor=getMesesAno(anoFor);
+  let lan=DB.lancamentos.filter(l=>(mesFiltro?matchMes(l,mesFiltro):mesesAnoFor.some(m=>matchMes(l,m)))&&matchTipo(l.forma||''));
+  const meses=mesesAnoFor;
   const formaMap={};
   lan.forEach(l=>{const f=l.forma||'Outros';if(!formaMap[f])formaMap[f]={count:0,total:0,cats:{}};formaMap[f].count++;formaMap[f].total+=l.valor;formaMap[f].cats[l.cat]=(formaMap[f].cats[l.cat]||0)+l.valor;});
   const totalGeral=Object.values(formaMap).reduce((a,v)=>a+v.total,0)||1;
   const totCartao=Object.entries(formaMap).filter(([f])=>isCartao(f)).reduce((a,[,v])=>a+v.total,0);
   const totDebPix=Object.entries(formaMap).filter(([f])=>isDebPix(f)).reduce((a,[,v])=>a+v.total,0);
   const totCred=Object.entries(formaMap).filter(([f])=>isCred(f)).reduce((a,[,v])=>a+v.total,0);
-  document.getElementById('for-sub').textContent=mesFiltro?`Distribuição em ${mkLabel(mesFiltro)}`:`Distribuição geral — ${meses.length} meses`;
+  document.getElementById('for-sub').textContent=mesFiltro?`Distribuição em ${mkLabel(mesFiltro)}`:`Distribuição geral — Exercício ${anoFor}`;
   document.getElementById('for-total').textContent=R(Math.round(totalGeral));
   document.getElementById('for-total-sub').textContent=mesFiltro?`total em ${mkLabel(mesFiltro)}`:'total acumulado';
   document.getElementById('for-cartao').textContent=R(Math.round(totCartao));
@@ -4725,7 +4805,7 @@ function renderFormas(){
 // ══ EFETIVADOS / PENDENTES ══
 function setupEfetivado(){
   showBody('efe');
-  const meses=getMeses();
+  const meses=getMesesAno(getAnoApuracao());
   const el=document.getElementById('efe-mes');
   if(el)el.innerHTML='<option value="">Todos os meses</option>'+meses.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
   renderEfetivado();
@@ -4734,15 +4814,16 @@ function setupEfetivado(){
 function renderEfetivado(){
   const mesFiltro=document.getElementById('efe-mes')?.value||'';
   const tipoFiltro=document.getElementById('efe-tipo')?.value||'';
-  const meses=getMeses();
-  const lan=DB.lancamentos.filter(l=>(!mesFiltro||matchMes(l,mesFiltro))&&l.cat!=='Receitas');
+  const anoEfe=getAnoApuracao();
+  const meses=getMesesAno(anoEfe);
+  const lan=DB.lancamentos.filter(l=>(mesFiltro?matchMes(l,mesFiltro):meses.some(m=>matchMes(l,m)))&&l.cat!=='Receitas');
   const pagos=lan.filter(l=>l.pago==='Sim');
   const nPagos=lan.filter(l=>l.pago!=='Sim');
   const totPago=Math.round(SM(pagos.map(l=>l.valor)));
   const totNPago=Math.round(SM(nPagos.map(l=>l.valor)));
   const totGeral=totPago+totNPago||1;
   const pctNPago=Math.round(totNPago/totGeral*100);
-  document.getElementById('efe-sub').textContent=mesFiltro?`Status em ${mkLabel(mesFiltro)}`:`Status geral — ${meses.length} meses`;
+  document.getElementById('efe-sub').textContent=mesFiltro?`Status em ${mkLabel(mesFiltro)}`:`Status geral — Exercício ${anoEfe}`;
   document.getElementById('efe-pago').textContent=R(totPago);
   document.getElementById('efe-pago-n').textContent=pagos.length+' lançamentos efetivados';
   document.getElementById('efe-nao').textContent=R(totNPago);
@@ -4809,7 +4890,7 @@ function getSaldosPorMes(mesesFiltro){
 
 function setupDiagnostico(){
   showBody('diag');
-  const meses=getMeses();
+  const meses=getMesesAno(getAnoApuracao());
   const opts=meses.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
   ['diag-mes','diag-de','diag-ate'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
   const elAte=document.getElementById('diag-ate');
@@ -4829,7 +4910,7 @@ function onDiagTipo(){
 function reRenderDiag(){rendered.diagnostico=false;renderDiagnostico();}
 
 function getDiagMeses(){
-  const todos=getMeses();
+  const todos=getMesesAno(getAnoApuracao());
   const t=document.getElementById('diag-tipo')?.value||'tudo';
   if(t==='mes'){const m=document.getElementById('diag-mes').value;return m?[m]:todos;}
   if(t==='intervalo'){
@@ -4850,7 +4931,9 @@ function renderDiagnostico(){
   const mesAtual=comPago.length>0?comPago[comPago.length-1]:saldos[saldos.length-1];
   const saldoAtual=mesAtual.saldo_atu,saldoPrev=mesAtual.saldo_pre,resultado=mesAtual.resultado_pago;
   const tendencia=saldos[saldos.length-1].saldo_atu-saldos[0].saldo_ini;
-  document.getElementById('diag-sub').textContent=`Período: ${mkLabel(meses[0])}–${mkLabel(meses[meses.length-1])} · ${comPago.length} meses analisados`;
+  const anoDiag=getAnoApuracao();
+  const diagPeriodoLbl=meses.length===getMesesAno(anoDiag).length?`Período de apuração: ${labelExercicioCompleto(anoDiag)}`:`Período: ${mkLabel(meses[0])}–${mkLabel(meses[meses.length-1])}`;
+  document.getElementById('diag-sub').textContent=`${diagPeriodoLbl} · ${comPago.length} meses analisados`;
   document.getElementById('diag-saldo-atual').textContent=R(Math.abs(saldoAtual));
   document.getElementById('diag-saldo-atual').className='kpi-val '+(saldoAtual>=0?'ok':'danger');
   document.getElementById('diag-saldo-mes').textContent=mkLabel(mesAtual.mes)+' · valores efetivados';
@@ -6939,7 +7022,7 @@ function closeFilterDrawer(){
 }
 
 function buildFilterGroup(g, gi){
-  const meses = getMeses();
+  const meses = getMesesAno(getAnoApuracao());
   if(g.type==='periodo'){
     const mesOpts='<option value="">Todos</option>'+meses.map(m=>`<option value="${m}">${mkLabel(m)}</option>`).join('');
     return `<div class="fd-group">
@@ -7164,7 +7247,7 @@ function renderFaturas(){
 
 // ══ GRÁFICO CARTÃO vs RECEITA ══
 function renderCarRatio(){
-  const meses=getMeses();if(!meses.length)return;
+  const meses=getMesesAno(getAnoApuracao());if(!meses.length)return;
   const reCarFn=f=>f&&(f.toLowerCase().includes('credito')||f.toLowerCase().includes('master')||f.toLowerCase().includes('c.c'));
   const dados=meses.map(mes=>{
     const rec=Math.abs(SM(DB.lancamentos.filter(l=>matchMes(l,mes)&&l.cat==='Receitas').map(l=>l.valor)));
