@@ -103,6 +103,8 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,-apple-s
 .kpi-sub{font-size:11px;color:var(--tx3);margin-top:5px}
 .ok{color:var(--green)}.warn{color:var(--amber)}.danger{color:var(--red)}.info{color:var(--blue)}
 .badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px}
+.btn-icon{background:none;border:none;cursor:pointer;font-size:14px;padding:3px 6px;border-radius:4px;color:var(--tx2)}
+.btn-icon:hover{background:var(--bg4)}
 .b-ok{background:var(--gd);color:var(--green)}.b-warn{background:var(--ad);color:var(--amber)}
 .b-danger{background:var(--rd);color:var(--red)}.b-info{background:var(--bld);color:var(--blue)}
 .sbanner{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--r);margin-bottom:16px;font-size:13px;font-weight:600;border:1px solid}
@@ -1616,8 +1618,83 @@ html.is-mobile .sidebar.open{
 <div class="page" id="pg-metas">
   <div id="met-empty" class="empty"><div class="empty-icon">🎯</div><div class="empty-title">Importe os dados primeiro</div></div>
   <div id="met-body" style="display:none">
-    <div class="section-header"><div class="section-header-left"><div class="page-title">Metas & Reserva</div><div class="page-sub" style="margin:0">Acompanhamento de progresso por meta — orçado, aportado e saldo restante</div></div></div>
+    <div class="section-header">
+      <div class="section-header-left"><div class="page-title">Metas & Reserva</div><div class="page-sub" style="margin:0">Acompanhamento de progresso por meta — orçado, aportado e saldo restante</div></div>
+      <div class="section-header-right"><button class="btn-modal-save" onclick="abrirMetaForm()">+ Nova Meta</button></div>
+    </div>
+    <div class="g2" style="margin-bottom:14px">
+      <div class="card"><div class="card-title">Comparativo orçado vs. realizado</div><div class="chart-wrap" style="height:220px"><canvas id="chart-metas-comparativo" role="img" aria-label="Orçado vs realizado por meta"></canvas></div></div>
+      <div class="card"><div class="card-title">Ranking de progresso</div><div class="chart-wrap" style="height:220px"><canvas id="chart-metas-ranking" role="img" aria-label="Ranking de progresso das metas"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Evolução do aportado por meta</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chart-metas-evolucao" role="img" aria-label="Evolução do aportado por meta"></canvas></div>
+      <div id="metas-evolucao-legend" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--tx2)"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Projeção de conclusão — ritmo real de aporte</div>
+      <div id="metas-projecao"></div>
+    </div>
     <div id="metas-lista"></div>
+  </div>
+</div>
+
+<!-- MODAL META -->
+<div class="modal-overlay" id="modal-meta" style="display:none" onclick="if(event.target===this)fecharModal('meta')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="meta-modal-title">🎯 Nova Meta</div>
+      <button class="modal-close" onclick="fecharModal('meta')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="meta-id">
+      <div class="modal-group">
+        <label class="modal-label">Nome da meta</label>
+        <input type="text" id="meta-nome" class="modal-input" placeholder="Ex: Carro novo" maxlength="60">
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Categoria</label>
+          <select id="meta-categoria" class="modal-input">
+            <option>Alimentação</option><option>Compras</option>
+            <option>Doações & Presentes</option><option>Educação</option>
+            <option>Giovanna</option><option selected>Investimentos</option>
+            <option>Lazer</option><option>Moradia</option>
+            <option>Outras Despesas</option><option>Receitas</option>
+            <option>Saúde & Beleza</option><option>Serviços Financeiros</option>
+            <option>Transporte</option><option>Vestuário</option>
+          </select></div>
+        <div><label class="modal-label">Subcategoria de vínculo</label>
+          <input type="text" id="meta-subvinculo" class="modal-input" placeholder="Ex: Carro Novo"></div>
+      </div>
+      <div class="tip" style="margin:-4px 0 10px">Lançamentos com essa categoria + subcategoria (texto exato) são vinculados automaticamente a esta meta.</div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Prioridade</label>
+          <select id="meta-prioridade" class="modal-input">
+            <option value="alta">🔴 Alta</option><option value="media" selected>🟡 Média</option><option value="baixa">🟢 Baixa</option>
+          </select></div>
+        <div><label class="modal-label">Prazo</label>
+          <select id="meta-prazo" class="modal-input">
+            <option value="curto">Curto prazo (&lt;12m)</option><option value="medio" selected>Médio prazo (12-36m)</option><option value="longo">Longo prazo (&gt;36m)</option>
+          </select></div>
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Valor orçado (R$)</label>
+          <input type="number" id="meta-valor-orcado" class="modal-input" step="0.01" min="0.01"></div>
+        <div><label class="modal-label">Aporte mensal sugerido (R$)</label>
+          <input type="number" id="meta-aporte-sugerido" class="modal-input" step="0.01" min="0" placeholder="opcional"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Status</label>
+        <select id="meta-status" class="modal-input">
+          <option value="ativa">Em andamento</option><option value="pausada">Pausada</option><option value="cancelada">Cancelada</option>
+        </select>
+      </div>
+      <div id="meta-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('meta')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-meta-save" onclick="salvarMeta()">💾 Salvar meta</button>
+    </div>
   </div>
 </div>
 
@@ -4267,14 +4344,22 @@ function renderSim(){
 function getMetasComProgresso(){
   return DB.metas.map(m=>{
     const aportes = DB.lancamentos.filter(l=>l.meta_id===m.id);
-    const totalAportado = SM(aportes.filter(l=>l.pago==='Sim').map(l=>l.valor));
+    const aportesPagos = aportes.filter(l=>l.pago==='Sim');
+    const totalAportado = SM(aportesPagos.map(l=>l.valor));
     const saldoRestante = m.valorOrcado - totalAportado;
     const pctConcluido = m.valorOrcado>0 ? Math.min(100, Math.round(totalAportado/m.valorOrcado*100)) : 0;
     const statusCalculado = totalAportado >= m.valorOrcado ? 'concluida' : m.status;
     const mesesRestantesProjetado = (m.aporteMensalSugerido>0 && saldoRestante>0)
       ? Math.ceil(saldoRestante/m.aporteMensalSugerido) : null;
+    // Ritmo real: média mensal de aporte pago, considerando só os meses em que houve
+    // aporte (não divide pelo total de meses do calendário — evita subestimar o ritmo
+    // de quem aporta esporadicamente, ex: 3 aportes em 2 meses não pagos = ritmo de 2 meses, não de todo o exercício)
+    const mesesComAporte = new Set(aportesPagos.map(l=>mkOf(l.mes,l.ano)));
+    const ritmoReal = mesesComAporte.size>0 ? totalAportado/mesesComAporte.size : 0;
+    const mesesRestantesRitmoReal = (ritmoReal>0 && saldoRestante>0) ? Math.ceil(saldoRestante/ritmoReal) : (saldoRestante<=0?0:null);
     return {...m, totalAportado, saldoRestante, pctConcluido, statusCalculado, mesesRestantesProjetado,
-      qtdAportes: aportes.filter(l=>l.pago==='Sim').length, qtdPendentes: aportes.filter(l=>l.pago!=='Sim').length};
+      ritmoReal, mesesRestantesRitmoReal, qtdMesesComAporte: mesesComAporte.size,
+      qtdAportes: aportesPagos.length, qtdPendentes: aportes.length-aportesPagos.length};
   });
 }
 
@@ -4282,14 +4367,16 @@ const STATUS_LABEL = {ativa:'Em andamento',pausada:'Pausada',concluida:'Concluí
 const STATUS_TAG    = {ativa:'tag-info',pausada:'tag-warn',concluida:'tag-ok',cancelada:'tag-danger'};
 const PRAZO_LABEL   = {curto:'Curto prazo',medio:'Médio prazo',longo:'Longo prazo'};
 const PRIORIDADE_ICON = {alta:'🔴',media:'🟡',baixa:'🟢'};
+const CORES_METAS=['#5fd99a','#6fb8c9','#e0b35f','#d97a7a','#8a9a8c','#b39ddb'];
 
 function renderMetas(){
   showBody('met');
   const lista = document.getElementById('metas-lista');
   if(!lista) return;
   const metas = getMetasComProgresso();
+  renderMetasPaineis(metas);
   if(metas.length===0){
-    lista.innerHTML = `<div class="card"><div style="text-align:center;padding:24px;color:var(--tx2)">Nenhuma meta cadastrada ainda.</div></div>`;
+    lista.innerHTML = `<div class="card"><div style="text-align:center;padding:24px;color:var(--tx2)">Nenhuma meta cadastrada ainda. Clique em "+ Nova Meta" para começar.</div></div>`;
     return;
   }
   lista.innerHTML = metas.map(m=>{
@@ -4302,9 +4389,16 @@ function renderMetas(){
             <span style="font-size:15px">${PRIORIDADE_ICON[m.prioridade]||''}</span>
             <span class="card-title" style="margin:0">${m.nome}</span>
           </div>
-          <div style="font-size:12px;color:var(--tx2);margin-top:2px">${m.categoria} · ${PRAZO_LABEL[m.prazo]||m.prazo}</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">${m.categoria}${m.subcategoriaVinculo?' · '+m.subcategoriaVinculo:''} · ${PRAZO_LABEL[m.prazo]||m.prazo}</div>
         </div>
-        <span class="badge ${STATUS_TAG[m.statusCalculado]||'tag-info'}">${STATUS_LABEL[m.statusCalculado]||m.statusCalculado}</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="badge ${STATUS_TAG[m.statusCalculado]||'tag-info'}">${STATUS_LABEL[m.statusCalculado]||m.statusCalculado}</span>
+          <button class="btn-icon" title="Editar" onclick="abrirMetaForm('${m.id}')">✏</button>
+          ${m.status==='ativa' ? `<button class="btn-icon" title="Pausar" onclick="pausarMeta('${m.id}')">⏸</button>` : ''}
+          ${m.status==='pausada' ? `<button class="btn-icon" title="Reativar" onclick="reativarMeta('${m.id}')">▶</button>` : ''}
+          ${m.status!=='cancelada' ? `<button class="btn-icon" title="Cancelar" onclick="cancelarMeta('${m.id}')">🚫</button>` : ''}
+          <button class="btn-icon" title="Excluir" onclick="excluirMeta('${m.id}','${m.nome.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:6px;margin:10px 0 6px">
         <span style="font-size:28px;font-weight:800">${m.pctConcluido}%</span>
@@ -4315,10 +4409,166 @@ function renderMetas(){
       <div class="trow"><span class="tl">Total aportado</span><span class="tv" style="color:var(--green)">${R(m.totalAportado)}</span></div>
       <div class="trow"><span class="tl">Saldo restante</span><span class="tv">${R(Math.max(0,m.saldoRestante))}</span></div>
       ${m.aporteMensalSugerido ? `<div class="trow"><span class="tl">Aporte mensal sugerido</span><span class="tv">${R(m.aporteMensalSugerido)}</span></div>` : ''}
-      ${m.mesesRestantesProjetado!=null ? `<div class="trow"><span class="tl">Prazo projetado no ritmo atual</span><span class="tv warn">${m.mesesRestantesProjetado} meses</span></div>` : ''}
+      ${m.ritmoReal>0 ? `<div class="trow"><span class="tl">Ritmo real de aporte</span><span class="tv">${R(Math.round(m.ritmoReal))}/mês (${m.qtdMesesComAporte} meses)</span></div>` : ''}
+      ${m.mesesRestantesRitmoReal!=null ? `<div class="trow"><span class="tl">Projeção no ritmo real</span><span class="tv warn">${m.mesesRestantesRitmoReal} meses</span></div>` : ''}
       <div class="trow"><span class="tl">Histórico</span><span class="tv" style="color:var(--tx2)">${m.qtdAportes} aporte(s) pago(s)${m.qtdPendentes?` · ${m.qtdPendentes} pendente(s)`:''}</span></div>
     </div>`;
   }).join('');
+}
+
+// ── Painéis analíticos ──
+function renderMetasPaineis(metas){
+  const ativas = metas.filter(m=>m.status!=='cancelada');
+  // 1) Comparativo orçado vs realizado
+  mkChart('chart-metas-comparativo',{type:'bar',data:{labels:ativas.map(m=>m.nome),datasets:[
+    {label:'Orçado',data:ativas.map(m=>m.valorOrcado),backgroundColor:'rgba(138,154,140,.35)',borderRadius:4},
+    {label:'Aportado',data:ativas.map(m=>m.totalAportado),backgroundColor:'#5fd99a',borderRadius:4}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:CC.tick,boxWidth:10}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${R(ctx.raw)}`}}},scales:{x:{grid:{display:false},ticks:{color:CC.tick}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>'R$'+(v/1000).toFixed(0)+'k'}}}}});
+
+  // 2) Ranking de progresso (barra horizontal, ordenado desc)
+  const rank=[...ativas].sort((a,b)=>b.pctConcluido-a.pctConcluido);
+  mkChart('chart-metas-ranking',{type:'bar',data:{labels:rank.map(m=>m.nome),datasets:[{label:'% concluído',data:rank.map(m=>m.pctConcluido),backgroundColor:rank.map(m=>m.pctConcluido>=100?'#5fd99a':m.pctConcluido>=50?'#6fb8c9':'#e0b35f'),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw+'%'}}},scales:{x:{min:0,max:100,grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:CC.tick}}}}});
+
+  // 3) Evolução do aportado por meta (linha, cumulativo mês a mês)
+  const todosMks=[...new Set(DB.lancamentos.filter(l=>l.meta_id&&l.pago==='Sim').map(l=>mkOf(l.mes,l.ano)))].sort();
+  const dsEvolucao=ativas.filter(m=>m.qtdAportes>0).map((m,i)=>{
+    let acumulado=0;
+    const porMes={};
+    DB.lancamentos.filter(l=>l.meta_id===m.id&&l.pago==='Sim').forEach(l=>{const mk=mkOf(l.mes,l.ano);porMes[mk]=(porMes[mk]||0)+l.valor;});
+    const data=todosMks.map(mk=>{acumulado+=(porMes[mk]||0);return Math.round(acumulado);});
+    return {label:m.nome,data,borderColor:CORES_METAS[i%CORES_METAS.length],backgroundColor:'transparent',tension:.3,pointRadius:3};
+  });
+  mkChart('chart-metas-evolucao',{type:'line',data:{labels:todosMks.map(mkLabel),datasets:dsEvolucao},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${R(ctx.raw)}`}}},scales:{x:{grid:{display:false},ticks:{color:CC.tick}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>'R$'+(v/1000).toFixed(1)+'k'}}}}});
+  const legEl=document.getElementById('metas-evolucao-legend');
+  if(legEl) legEl.innerHTML = dsEvolucao.map(d=>`<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.borderColor};margin-right:5px"></span>${d.label}</span>`).join('');
+
+  // 4) Projeção de conclusão pelo ritmo real (tabela, não chart — é 1 métrica por meta)
+  const projEl=document.getElementById('metas-projecao');
+  if(projEl){
+    const comRitmo=ativas.filter(m=>m.status==='ativa'&&m.statusCalculado!=='concluida');
+    projEl.innerHTML = comRitmo.length===0
+      ? `<div style="text-align:center;padding:16px;color:var(--tx2);font-size:13px">Nenhuma meta em andamento com projeção pendente.</div>`
+      : comRitmo.map(m=>`<div class="trow"><span class="tl">${m.nome}</span><span class="tv">${m.ritmoReal>0 ? `${R(Math.round(m.ritmoReal))}/mês → ${m.mesesRestantesRitmoReal} meses` : 'sem aporte ainda — sem base pra projetar'}</span></div>`).join('');
+  }
+}
+
+// ── CRUD de meta ──
+function abrirMetaForm(id){
+  const ehEdicao = !!id;
+  document.getElementById('meta-modal-title').textContent = ehEdicao ? '✏ Editar Meta' : '🎯 Nova Meta';
+  const fb = document.getElementById('meta-feedback');
+  if(fb) fb.style.display='none';
+  if(ehEdicao){
+    const m = DB.metas.find(x=>x.id===id);
+    if(!m) return;
+    document.getElementById('meta-id').value = m.id;
+    document.getElementById('meta-nome').value = m.nome;
+    document.getElementById('meta-categoria').value = m.categoria;
+    document.getElementById('meta-subvinculo').value = m.subcategoriaVinculo||'';
+    document.getElementById('meta-prioridade').value = m.prioridade;
+    document.getElementById('meta-prazo').value = m.prazo;
+    document.getElementById('meta-valor-orcado').value = m.valorOrcado;
+    document.getElementById('meta-aporte-sugerido').value = m.aporteMensalSugerido||'';
+    document.getElementById('meta-status').value = m.status==='concluida' ? 'ativa' : m.status;
+  } else {
+    document.getElementById('meta-id').value = '';
+    document.getElementById('meta-nome').value = '';
+    document.getElementById('meta-categoria').value = 'Investimentos';
+    document.getElementById('meta-subvinculo').value = '';
+    document.getElementById('meta-prioridade').value = 'media';
+    document.getElementById('meta-prazo').value = 'medio';
+    document.getElementById('meta-valor-orcado').value = '';
+    document.getElementById('meta-aporte-sugerido').value = '';
+    document.getElementById('meta-status').value = 'ativa';
+  }
+  abrirModal('meta');
+}
+
+async function salvarMeta(){
+  const id = document.getElementById('meta-id').value;
+  const nome = document.getElementById('meta-nome').value.trim();
+  const categoria = document.getElementById('meta-categoria').value;
+  const subVinculo = document.getElementById('meta-subvinculo').value.trim();
+  const prioridade = document.getElementById('meta-prioridade').value;
+  const prazo = document.getElementById('meta-prazo').value;
+  const valorOrcado = parseFloat(document.getElementById('meta-valor-orcado').value);
+  const aporteSugeridoRaw = document.getElementById('meta-aporte-sugerido').value;
+  const aporteSugerido = aporteSugeridoRaw ? parseFloat(aporteSugeridoRaw) : null;
+  const status = document.getElementById('meta-status').value;
+  const fb = document.getElementById('meta-feedback');
+  const btn = document.getElementById('btn-meta-save');
+
+  function mostrarFeedback(msg, ok){
+    fb.style.display='block';
+    fb.style.background = ok ? 'var(--gd)' : 'var(--rd)';
+    fb.style.color = ok ? 'var(--green)' : 'var(--red)';
+    fb.style.border = ok ? '1px solid rgba(95,217,154,.3)' : '1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+
+  if(!nome || !categoria || !valorOrcado || isNaN(valorOrcado) || valorOrcado<=0){
+    mostrarFeedback('⚠ Preencha nome, categoria e valor orçado (> 0).', false);
+    return;
+  }
+  if(!usuarioAtual){ mostrarFeedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  const payload = {
+    usuario_id: usuarioAtual.id, nome, categoria,
+    subcategoria_vinculo: subVinculo||null,
+    prioridade, prazo, valor_orcado: Math.round(valorOrcado*100)/100,
+    aporte_mensal_sugerido: aporteSugerido!=null ? Math.round(aporteSugerido*100)/100 : null,
+    status
+  };
+
+  try {
+    if(id){
+      const {error} = await getSB().from('metas').update(payload).eq('id',id).eq('usuario_id',usuarioAtual.id);
+      if(error) throw new Error(error.message);
+      const idx = DB.metas.findIndex(m=>m.id===id);
+      if(idx>=0) DB.metas[idx] = {...DB.metas[idx], nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status};
+    } else {
+      const {data,error} = await getSB().from('metas').insert(payload).select();
+      if(error) throw new Error(error.message);
+      const novo = data[0];
+      DB.metas.push({id:novo.id, nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status, anoApuracao:new Date().getFullYear()});
+    }
+    mostrarFeedback('✓ Meta salva com sucesso!', true);
+    setTimeout(()=>{ fecharModal('meta'); renderMetas(); }, 900);
+  } catch(e){
+    mostrarFeedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar meta';
+  }
+}
+
+async function atualizarStatusMeta(id, novoStatus){
+  try {
+    const {error} = await getSB().from('metas').update({status:novoStatus}).eq('id',id).eq('usuario_id',usuarioAtual.id);
+    if(error) throw new Error(error.message);
+    const idx = DB.metas.findIndex(m=>m.id===id);
+    if(idx>=0) DB.metas[idx].status = novoStatus;
+    renderMetas();
+  } catch(e){
+    alert('Erro ao atualizar status: '+e.message);
+  }
+}
+function pausarMeta(id){ atualizarStatusMeta(id,'pausada'); }
+function reativarMeta(id){ atualizarStatusMeta(id,'ativa'); }
+function cancelarMeta(id){ if(confirm('Cancelar esta meta? Ela deixa de contar como ativa, mas o histórico de aportes é preservado.')) atualizarStatusMeta(id,'cancelada'); }
+
+async function excluirMeta(id, nome){
+  if(!confirm(`Excluir a meta "${nome}"? Só é possível excluir metas sem nenhum aporte vinculado.`)) return;
+  try {
+    const {error} = await getSB().from('metas').delete().eq('id',id).eq('usuario_id',usuarioAtual.id);
+    if(error) throw new Error(error.message);
+    DB.metas = DB.metas.filter(m=>m.id!==id);
+    renderMetas();
+  } catch(e){
+    // A trigger trg_bloquear_delete_meta barra exclusão de meta com aporte vinculado —
+    // a mensagem já vem pronta do banco (RAISE EXCEPTION), só repasso pro usuário.
+    alert('Não foi possível excluir: '+e.message+'\n\nUse "Cancelar" em vez de excluir metas com histórico.');
+  }
 }
 
 // ══ LANÇAMENTOS ══
@@ -5915,6 +6165,7 @@ async function carregarDoSupabase(){
 
     DB.metas = metasRows.map(m=>({
       id: m.id, nome: m.nome, categoria: m.categoria,
+      subcategoriaVinculo: m.subcategoria_vinculo||null,
       prioridade: m.prioridade, prazo: m.prazo,
       valorOrcado: parseFloat(m.valor_orcado)||0,
       aporteMensalSugerido: m.aporte_mensal_sugerido!=null?parseFloat(m.aporte_mensal_sugerido):null,
