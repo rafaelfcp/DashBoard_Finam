@@ -1630,6 +1630,7 @@ html.is-mobile .sidebar.open{
       <div class="card-title">Evolução do aportado por meta</div>
       <div class="chart-wrap" style="height:240px"><canvas id="chart-metas-evolucao" role="img" aria-label="Evolução do aportado por meta"></canvas></div>
       <div id="metas-evolucao-legend" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--tx2)"></div>
+      <div id="metas-evolucao-tabela" style="margin-top:14px;overflow-x:auto"></div>
     </div>
     <div class="card" style="margin-bottom:14px">
       <div class="card-title">Projeção de conclusão — ritmo real de aporte</div>
@@ -4347,7 +4348,8 @@ function getMetasComProgresso(){
     const aportesPagos = aportes.filter(l=>l.pago==='Sim');
     const totalAportado = SM(aportesPagos.map(l=>l.valor));
     const saldoRestante = m.valorOrcado - totalAportado;
-    const pctConcluido = m.valorOrcado>0 ? Math.min(100, Math.round(totalAportado/m.valorOrcado*100)) : 0;
+    const pctConcluidoReal = m.valorOrcado>0 ? Math.round(totalAportado/m.valorOrcado*100) : 0;
+    const pctConcluido = Math.min(100, pctConcluidoReal); // só pra largura de barra / eixo do gráfico (0-100)
     const statusCalculado = totalAportado >= m.valorOrcado ? 'concluida' : m.status;
     const mesesRestantesProjetado = (m.aporteMensalSugerido>0 && saldoRestante>0)
       ? Math.ceil(saldoRestante/m.aporteMensalSugerido) : null;
@@ -4358,7 +4360,7 @@ function getMetasComProgresso(){
     const ritmoReal = mesesComAporte.size>0 ? totalAportado/mesesComAporte.size : 0;
     const mesesRestantesRitmoReal = (ritmoReal>0 && saldoRestante>0) ? Math.ceil(saldoRestante/ritmoReal) : (saldoRestante<=0?0:null);
     const aportesOrdenados = [...aportes].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-    return {...m, totalAportado, saldoRestante, pctConcluido, statusCalculado, mesesRestantesProjetado,
+    return {...m, totalAportado, saldoRestante, pctConcluido, pctConcluidoReal, statusCalculado, mesesRestantesProjetado,
       ritmoReal, mesesRestantesRitmoReal, qtdMesesComAporte: mesesComAporte.size,
       qtdAportes: aportesPagos.length, qtdPendentes: aportes.length-aportesPagos.length, aportesOrdenados};
   });
@@ -4402,8 +4404,9 @@ function renderMetas(){
         </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:6px;margin:10px 0 6px">
-        <span style="font-size:28px;font-weight:800">${m.pctConcluido}%</span>
+        <span style="font-size:28px;font-weight:800">${m.pctConcluidoReal}%</span>
         <span style="font-size:13px;color:var(--tx2)">de ${R(m.valorOrcado)}</span>
+        ${m.pctConcluidoReal>100 ? `<span style="font-size:12px;color:var(--green)">(superou em ${R(m.totalAportado-m.valorOrcado)})</span>` : ''}
       </div>
       <div class="pbar pbar-lg"><div class="pfill" style="width:${m.pctConcluido}%;background:${corBarra}"></div></div>
       <div class="div"></div>
@@ -4448,20 +4451,53 @@ function renderMetasPaineis(metas){
 
   // 2) Ranking de progresso (barra horizontal, ordenado desc)
   const rank=[...ativas].sort((a,b)=>b.pctConcluido-a.pctConcluido);
-  mkChart('chart-metas-ranking',{type:'bar',data:{labels:rank.map(m=>m.nome),datasets:[{label:'% concluído',data:rank.map(m=>m.pctConcluido),backgroundColor:rank.map(m=>m.pctConcluido>=100?'#5fd99a':m.pctConcluido>=50?'#6fb8c9':'#e0b35f'),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw+'%'}}},scales:{x:{min:0,max:100,grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:CC.tick}}}}});
+  mkChart('chart-metas-ranking',{type:'bar',data:{labels:rank.map(m=>m.nome),datasets:[{label:'% concluído',data:rank.map(m=>m.pctConcluido),pctReal:rank.map(m=>m.pctConcluidoReal),backgroundColor:rank.map(m=>m.pctConcluido>=100?'#5fd99a':m.pctConcluido>=50?'#6fb8c9':'#e0b35f'),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>(ctx.dataset.pctReal[ctx.dataIndex])+'%'}}},scales:{x:{min:0,max:100,grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:CC.tick}}}}});
 
-  // 3) Evolução do aportado por meta (linha, cumulativo mês a mês)
+  // 3) Evolução do aportado por meta (linha, cumulativo) + tabela mensal (mesma base de dado)
   const todosMks=[...new Set(DB.lancamentos.filter(l=>l.meta_id&&l.pago==='Sim').map(l=>mkOf(l.mes,l.ano)))].sort();
-  const dsEvolucao=ativas.filter(m=>m.qtdAportes>0).map((m,i)=>{
-    let acumulado=0;
+  const metasComAporte = ativas.filter(m=>m.qtdAportes>0);
+  const porMesPorMeta = metasComAporte.map(m=>{
     const porMes={};
     DB.lancamentos.filter(l=>l.meta_id===m.id&&l.pago==='Sim').forEach(l=>{const mk=mkOf(l.mes,l.ano);porMes[mk]=(porMes[mk]||0)+l.valor;});
-    const data=todosMks.map(mk=>{acumulado+=(porMes[mk]||0);return Math.round(acumulado);});
-    return {label:m.nome,data,borderColor:CORES_METAS[i%CORES_METAS.length],backgroundColor:'transparent',tension:.3,pointRadius:3};
+    return {meta:m, porMes};
+  });
+  const dsEvolucao=porMesPorMeta.map((pm,i)=>{
+    let acumulado=0;
+    const data=todosMks.map(mk=>{acumulado+=(pm.porMes[mk]||0);return Math.round(acumulado);});
+    return {label:pm.meta.nome,data,borderColor:CORES_METAS[i%CORES_METAS.length],backgroundColor:'transparent',tension:.3,pointRadius:3};
   });
   mkChart('chart-metas-evolucao',{type:'line',data:{labels:todosMks.map(mkLabel),datasets:dsEvolucao},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${R(ctx.raw)}`}}},scales:{x:{grid:{display:false},ticks:{color:CC.tick}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>'R$'+(v/1000).toFixed(1)+'k'}}}}});
   const legEl=document.getElementById('metas-evolucao-legend');
   if(legEl) legEl.innerHTML = dsEvolucao.map(d=>`<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${d.borderColor};margin-right:5px"></span>${d.label}</span>`).join('');
+
+  // Tabela de aportes mensais — valores NÃO cumulativos (mês a mês, ao contrário do gráfico acima)
+  const tabEl=document.getElementById('metas-evolucao-tabela');
+  if(tabEl){
+    if(porMesPorMeta.length===0){
+      tabEl.innerHTML = '';
+    } else {
+      const totalPorMes = todosMks.map(mk=>SM(porMesPorMeta.map(pm=>pm.porMes[mk]||0)));
+      tabEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+          <th style="padding:6px 8px">Meta</th>
+          ${todosMks.map(mk=>`<th style="padding:6px 8px;text-align:right">${mkLabel(mk)}</th>`).join('')}
+          <th style="padding:6px 8px;text-align:right">Total</th>
+        </tr></thead>
+        <tbody>
+          ${porMesPorMeta.map(pm=>`<tr style="border-bottom:1px solid var(--bd)">
+            <td style="padding:6px 8px;font-weight:700">${pm.meta.nome}</td>
+            ${todosMks.map(mk=>`<td style="padding:6px 8px;text-align:right${pm.porMes[mk]?'':';color:var(--tx3)'}">${pm.porMes[mk]?R(pm.porMes[mk]):'—'}</td>`).join('')}
+            <td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--green)">${R(SM(Object.values(pm.porMes)))}</td>
+          </tr>`).join('')}
+          <tr style="border-top:2px solid var(--bd)">
+            <td style="padding:6px 8px;font-weight:700">Total geral</td>
+            ${totalPorMes.map(v=>`<td style="padding:6px 8px;text-align:right;font-weight:700">${R(v)}</td>`).join('')}
+            <td style="padding:6px 8px;text-align:right;font-weight:800;color:var(--green)">${R(SM(totalPorMes))}</td>
+          </tr>
+        </tbody>
+      </table>`;
+    }
+  }
 
   // 4) Projeção de conclusão pelo ritmo real (tabela, não chart — é 1 métrica por meta)
   const projEl=document.getElementById('metas-projecao');
