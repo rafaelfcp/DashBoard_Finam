@@ -1616,35 +1616,8 @@ html.is-mobile .sidebar.open{
 <div class="page" id="pg-metas">
   <div id="met-empty" class="empty"><div class="empty-icon">🎯</div><div class="empty-title">Importe os dados primeiro</div></div>
   <div id="met-body" style="display:none">
-    <div class="section-header"><div class="section-header-left"><div class="page-title">Metas & Reserva</div><div class="page-sub" style="margin:0">Projeção patrimonial com 12% a.a. de rendimento</div></div></div>
-    <div class="g2">
-      <div class="card">
-        <div class="card-title">Reserva de emergência</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px"><span style="font-size:32px;font-weight:800;color:var(--red)">0%</span><span style="font-size:13px;color:var(--tx2)">de R$ 48.000 (meta)</span></div>
-        <div class="pbar pbar-lg"><div class="pfill" style="width:0%;background:var(--red)"></div></div>
-        <div class="div"></div>
-        <div class="sl-row" style="margin-bottom:8px"><span class="sl-lbl">Aporte mensal reserva</span><input type="range" id="sl-res" min="200" max="3000" step="100" value="200" oninput="calcRes()"><span class="sl-val" id="out-res">R$ 200</span></div>
-        <div class="trow"><span class="tl">Prazo para atingir meta</span><span class="tv warn" id="prazo-res">20 anos</span></div>
-        <div class="trow"><span class="tl">Para atingir em 24 meses</span><span class="tv">R$ 2.000/mês</span></div>
-        <div class="tip">Com encerramento do IPVA em Mai + redução em restaurantes, libera ~R$ 1.450/mês — suficiente para atingir a reserva em ~33 meses.</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Taxa de investimento</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:14px"><span style="font-size:32px;font-weight:800;color:var(--amber)">8,7%</span><span style="font-size:13px;color:var(--tx2)">atual — meta: 15%+</span></div>
-        <div class="goal-row"><div class="goal-icon" style="background:var(--ad)">🥉</div><div class="goal-body"><div class="goal-title warn">Bronze — 10% (R$ 1.622/mês)</div><div class="goal-sub">Falta R$ 236/mês</div><div class="pbar" style="margin-top:5px"><div class="pfill" style="width:87%;background:var(--amber)"></div></div></div><div class="goal-pct warn">87%</div></div>
-        <div class="goal-row"><div class="goal-icon" style="background:rgba(138,154,140,.14)">🥈</div><div class="goal-body"><div class="goal-title" style="color:#8a9a8c">Prata — 15% (R$ 2.433/mês)</div><div class="goal-sub">Falta R$ 847/mês</div><div class="pbar" style="margin-top:5px"><div class="pfill" style="width:58%;background:#8a9a8c"></div></div></div><div class="goal-pct" style="color:#8a9a8c">58%</div></div>
-        <div class="goal-row"><div class="goal-icon" style="background:rgba(224,179,95,.08)">🥇</div><div class="goal-body"><div class="goal-title" style="color:var(--tx3)">Ouro — 20% (R$ 3.244/mês)</div><div class="goal-sub">Falta R$ 1.658/mês</div><div class="pbar" style="margin-top:5px"><div class="pfill" style="width:43%;background:var(--bg4)"></div></div></div><div class="goal-pct" style="color:var(--tx3)">43%</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Projeção patrimonial — 10 anos (12% a.a.)</div>
-      <div class="chart-wrap" style="height:240px"><canvas id="chart-proj" role="img" aria-label="Projeção patrimonial"></canvas></div>
-      <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--tx2)">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#5fd99a;margin-right:5px"></span>Atual (R$ 1.858/mês)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6fb8c9;margin-right:5px"></span>Prata (R$ 2.433/mês)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0b35f;margin-right:5px"></span>Ouro (R$ 3.244/mês)</span>
-      </div>
-    </div>
+    <div class="section-header"><div class="section-header-left"><div class="page-title">Metas & Reserva</div><div class="page-sub" style="margin:0">Acompanhamento de progresso por meta — orçado, aportado e saldo restante</div></div></div>
+    <div id="metas-lista"></div>
   </div>
 </div>
 
@@ -2540,7 +2513,7 @@ html.is-mobile .sidebar.open{
 
 <script>
 // ══ DADOS ══
-let DB = { lancamentos: [], saldos_iniciais: {}, orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
+let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
 const CHARTS = {};
 const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
 const CORES = { Transporte:'#e0935f',Moradia:'#6fb8c9',Educação:'#a892d4',Alimentação:'#5fd99a',Compras:'#8a9a8c',Lazer:'#e0b35f',Giovanna:'#d9a86f','Saúde & Beleza':'#7fcf9e','Serviços Financeiros':'#c9a85f','Outras Despesas':'#56655a',Vestuário:'#8fc4cf','Doações & Presentes':'#d97a9a' };
@@ -4286,19 +4259,66 @@ function renderSim(){
 }
 
 // ══ METAS ══
-function calcRes(){
-  const ap=+document.getElementById('sl-res').value;
-  document.getElementById('out-res').textContent=R(ap);
-  const m=Math.ceil(48000/ap);
-  document.getElementById('prazo-res').textContent=Math.floor(m/12)+'a'+(m%12>0?' '+m%12+'m':'');
+// Calcula progresso de cada meta a partir de DB.lancamentos vinculados via meta_id.
+// Espelha a query SQL validada em produção: total_aportado só soma pago='Sim';
+// pct_concluido trava em 100 (overshoot não estoura a barra); status é sempre
+// recalculado (nunca lido direto de m.status quando o total já bateu o orçado),
+// mesma lógica do CASE da query de referência.
+function getMetasComProgresso(){
+  return DB.metas.map(m=>{
+    const aportes = DB.lancamentos.filter(l=>l.meta_id===m.id);
+    const totalAportado = SM(aportes.filter(l=>l.pago==='Sim').map(l=>l.valor));
+    const saldoRestante = m.valorOrcado - totalAportado;
+    const pctConcluido = m.valorOrcado>0 ? Math.min(100, Math.round(totalAportado/m.valorOrcado*100)) : 0;
+    const statusCalculado = totalAportado >= m.valorOrcado ? 'concluida' : m.status;
+    const mesesRestantesProjetado = (m.aporteMensalSugerido>0 && saldoRestante>0)
+      ? Math.ceil(saldoRestante/m.aporteMensalSugerido) : null;
+    return {...m, totalAportado, saldoRestante, pctConcluido, statusCalculado, mesesRestantesProjetado,
+      qtdAportes: aportes.filter(l=>l.pago==='Sim').length, qtdPendentes: aportes.filter(l=>l.pago!=='Sim').length};
+  });
 }
+
+const STATUS_LABEL = {ativa:'Em andamento',pausada:'Pausada',concluida:'Concluída',cancelada:'Cancelada'};
+const STATUS_TAG    = {ativa:'tag-info',pausada:'tag-warn',concluida:'tag-ok',cancelada:'tag-danger'};
+const PRAZO_LABEL   = {curto:'Curto prazo',medio:'Médio prazo',longo:'Longo prazo'};
+const PRIORIDADE_ICON = {alta:'🔴',media:'🟡',baixa:'🟢'};
+
 function renderMetas(){
   showBody('met');
-  calcRes();
-  const anos=Array.from({length:11},(_,i)=>i+'a');
-  const r=0.12/12;
-  function proj(ap){let v=0;const res=[0];for(let a=1;a<=10;a++){for(let m=0;m<12;m++)v=v*(1+r)+ap;res.push(Math.round(v));}return res;}
-  mkChart('chart-proj',{type:'line',data:{labels:anos,datasets:[{label:'Atual',data:proj(1858),borderColor:'#5fd99a',backgroundColor:'rgba(95,217,154,.08)',fill:true,tension:.4,pointRadius:3},{label:'Prata',data:proj(2433),borderColor:'#6fb8c9',backgroundColor:'rgba(111,184,201,.08)',fill:true,tension:.4,pointRadius:3},{label:'Ouro',data:proj(3244),borderColor:'#e0b35f',backgroundColor:'rgba(224,179,95,.08)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:CC.grid},ticks:{color:CC.tick}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>'R$'+(v/1000).toFixed(0)+'k'}}}}});
+  const lista = document.getElementById('metas-lista');
+  if(!lista) return;
+  const metas = getMetasComProgresso();
+  if(metas.length===0){
+    lista.innerHTML = `<div class="card"><div style="text-align:center;padding:24px;color:var(--tx2)">Nenhuma meta cadastrada ainda.</div></div>`;
+    return;
+  }
+  lista.innerHTML = metas.map(m=>{
+    const corBarra = m.pctConcluido>=100 ? 'var(--green)' : (m.pctConcluido>=50 ? 'var(--blue)' : 'var(--amber)');
+    return `
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:15px">${PRIORIDADE_ICON[m.prioridade]||''}</span>
+            <span class="card-title" style="margin:0">${m.nome}</span>
+          </div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">${m.categoria} · ${PRAZO_LABEL[m.prazo]||m.prazo}</div>
+        </div>
+        <span class="badge ${STATUS_TAG[m.statusCalculado]||'tag-info'}">${STATUS_LABEL[m.statusCalculado]||m.statusCalculado}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin:10px 0 6px">
+        <span style="font-size:28px;font-weight:800">${m.pctConcluido}%</span>
+        <span style="font-size:13px;color:var(--tx2)">de ${R(m.valorOrcado)}</span>
+      </div>
+      <div class="pbar pbar-lg"><div class="pfill" style="width:${m.pctConcluido}%;background:${corBarra}"></div></div>
+      <div class="div"></div>
+      <div class="trow"><span class="tl">Total aportado</span><span class="tv" style="color:var(--green)">${R(m.totalAportado)}</span></div>
+      <div class="trow"><span class="tl">Saldo restante</span><span class="tv">${R(Math.max(0,m.saldoRestante))}</span></div>
+      ${m.aporteMensalSugerido ? `<div class="trow"><span class="tl">Aporte mensal sugerido</span><span class="tv">${R(m.aporteMensalSugerido)}</span></div>` : ''}
+      ${m.mesesRestantesProjetado!=null ? `<div class="trow"><span class="tl">Prazo projetado no ritmo atual</span><span class="tv warn">${m.mesesRestantesProjetado} meses</span></div>` : ''}
+      <div class="trow"><span class="tl">Histórico</span><span class="tv" style="color:var(--tx2)">${m.qtdAportes} aporte(s) pago(s)${m.qtdPendentes?` · ${m.qtdPendentes} pendente(s)`:''}</span></div>
+    </div>`;
+  }).join('');
 }
 
 // ══ LANÇAMENTOS ══
@@ -5857,19 +5877,22 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [r1, r2, r3] = await Promise.all([
+    const [r1, r2, r3, r4] = await Promise.all([
       sb.from('lancamentos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
-      sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id)
+      sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
+      sb.from('metas').select('*').eq('usuario_id', usuarioAtual.id).order('criado_em',{ascending:true})
     ]);
 
     if(r1.error) throw new Error('Lançamentos: ' + r1.error.message);
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
     if(r3.error) throw new Error('Orçamentos: ' + r3.error.message);
+    if(r4.error) throw new Error('Metas: ' + r4.error.message);
 
     const lans  = r1.data || [];
     const saldos= r2.data || [];
     const orcs  = r3.data || [];
+    const metasRows = r4.data || [];
 
     if(lans.length === 0){
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
@@ -5885,9 +5908,18 @@ async function carregarDoSupabase(){
       cat: l.categoria, subcat: l.subcategoria||'Outros',
       desc: l.descricao||'', forma: l.forma_pagamento||'',
       valor: parseFloat(l.valor),
-      pago: (l.pago===true||l.pago==='Sim'||l.pago==='sim')?'Sim':'Não'
+      pago: (l.pago===true||l.pago==='Sim'||l.pago==='sim')?'Sim':'Não',
+      meta_id: l.meta_id||null
     }));
     invalidarAnosCache();
+
+    DB.metas = metasRows.map(m=>({
+      id: m.id, nome: m.nome, categoria: m.categoria,
+      prioridade: m.prioridade, prazo: m.prazo,
+      valorOrcado: parseFloat(m.valor_orcado)||0,
+      aporteMensalSugerido: m.aporte_mensal_sugerido!=null?parseFloat(m.aporte_mensal_sugerido):null,
+      status: m.status, anoApuracao: m.ano_apuracao
+    }));
 
     DB.saldos_iniciais = {};
     saldos.forEach(s=>{ const mk=mkOf(s.mes,s.ano||2026); if(mk) DB.saldos_iniciais[mk] = parseFloat(s.saldo); });
