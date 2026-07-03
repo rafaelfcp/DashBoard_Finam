@@ -4579,12 +4579,19 @@ function buildComprometimento(){
     const mk=mkOf(l.mes,l.ano); if(!mk) return;
     todos.push({...l,atual,total,mk});
   });
-  let mkCorte=null;
-  todos.forEach(l=>{if(l.pago==='Sim'&&(mkCorte===null||l.mk>mkCorte))mkCorte=l.mk;});
-  if(mkCorte===null) mkCorte = getMesAtualDados() || (getMeses().length ? getMeses()[getMeses().length-1] : null);
+  // mkCorte = mês atual canônico do dashboard (mesmo critério de getMesAtualDados() usado
+  // em setupLan() e outras páginas). Antes era recalculado localmente só sobre lançamentos
+  // de cartão com padrão de parcela — se nenhuma parcela de cartão do mês corrente já tivesse
+  // sido marcada como paga (fatura ainda não fechada), o corte ficava preso no mês anterior e
+  // excluía grupos novos legítimos (ex: primeira compra parcelada lançada no mês corrente,
+  // ainda pendente). Ver diagnóstico CANTIMAX *MARIOMORE (jul/26).
+  let mkCorte = getMesAtualDados() || (getMeses().length ? getMeses()[getMeses().length-1] : null);
   const grupos={};
   todos.forEach(l=>{
-    const chave=normDesc(l.desc)+'|'+l.valor+'|'+l.total;
+    // Arredonda o valor na chave para tolerar diferença de centavo por rateio de parcelamento
+    // (ex: total/N não divide exato, sobra 1 centavo em alguma parcela). Validado sem colisão
+    // contra a base atual antes de aplicar — ver diagnóstico DECOLAR HOSP3 (323.20 vs 323.19).
+    const chave=normDesc(l.desc)+'|'+Math.round(l.valor)+'|'+l.total;
     if(!grupos[chave])grupos[chave]=[];
     grupos[chave].push(l);
   });
@@ -4595,10 +4602,14 @@ function buildComprometimento(){
     let ultimoPago=null;
     lans.forEach(l=>{if(l.pago==='Sim')ultimoPago=l;});
     if(!ultimoPago){
+      // 'primeiro' já é um registro real de parcela (ex: "3/10", Pendente) — não é a 1ª parcela
+      // necessariamente, e não deve ser recuado uma posição. Recuar assumia implicitamente que
+      // toda compra sem parcela paga começa em 1/N, o que é falso para compras cuja numeração
+      // inicial já vem deslocada (ex: parcelas anteriores não importadas). Ver diagnóstico
+      // CANTIMAX *MARIOMORE (jul/26).
       const primeiro=lans[0];
       if(mkCorte!==null && primeiro.mk>mkCorte)return;
-      ultimoPago={...primeiro,atual:primeiro.atual-1};
-      if(ultimoPago.atual<0)return;
+      ultimoPago=primeiro;
     }
     const restantes=ultimoPago.total-ultimoPago.atual;
     if(restantes<=0)return;
