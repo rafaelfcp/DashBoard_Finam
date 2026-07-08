@@ -4941,7 +4941,12 @@ function buildComprometimento(){
       // inicial já vem deslocada (ex: parcelas anteriores não importadas). Ver diagnóstico
       // CANTIMAX *MARIOMORE (jul/26).
       const primeiro=lans[0];
-      if(mkCorte!==null && primeiro.mk>mkCorte)return;
+      // Só faz sentido "esperar o corte" quando é de fato a 1ª parcela (ainda não iniciada,
+      // atual===1). Parcelas com atual>1 já estão em andamento por definição — mesmo sendo o
+      // único registro do grupo na base (parcelas anteriores não importadas), são ativas e não
+      // podem ser descartadas só por caírem no mês corrente/futuro sem nada ainda pago nesse mês.
+      // Ver diagnóstico AZUL 4/10 (ago/26).
+      if(primeiro.atual===1 && mkCorte!==null && primeiro.mk>mkCorte)return;
       ultimoPago=primeiro;
     }
     const restantes=ultimoPago.total-ultimoPago.atual;
@@ -4953,7 +4958,15 @@ function buildComprometimento(){
       if(mkCorte===null || mkFut>mkCorte)projecoesFuturas.push({mkFut,i});
     }
     if(projecoesFuturas.length===0)return;
-    parcelasUnicas.push({...lans[0],parc_atual:ultimoPago.atual,parc_total:ultimoPago.total,restantes:projecoesFuturas.length,ultimo_pago_mes:ultimoPago.mes,mesesFuturos:projecoesFuturas.map(p=>p.mkFut)});
+    // mesesPendentesTotais = TODOS os meses ainda não pagos do grupo — os que já têm registro
+    // real na base (ex: parcelas 4-8/10 já lançadas, só pendentes) + os projetados (mesesFuturos,
+    // que só cobre o que ainda não foi lançado). renderCartao() usa este campo para decidir se a
+    // parcela pertence ao exercício em exibição e para recalcular "restam". Usar só mesesFuturos
+    // ali fazia uma parcela ativa (com parcela vencendo neste mês/ano) sumir inteira da tabela
+    // "Parcelas ativas" sempre que só sobrassem meses NÃO lançados caindo no exercício seguinte —
+    // mesmo com 5 parcelas pendentes e já lançadas dentro do exercício atual. Ver diagnóstico AZUL 4/10 (ago/26).
+    const mesesPendentesTotais=[...lans.filter(l=>l.pago!=='Sim').map(l=>l.mk),...projecoesFuturas.map(p=>p.mkFut)];
+    parcelasUnicas.push({...lans[0],parc_atual:ultimoPago.atual,parc_total:ultimoPago.total,restantes:projecoesFuturas.length,ultimo_pago_mes:ultimoPago.mes,mesesFuturos:projecoesFuturas.map(p=>p.mkFut),mesesPendentesTotais});
     projecoesFuturas.forEach(({mkFut,i})=>{
       if(!comprometimento[mkFut])comprometimento[mkFut]={};
       if(!comprometimento[mkFut][lans[0].cat])comprometimento[mkFut][lans[0].cat]=[];
@@ -5012,9 +5025,13 @@ function renderCartao(){
   const valProximo=proximoMes?totMesCat(proximoMes,catFiltro):0;
   document.getElementById('car-proximo').textContent=proximoMes?R(valProximo):'—';
   document.getElementById('car-proximo-lbl').textContent=proximoMes?`em ${mkLabel(proximoMes)}`:'sem comprometimento';
+  // Usa mesesPendentesTotais (não pagos, lançados ou não) para decidir pertencimento ao exercício
+  // e recalcular "restam" — mesesFuturos sozinho só cobre parcelas ainda não lançadas na base e
+  // fazia parcelas ativas (ex: 4/10 vencendo este mês, com 5-10 já lançadas) sumirem da lista
+  // quando as parcelas não lançadas caíam todas no exercício seguinte. Ver diagnóstico AZUL 4/10.
   const parcsAtivas=(catFiltro?parcelasUnicas.filter(p=>p.cat===catFiltro):parcelasUnicas)
-    .filter(p=>p.mesesFuturos.some(mk=>mk.startsWith(anoCar+'-')))
-    .map(p=>({...p,restantes:p.mesesFuturos.filter(mk=>mk.startsWith(anoCar+'-')).length}));
+    .filter(p=>p.mesesPendentesTotais.some(mk=>mk.startsWith(anoCar+'-')))
+    .map(p=>({...p,restantes:p.mesesPendentesTotais.filter(mk=>mk.startsWith(anoCar+'-')).length}));
   document.getElementById('car-nparcelas').textContent=parcsAtivas.length;
   if(parcsAtivas.length>0){
     const maior=[...parcsAtivas].sort((a,b)=>b.valor-a.valor)[0];
