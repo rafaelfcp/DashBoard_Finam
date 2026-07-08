@@ -4967,6 +4967,17 @@ function buildComprometimento(){
     // mesmo com 5 parcelas pendentes e já lançadas dentro do exercício atual. Ver diagnóstico AZUL 4/10 (ago/26).
     const mesesPendentesTotais=[...lans.filter(l=>l.pago!=='Sim').map(l=>l.mk),...projecoesFuturas.map(p=>p.mkFut)];
     parcelasUnicas.push({...lans[0],parc_atual:ultimoPago.atual,parc_total:ultimoPago.total,restantes:projecoesFuturas.length,ultimo_pago_mes:ultimoPago.mes,mesesFuturos:projecoesFuturas.map(p=>p.mkFut),mesesPendentesTotais});
+    // Meses já lançados na base mas ainda pendentes (ex: AZUL 4/10..8/10 em ago-dez/26) também
+    // são comprometimento futuro/corrente e precisam entrar no mesmo objeto usado pelo gráfico e
+    // por renderCartaoMensal — senão a parcela aparece em "Parcelas ativas" (resumo) mas some do
+    // "Comprometimento mensal" (detalhe) e do total do card, porque só a parte projetada
+    // (mesesFuturos) alimentava `comprometimento`. Cada registro já tem atual/total reais, não
+    // precisa do cálculo ultimoPago.atual+i. Ver diagnóstico AZUL 4/10 (ago/26).
+    lans.filter(l=>l.pago!=='Sim').forEach(l=>{
+      if(!comprometimento[l.mk])comprometimento[l.mk]={};
+      if(!comprometimento[l.mk][l.cat])comprometimento[l.mk][l.cat]=[];
+      comprometimento[l.mk][l.cat].push({desc:l.desc,subcat:l.subcat,valor:l.valor,parcela:`${l.atual}/${l.total}`,mes_origem:l.mes});
+    });
     projecoesFuturas.forEach(({mkFut,i})=>{
       if(!comprometimento[mkFut])comprometimento[mkFut]={};
       if(!comprometimento[mkFut][lans[0].cat])comprometimento[mkFut][lans[0].cat]=[];
