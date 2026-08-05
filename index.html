@@ -6853,6 +6853,26 @@ async function initAuth(){
 }
 
 // ══ SUPABASE SINCRONIZAÇÃO ══
+// Busca TODOS os lançamentos do usuário paginando em blocos de 1000 (limite padrão
+// do PostgREST/Supabase por requisição) — sem isso, contas com >1000 lançamentos
+// perdem silenciosamente os registros mais recentes (ex.: meses futuros de parcelas).
+async function fetchTodosLancamentos(sb, usuarioId){
+  const PAGE = 1000;
+  let all = [];
+  let from = 0;
+  while(true){
+    const { data, error } = await sb.from('lancamentos').select('*')
+      .eq('usuario_id', usuarioId)
+      .order('data', {ascending:true})
+      .range(from, from + PAGE - 1);
+    if(error) throw new Error('Lançamentos: ' + error.message);
+    all = all.concat(data || []);
+    if(!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
 async function carregarDoSupabase(){
   if(!usuarioAtual) return;
   const btn = document.getElementById('btn-sync-load');
@@ -6863,19 +6883,17 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [r1, r2, r3, r4] = await Promise.all([
-      sb.from('lancamentos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
+    const [lans, r2, r3, r4] = await Promise.all([
+      fetchTodosLancamentos(sb, usuarioAtual.id),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('metas').select('*').eq('usuario_id', usuarioAtual.id).order('criado_em',{ascending:true})
     ]);
 
-    if(r1.error) throw new Error('Lançamentos: ' + r1.error.message);
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
     if(r3.error) throw new Error('Orçamentos: ' + r3.error.message);
     if(r4.error) throw new Error('Metas: ' + r4.error.message);
 
-    const lans  = r1.data || [];
     const saldos= r2.data || [];
     const orcs  = r3.data || [];
     const metasRows = r4.data || [];
