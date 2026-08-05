@@ -2450,6 +2450,7 @@ html.is-mobile .sidebar.open{
       <button class="cfg-tab"        id="cfg-tab-cats"     onclick="cfgTab('cats')">Categorias</button>
       <button class="cfg-tab"        id="cfg-tab-subcats"  onclick="cfgTab('subcats')">Subcategorias</button>
       <button class="cfg-tab"        id="cfg-tab-orc"      onclick="cfgTab('orc')">Orçamentos</button>
+      <button class="cfg-tab"        id="cfg-tab-anos"     onclick="cfgTab('anos')">Exercícios</button>
     </div>
 
     <!-- PAINEL FORMAS DE PAGAMENTO -->
@@ -2509,6 +2510,18 @@ html.is-mobile .sidebar.open{
         </div>
       </div>
       <div id="cfg-orc-list" style="overflow-x:auto;-webkit-overflow-scrolling:touch"></div>
+    </div>
+
+    <!-- PAINEL EXERCÍCIOS (ANOS FISCAIS) -->
+    <div id="cfg-panel-anos" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:16px;font-weight:700">Exercícios</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:2px">Adicione anos futuros para planejar orçamento antes de lançar movimentações</div>
+        </div>
+        <button class="btn-cfg-add" onclick="cfgNovoAno()">+ Adicionar ano</button>
+      </div>
+      <div id="cfg-anos-list"></div>
     </div>
 
   </div><!-- #cfg-body -->
@@ -2772,7 +2785,9 @@ const ANO_APURACAO_KEY='ctrl-ano-apuracao';
 let _anoApuracao=null;
 
 function getAnos(){
-  return Array.from(new Set(DB.lancamentos.map(l=>l.ano).filter(Boolean))).sort((a,b)=>a-b);
+  const anosLanc = DB.lancamentos.map(l=>l.ano).filter(Boolean);
+  const anosExtra = (typeof DB_ANOS!=='undefined' ? DB_ANOS : []).map(a=>a.ano).filter(Boolean);
+  return Array.from(new Set([...anosLanc, ...anosExtra])).sort((a,b)=>a-b);
 }
 function getMesesAno(ano){
   return getMeses().filter(mk=>mk.startsWith(ano+'-'));
@@ -7164,6 +7179,7 @@ const DEFAULT_ORC = {
 // ── Cache em memória das tabelas dinâmicas ──
 let DB_FORMAS = [];     // formas_pagamento do Supabase
 let DB_CATS   = [];     // categorias do Supabase
+let DB_ANOS   = [];     // anos_fiscais do Supabase (exercícios cadastrados manualmente, mesmo sem lançamentos)
 let DB_SUBCATS = [];    // subcategorias do Supabase
 let _migracaoFeita = false;
 
@@ -7245,14 +7261,18 @@ async function migrarDadosParaSupabase(){
 async function carregarTabelasDinamicas(){
   if(!usuarioAtual) return;
   const sb = getSB();
-  const [r1, r2, r3] = await Promise.all([
+  const [r1, r2, r3, r4] = await Promise.all([
     sb.from('formas_pagamento').select('*').eq('usuario_id', usuarioAtual.id).order('ordem'),
     sb.from('categorias').select('*').eq('usuario_id', usuarioAtual.id).order('ordem'),
     sb.from('subcategorias').select('*').eq('usuario_id', usuarioAtual.id).order('ordem'),
+    sb.from('anos_fiscais').select('*').eq('usuario_id', usuarioAtual.id).order('ano'),
   ]);
   if(!r1.error) DB_FORMAS  = r1.data || [];
   if(!r2.error) DB_CATS    = r2.data || [];
   if(!r3.error) DB_SUBCATS = r3.data || [];
+  if(!r4.error) DB_ANOS    = r4.data || [];
+  invalidarAnosCache();
+  if(typeof atualizarSeletorExercicio==='function') atualizarSeletorExercicio();
 
   // Atualizar SUBCATS em memória a partir do DB_SUBCATS
   const newSUBCATS = {};
@@ -7308,7 +7328,7 @@ function cfgTab(tab){
   _cfgTabAtual = tab;
   document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('cfg-tab-'+tab)?.classList.add('active');
-  ['formas','cats','subcats','orc'].forEach(p => {
+  ['formas','cats','subcats','orc','anos'].forEach(p => {
     const el = document.getElementById('cfg-panel-'+p);
     if(el) el.style.display = p === tab ? 'block' : 'none';
   });
@@ -7316,6 +7336,7 @@ function cfgTab(tab){
   if(tab === 'cats')     cfgRenderCats();
   if(tab === 'subcats')  cfgRenderSubcats();
   if(tab === 'orc')      cfgRenderOrc();
+  if(tab === 'anos')     cfgRenderAnos();
 }
 
 // ── Setup inicial da página de config ──
@@ -7438,6 +7459,62 @@ Os lançamentos existentes não serão afetados.`)) return;
   if(error){ alert('Erro: ' + error.message); return; }
   await carregarTabelasDinamicas();
   cfgRenderFormas();
+}
+
+// ────────────────────────────────────────────
+// EXERCÍCIOS (ANOS FISCAIS)
+// ────────────────────────────────────────────
+function cfgRenderAnos(){
+  const el = document.getElementById('cfg-anos-list');
+  if(!el) return;
+  const anos = getAnos();
+  if(!anos.length){ el.innerHTML = '<div style="color:var(--tx2);font-size:13px;padding:20px 0;text-align:center">Nenhum exercício cadastrado</div>'; return; }
+  const anosComLancamento = new Set(DB.lancamentos.map(l=>l.ano));
+  el.innerHTML = anos.map(ano => {
+    const extra = DB_ANOS.find(a => a.ano === ano);
+    const temLancamento = anosComLancamento.has(ano);
+    const origemTxt = temLancamento ? 'possui lançamentos' : (extra ? 'cadastrado manualmente · sem lançamentos ainda' : '—');
+    const podeExcluir = extra && !temLancamento;
+    return `
+    <div class="cfg-item">
+      <div class="cfg-item-info">
+        <div class="cfg-item-nome">Exercício ${ano}</div>
+        <div class="cfg-item-sub">${origemTxt}</div>
+      </div>
+      <div class="cfg-item-actions">
+        ${podeExcluir ? `<button class="btn-cfg-del" onclick="cfgDeletarAno('${extra.id}',${ano})">✕</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function cfgNovoAno(){
+  _cfgEditId = null;
+  const anoSugerido = Math.max(...(getAnos().length ? getAnos() : [new Date().getFullYear()])) + 1;
+  cfgAbrirModal('Adicionar Exercício', `
+    <div class="cfg-form-group">
+      <label class="cfg-form-label">Ano *</label>
+      <input class="cfg-form-input" id="ano-fiscal-valor" type="number" min="2000" max="2100" step="1" value="${anoSugerido}">
+      <div style="font-size:11px;color:var(--tx2);margin-top:6px">O exercício passa a aparecer no seletor "Exercício" da barra lateral, mesmo sem lançamentos — útil para preparar orçamento com antecedência.</div>
+    </div>
+  `, async () => {
+    const ano = parseInt(document.getElementById('ano-fiscal-valor').value, 10);
+    if(!ano || ano < 2000 || ano > 2100){ alert('Informe um ano válido'); return; }
+    if(getAnos().includes(ano)){ alert('Este exercício já existe.'); return; }
+    const { error } = await getSB().from('anos_fiscais').insert({ usuario_id: usuarioAtual.id, ano });
+    if(error){ alert('Erro: ' + error.message); return; }
+    await carregarTabelasDinamicas();
+    cfgRenderAnos();
+    cfgFecharModal();
+  });
+}
+
+async function cfgDeletarAno(id, ano){
+  if(!confirm(`Remover o exercício ${ano}?`)) return;
+  const { error } = await getSB().from('anos_fiscais').delete().eq('id', id);
+  if(error){ alert('Erro: ' + error.message); return; }
+  await carregarTabelasDinamicas();
+  cfgRenderAnos();
 }
 
 // ────────────────────────────────────────────
