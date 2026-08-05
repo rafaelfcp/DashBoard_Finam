@@ -924,6 +924,9 @@ html.is-mobile .sidebar.open{
       <button class="btn-sync" id="btn-sync-save" onclick="salvarNoSupabase()" title="Salvar planilha no Supabase" style="display:none">
         ↑ Salvar no Supabase
       </button>
+      <button class="btn-sync" id="btn-import-c6" onclick="abrirImportC6()" title="Importar fatura do cartão C6" style="margin-top:6px">
+        💳 Importar fatura C6
+      </button>
     </div>
   </div>
   <!-- Status / erro (oculto por padrão) -->
@@ -2499,6 +2502,43 @@ html.is-mobile .sidebar.open{
 </div>
 
 
+<!-- MODAL IMPORTAR FATURA C6 -->
+<div class="modal-overlay" id="modal-c6" style="display:none" onclick="if(event.target===this)fecharModal('c6')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">💳 Importar Fatura C6</div>
+      <button class="modal-close" onclick="fecharModal('c6')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-group">
+        <label class="modal-label">Arquivo da fatura (.xls / .xlsx)</label>
+        <input type="file" id="c6-file-input" class="modal-input" accept=".xls,.xlsx" onchange="onC6FileSelected(this.files[0])">
+      </div>
+      <div class="modal-group" id="c6-senha-wrap" style="display:none">
+        <label class="modal-label">Senha do arquivo</label>
+        <input type="password" id="c6-senha" class="modal-input" placeholder="Ex: seu CPF (só números)">
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Mês de vencimento da fatura</label>
+          <select id="c6-mes" class="modal-input">
+            <option>Jan</option><option>Fev</option><option>Mar</option><option>Abr</option>
+            <option>Mai</option><option>Jun</option><option>Jul</option><option>Ago</option>
+            <option>Set</option><option>Out</option><option>Nov</option><option>Dez</option>
+          </select></div>
+        <div><label class="modal-label">Ano de vencimento</label>
+          <input type="number" id="c6-ano" class="modal-input" min="2020" max="2100" step="1"></div>
+      </div>
+      <div id="c6-preview" style="display:none;margin-top:10px;padding:12px;border-radius:var(--rs);background:var(--bg3);border:1px solid var(--bd);font-size:12px;line-height:1.7"></div>
+      <div id="c6-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('c6')">Cancelar</button>
+      <button class="btn-modal-save" id="c6-btn-preview" onclick="previewImportC6()" disabled>Pré-visualizar</button>
+      <button class="btn-modal-save" id="c6-btn-confirmar" onclick="confirmarImportC6()" style="display:none">✓ Confirmar importação</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EDITAR LANÇAMENTO -->
 <div class="modal-overlay" id="modal-editar" style="display:none" onclick="if(event.target===this)fecharModal('editar')">
   <div class="modal-box">
@@ -3143,6 +3183,486 @@ function processFile(file){
   };
   reader.readAsArrayBuffer(file);
 }
+
+// ══════════════════════════════════════════════════════════════════
+// ══ IMPORTAÇÃO DE FATURA C6 (fatura_c6) ══
+// ══════════════════════════════════════════════════════════════════
+// Suporta arquivos .xls (BIFF8/xls97) protegidos por senha (RC4 CryptoAPI,
+// o esquema padrão usado pela exportação de fatura do C6) e também .xlsx
+// não protegidos. Decriptação é feita 100% no navegador, sem enviar o
+// arquivo/senha para nenhum servidor.
+
+const C6_STATE = { arrayBuffer: null, senhaNecessaria: false, itensPendentes: null, resumoPendente: null };
+
+// ── RC4 puro (KSA + PRGA), sem dependências externas ──
+function _c6Rc4KeystreamGen(key){
+  const S = new Uint8Array(256);
+  for(let i=0;i<256;i++) S[i]=i;
+  let j=0;
+  for(let i=0;i<256;i++){ j=(j+S[i]+key[i%key.length])&0xff; const t=S[i];S[i]=S[j];S[j]=t; }
+  let i=0; j=0;
+  return function(){
+    i=(i+1)&0xff; j=(j+S[i])&0xff;
+    const t=S[i]; S[i]=S[j]; S[j]=t;
+    return S[(S[i]+S[j])&0xff];
+  };
+}
+function _c6Rc4(key, data){
+  const next = _c6Rc4KeystreamGen(key);
+  const out = new Uint8Array(data.length);
+  for(let n=0;n<data.length;n++) out[n] = data[n]^next();
+  return out;
+}
+
+// ── SHA-1 síncrono via Web Crypto (subtle.digest é assíncrono; usamos uma
+// implementação síncrona compacta para poder derivar chaves em loop) ──
+function _c6Sha1(bytes){
+  function rotl(n,b){ return (n<<b)|(n>>>(32-b)); }
+  const ml = bytes.length*8;
+  const withOne = new Uint8Array(((bytes.length+9+63)>>6)<<6 || 64);
+  withOne.set(bytes);
+  withOne[bytes.length]=0x80;
+  const len = withOne.length;
+  const dv = new DataView(withOne.buffer);
+  dv.setUint32(len-4, ml>>>0, false);
+  dv.setUint32(len-8, Math.floor(ml/4294967296), false);
+  let h0=0x67452301,h1=0xEFCDAB89,h2=0x98BADCFE,h3=0x10325476,h4=0xC3D2E1F0;
+  const w = new Uint32Array(80);
+  for(let chunk=0; chunk<len; chunk+=64){
+    for(let i=0;i<16;i++) w[i]=dv.getUint32(chunk+i*4,false);
+    for(let i=16;i<80;i++) w[i]=rotl(w[i-3]^w[i-8]^w[i-14]^w[i-16],1);
+    let a=h0,b=h1,c=h2,d=h3,e=h4;
+    for(let i=0;i<80;i++){
+      let f,k;
+      if(i<20){ f=(b&c)|((~b)&d); k=0x5A827999; }
+      else if(i<40){ f=b^c^d; k=0x6ED9EBA1; }
+      else if(i<60){ f=(b&c)|(b&d)|(c&d); k=0x8F1BBCDC; }
+      else { f=b^c^d; k=0xCA62C1D6; }
+      const temp=(rotl(a,5)+f+e+k+w[i])>>>0;
+      e=d; d=c; c=rotl(b,30); b=a; a=temp;
+    }
+    h0=(h0+a)>>>0; h1=(h1+b)>>>0; h2=(h2+c)>>>0; h3=(h3+d)>>>0; h4=(h4+e)>>>0;
+  }
+  const out = new Uint8Array(20);
+  const odv = new DataView(out.buffer);
+  odv.setUint32(0,h0,false); odv.setUint32(4,h1,false); odv.setUint32(8,h2,false);
+  odv.setUint32(12,h3,false); odv.setUint32(16,h4,false);
+  return out;
+}
+
+function _c6MakeKeyCryptoAPI(password, salt, keyBits, block){
+  const pwUtf16 = new Uint8Array(password.length*2);
+  for(let i=0;i<password.length;i++){ const c=password.charCodeAt(i); pwUtf16[i*2]=c&0xff; pwUtf16[i*2+1]=(c>>8)&0xff; }
+  const saltPw = new Uint8Array(salt.length+pwUtf16.length);
+  saltPw.set(salt,0); saltPw.set(pwUtf16, salt.length);
+  const h0 = _c6Sha1(saltPw);
+  const blockBuf = new Uint8Array(4);
+  new DataView(blockBuf.buffer).setUint32(0, block>>>0, true);
+  const h0block = new Uint8Array(h0.length+4);
+  h0block.set(h0,0); h0block.set(blockBuf, h0.length);
+  const hfinal = _c6Sha1(h0block);
+  let key;
+  if(keyBits===40){ key = new Uint8Array(16); key.set(hfinal.slice(0,5)); }
+  else { key = hfinal.slice(0, keyBits/8); }
+  return key;
+}
+
+const _C6_RECNUM = { BOF:2057, FilePass:47, UsrExcl:404, FileLock:405, InterfaceHdr:225, RRDInfo:406, RRDHead:312, BoundSheet8:133 };
+
+function _c6ReadRecords(buf){
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const records=[]; let pos=0;
+  while(pos+4<=buf.length){
+    const num=dv.getUint16(pos,true), size=dv.getUint16(pos+2,true);
+    records.push({num,size,headerOffset:pos});
+    pos += 4+size;
+  }
+  return records;
+}
+
+// Decripta o stream "Workbook" (BIFF8/xls97, RC4 CryptoAPI). Retorna
+// {ok:true, out:Uint8Array} ou {ok:false, erro:'senha'|'formato'}.
+function c6DecryptWorkbookStream(wbBuf, password){
+  const records = _c6ReadRecords(wbBuf);
+  if(!records.length || records[0].num !== _C6_RECNUM.BOF) return {ok:false, erro:'formato'};
+  const fpIdx = records.findIndex(r=>r.num===_C6_RECNUM.FilePass);
+  if(fpIdx===-1) return {ok:true, out:wbBuf, jaDecriptado:true};
+
+  const fp = records[fpIdx];
+  const fpBody = wbBuf.slice(fp.headerOffset+4, fp.headerOffset+4+fp.size);
+  const fpDv = new DataView(fpBody.buffer, fpBody.byteOffset, fpBody.byteLength);
+  const wEncryptionType = fpDv.getUint16(0,true);
+  if(wEncryptionType!==0x0001) return {ok:false, erro:'formato-nao-suportado'}; // XOR obfuscation legado
+
+  const vMajor = fpDv.getUint16(2,true), vMinor = fpDv.getUint16(4,true);
+  if(!((vMajor===2||vMajor===3||vMajor===4) && vMinor===2)) return {ok:false, erro:'formato-nao-suportado'};
+
+  let off = 6 + 4; // wEncryptionType+vMajor+vMinor(6) + flags(4)
+  const headerSize = fpDv.getUint32(off,true); off+=4;
+  off += headerSize; // pula EncryptionHeader inteiro (já sabemos o keySize abaixo via offset fixo)
+  const keySizeOff = 6+4+4 + 4+4+4+4; // início do header + flags+sizeExtra+algId+algIdHash
+  let keySize = fpDv.getUint32(keySizeOff,true);
+  if(keySize===0) keySize=0x28;
+
+  const saltSize = fpDv.getUint32(off,true); off+=4;
+  const salt = fpBody.slice(off, off+16); off+=saltSize;
+  const encryptedVerifier = fpBody.slice(off, off+16); off+=16;
+  off+=4; // verifierHashSize
+  const encryptedVerifierHash = fpBody.slice(off, off+20);
+
+  const verifyKey = _c6MakeKeyCryptoAPI(password, salt, keySize, 0);
+  const combo = new Uint8Array(36);
+  combo.set(encryptedVerifier,0); combo.set(encryptedVerifierHash,16);
+  const dec = _c6Rc4(verifyKey, combo);
+  const verifier = dec.slice(0,16), verifierHash = dec.slice(16,36);
+  const computedHash = _c6Sha1(verifier);
+  let ok = computedHash.length===verifierHash.length;
+  if(ok) for(let i=0;i<computedHash.length;i++) if(computedHash[i]!==verifierHash[i]){ ok=false; break; }
+  if(!ok) return {ok:false, erro:'senha'};
+
+  const out = new Uint8Array(wbBuf.length);
+  out.set(wbBuf.slice(0, records[0].size+4), 0); // BOF literal
+
+  const BLOCKSIZE=1024;
+  let absPos=0, block=0;
+  let key = _c6MakeKeyCryptoAPI(password, salt, keySize, block);
+  let next = _c6Rc4KeystreamGen(key);
+  function nextByte(){
+    if(absPos>0 && absPos%BLOCKSIZE===0){
+      block = Math.floor(absPos/BLOCKSIZE);
+      key = _c6MakeKeyCryptoAPI(password, salt, keySize, block);
+      next = _c6Rc4KeystreamGen(key);
+    }
+    absPos++; return next();
+  }
+  for(let i=0;i<records[0].size+4;i++) nextByte();
+
+  for(let ri=1; ri<records.length; ri++){
+    const r = records[ri];
+    const bodyStart = r.headerOffset+4;
+    for(let i=0;i<4;i++) nextByte();
+    out.set(wbBuf.slice(r.headerOffset, r.headerOffset+4), r.headerOffset); // header sempre literal
+
+    const isSpecial = [_C6_RECNUM.BOF,_C6_RECNUM.FilePass,_C6_RECNUM.UsrExcl,_C6_RECNUM.FileLock,_C6_RECNUM.InterfaceHdr,_C6_RECNUM.RRDInfo,_C6_RECNUM.RRDHead].includes(r.num);
+
+    if(r.num===_C6_RECNUM.FilePass){
+      const odv = new DataView(out.buffer);
+      odv.setUint16(r.headerOffset, 0, true);
+      odv.setUint16(r.headerOffset+2, r.size, true);
+      for(let i=0;i<r.size;i++) nextByte();
+      out.fill(0, bodyStart, bodyStart+r.size);
+    } else if(isSpecial){
+      for(let i=0;i<r.size;i++) nextByte();
+      out.set(wbBuf.slice(bodyStart, bodyStart+r.size), bodyStart);
+    } else if(r.num===_C6_RECNUM.BoundSheet8){
+      for(let i=0;i<4;i++) nextByte();
+      out.set(wbBuf.slice(bodyStart, bodyStart+4), bodyStart);
+      for(let i=4;i<r.size;i++){ const kb=nextByte(); out[bodyStart+i] = wbBuf[bodyStart+i]^kb; }
+    } else {
+      for(let i=0;i<r.size;i++){ const kb=nextByte(); out[bodyStart+i] = wbBuf[bodyStart+i]^kb; }
+    }
+  }
+  return {ok:true, out};
+}
+
+// Recebe o ArrayBuffer bruto do arquivo. Se estiver protegido por senha,
+// decripta e devolve um ArrayBuffer "limpo" pronto pro XLSX.read padrão.
+function c6PrepararArrayBuffer(arrayBuffer, password){
+  const cfb = XLSX.CFB.read(new Uint8Array(arrayBuffer), {type:'array'});
+  const entry = XLSX.CFB.find(cfb, 'Workbook') || XLSX.CFB.find(cfb, 'Book');
+  if(!entry) return {ok:true, arrayBuffer}; // não é OLE/xls97 (provavelmente .xlsx moderno) — segue sem decriptar
+  const wbBuf = entry.content instanceof Uint8Array ? entry.content : new Uint8Array(entry.content);
+  const r = c6DecryptWorkbookStream(wbBuf, password||'');
+  if(!r.ok) return r;
+  if(r.jaDecriptado) return {ok:true, arrayBuffer}; // não estava protegido
+  entry.content = r.out;
+  const rebuilt = XLSX.CFB.write(cfb, {type:'array'});
+  return {ok:true, arrayBuffer: rebuilt.buffer ? rebuilt.buffer : rebuilt};
+}
+
+// ── Mapeamento heurístico Categoria C6 → Categoria/Subcategoria do Ctrl Financeiro ──
+// ATENÇÃO: mapeamento best-effort baseado nas categorias observadas na fatura.
+// Revise sempre o resumo de pré-visualização antes de confirmar a importação.
+const C6_CATEGORIA_MAP = {
+  'casa / escritório mobiliário': ['Compras','Casa'],
+  'associação': ['Outras Despesas','Outras'],
+  'arte / artesanato / passatempo': ['Lazer','Outros Lazer'],
+  'supermercados / mercearia / padarias / lojas de conveniência': ['Alimentação','Supermercado'],
+  'serviços pessoais': ['Saúde & Beleza','Outras Saúde'],
+  'restaurante / lanchonete / bar': ['Alimentação','Restaurante'],
+  'serviços de telecomunicações': ['Moradia','Celular'],
+  'foto / fotocópia': ['Compras','Outras Compras'],
+  'recreativo': ['Lazer','Outros Lazer'],
+  'vestuário / roupas': ['Vestuário','Roupas'],
+  'transporte': ['Transporte','Outros Transporte'],
+  'relacionados a automotivo': ['Transporte','Manutenção'],
+  'departamento / desconto': ['Compras','Outras Compras'],
+  'empresa para empresa': ['Outras Despesas','Outras'],
+  'serviços profissionais': ['Outras Despesas','Outras'],
+  't&e': ['Lazer','Viagens / Férias'],
+  'postos de combustível': ['Transporte','Combustível'],
+  'farmácias': ['Saúde & Beleza','Farmacia'],
+  'saúde': ['Saúde & Beleza','Outras Saúde'],
+  'educação': ['Educação','Outros Educação'],
+  'seguros': ['Serviços Financeiros','Outras Financeiro'],
+  'doações': ['Doações & Presentes','Doações'],
+  'presentes': ['Doações & Presentes','Presentes'],
+  'pet shop': ['Outras Despesas','Outras'],
+};
+function c6MapearCategoria(categoriaRaw, descRaw){
+  const cat = String(categoriaRaw||'').trim().toLowerCase();
+  const desc = String(descRaw||'').toLowerCase();
+  if(cat && C6_CATEGORIA_MAP[cat]) return {mapeado:true, ...{cat:C6_CATEGORIA_MAP[cat][0], subcat:C6_CATEGORIA_MAP[cat][1]}};
+  if(cat==='-' || !cat){
+    if(desc.includes('anuidade')) return {mapeado:true, cat:'Serviços Financeiros', subcat:'Outras Financeiro'};
+    if(desc.includes('iof')) return {mapeado:true, cat:'Serviços Financeiros', subcat:'IOF'};
+  }
+  return {mapeado:false, cat:'Outras Despesas', subcat:'Outras'};
+}
+
+function c6ParseValor(v){
+  if(v===null||v===undefined||v==='') return NaN;
+  if(typeof v==='number') return v;
+  let s = String(v).trim();
+  s = s.replace(/[R$\s]/g,'');
+  if(s.includes(',') && s.includes('.')) s = s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(',')) s = s.replace(',','.');
+  return parseFloat(s);
+}
+
+function c6ParseData(v){
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v==='number') return new Date(Math.round((v-25569)*86400*1000)).toISOString().slice(0,10);
+  const s = String(v||'').trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return '';
+}
+
+const _C6_MES_NOMES = {janeiro:'Jan',fevereiro:'Fev',março:'Mar',marco:'Mar',abril:'Abr',maio:'Mai',junho:'Jun',julho:'Jul',agosto:'Ago',setembro:'Set',outubro:'Out',novembro:'Nov',dezembro:'Dez'};
+function c6AdivinharMesAno(nomeArquivo, nomeAba){
+  const texto = (nomeArquivo+' '+(nomeAba||'')).toLowerCase();
+  let mes = null;
+  for(const nome in _C6_MES_NOMES){ if(texto.includes(nome)){ mes=_C6_MES_NOMES[nome]; break; } }
+  const anoMatch = texto.match(/20\d{2}/);
+  const ano = anoMatch ? parseInt(anoMatch[0],10) : new Date().getFullYear();
+  return {mes: mes || MESES_ORD[new Date().getMonth()], ano};
+}
+
+// ── Abrir / fechar modal ──
+function abrirImportC6(){
+  C6_STATE.arrayBuffer=null; C6_STATE.senhaNecessaria=false; C6_STATE.itensPendentes=null; C6_STATE.resumoPendente=null;
+  document.getElementById('c6-file-input').value='';
+  document.getElementById('c6-senha').value='';
+  document.getElementById('c6-senha-wrap').style.display='none';
+  document.getElementById('c6-preview').style.display='none';
+  document.getElementById('c6-preview').innerHTML='';
+  document.getElementById('c6-feedback').style.display='none';
+  document.getElementById('c6-btn-preview').disabled=true;
+  document.getElementById('c6-btn-preview').style.display='';
+  document.getElementById('c6-btn-confirmar').style.display='none';
+  const {mes,ano} = c6AdivinharMesAno('', '');
+  document.getElementById('c6-mes').value=mes;
+  document.getElementById('c6-ano').value=ano;
+  abrirModal('c6');
+}
+
+function c6Feedback(msg, tipo){
+  const fb = document.getElementById('c6-feedback');
+  fb.style.display='block';
+  if(tipo==='err'){ fb.style.background='var(--rd)'; fb.style.color='var(--red)'; fb.style.border='1px solid rgba(217,122,122,.3)'; }
+  else if(tipo==='ok'){ fb.style.background='var(--gd)'; fb.style.color='var(--green)'; fb.style.border='1px solid rgba(95,217,154,.3)'; }
+  else { fb.style.background='var(--ad)'; fb.style.color='var(--amber)'; fb.style.border='1px solid rgba(224,179,95,.3)'; }
+  fb.innerHTML = msg;
+}
+
+function onC6FileSelected(file){
+  if(!file) return;
+  document.getElementById('c6-feedback').style.display='none';
+  document.getElementById('c6-preview').style.display='none';
+  document.getElementById('c6-btn-confirmar').style.display='none';
+  document.getElementById('c6-btn-preview').style.display='';
+  const {mes,ano} = c6AdivinharMesAno(file.name, '');
+  document.getElementById('c6-mes').value=mes;
+  document.getElementById('c6-ano').value=ano;
+
+  const reader = new FileReader();
+  reader.onload = evt=>{
+    C6_STATE.arrayBuffer = evt.target.result;
+    // Detecta se o arquivo está protegido, sem precisar de senha ainda
+    try{
+      const cfb = XLSX.CFB.read(new Uint8Array(C6_STATE.arrayBuffer), {type:'array'});
+      const entry = XLSX.CFB.find(cfb, 'Workbook') || XLSX.CFB.find(cfb, 'Book');
+      if(entry){
+        const wbBuf = entry.content instanceof Uint8Array ? entry.content : new Uint8Array(entry.content);
+        const records = _c6ReadRecords(wbBuf);
+        const temFilePass = records.some(r=>r.num===_C6_RECNUM.FilePass);
+        document.getElementById('c6-senha-wrap').style.display = temFilePass ? '' : 'none';
+        C6_STATE.senhaNecessaria = temFilePass;
+      } else {
+        document.getElementById('c6-senha-wrap').style.display='none';
+        C6_STATE.senhaNecessaria = false;
+      }
+    }catch(e){
+      document.getElementById('c6-senha-wrap').style.display='none';
+      C6_STATE.senhaNecessaria = false;
+    }
+    document.getElementById('c6-btn-preview').disabled=false;
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function previewImportC6(){
+  if(!C6_STATE.arrayBuffer){ c6Feedback('⚠ Selecione um arquivo primeiro.','err'); return; }
+  const mes = document.getElementById('c6-mes').value;
+  const ano = parseInt(document.getElementById('c6-ano').value,10);
+  if(!mes || !ano){ c6Feedback('⚠ Informe o mês e o ano de vencimento da fatura.','err'); return; }
+  const senha = document.getElementById('c6-senha').value;
+  if(C6_STATE.senhaNecessaria && !senha){ c6Feedback('⚠ Este arquivo está protegido por senha.','err'); return; }
+
+  const btn = document.getElementById('c6-btn-preview');
+  btn.disabled=true; btn.textContent='⏳ Lendo...';
+
+  try{
+    const prep = c6PrepararArrayBuffer(C6_STATE.arrayBuffer, senha);
+    if(!prep.ok){
+      if(prep.erro==='senha') c6Feedback('✗ Senha incorreta. Verifique e tente novamente.','err');
+      else if(prep.erro==='formato-nao-suportado') c6Feedback('✗ Este arquivo usa um esquema de proteção não suportado. Remova a senha no Excel ("Salvar Como" → sem criptografia) e importe novamente.','err');
+      else c6Feedback('✗ Não foi possível ler o arquivo (formato inesperado).','err');
+      btn.disabled=false; btn.textContent='Pré-visualizar';
+      return;
+    }
+
+    const wb = XLSX.read(prep.arrayBuffer, {type:'array', cellDates:true, raw:true});
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+
+    let hIdx=-1;
+    for(let i=0;i<Math.min(rows.length,10);i++){
+      const r = rows[i];
+      if(r && r.some(c=>String(c||'').trim().toLowerCase()==='categoria')) { hIdx=i; break; }
+    }
+    if(hIdx===-1){ c6Feedback('✗ Não encontrei a linha de cabeçalho ("Categoria") na planilha. O layout do arquivo pode ter mudado.','err'); btn.disabled=false; btn.textContent='Pré-visualizar'; return; }
+
+    const hdr = rows[hIdx].map(c=>String(c||'').trim().toLowerCase());
+    const iData = hdr.findIndex(c=>c.startsWith('data'));
+    const iCat  = hdr.findIndex(c=>c==='categoria');
+    const iDesc = hdr.findIndex(c=>c.startsWith('descri'));
+    const iParc = hdr.findIndex(c=>c.startsWith('parcela'));
+    let iValor = hdr.findIndex(c=>c.includes('valor') && c.includes('r$'));
+    if(iValor===-1) iValor = hdr.length-1; // fallback: última coluna costuma ser o valor final em R$
+
+    if(iCat===-1 || iValor===-1){ c6Feedback('✗ Não encontrei as colunas de Categoria/Valor no arquivo.','err'); btn.disabled=false; btn.textContent='Pré-visualizar'; return; }
+
+    const itens=[]; let ignoradosNegativosOuZero=0; const categoriasNaoMapeadas={};
+    for(let r=hIdx+1; r<rows.length; r++){
+      const row = rows[r]; if(!row) continue;
+      const categoriaRaw = row[iCat];
+      const descRaw = iDesc>=0 ? row[iDesc] : '';
+      const valorRaw = row[iValor];
+      if(categoriaRaw===null && descRaw===null && valorRaw===null) continue; // linha vazia
+      const valor = c6ParseValor(valorRaw);
+      if(isNaN(valor) || valor<=0){ ignoradosNegativosOuZero++; continue; }
+      const map = c6MapearCategoria(categoriaRaw, descRaw);
+      if(!map.mapeado){ const k=String(categoriaRaw||'(vazio)').trim(); categoriasNaoMapeadas[k]=(categoriasNaoMapeadas[k]||0)+1; }
+      const parcela = iParc>=0 ? String(row[iParc]||'').trim() : '';
+      let desc = String(descRaw||'').trim() || '(sem descrição)';
+      if(parcela && parcela.toLowerCase()!=='única') desc += ` (${parcela})`;
+      const dataCompra = iData>=0 ? c6ParseData(row[iData]) : '';
+      itens.push({
+        mes, ano, data: dataCompra || null,
+        cat: map.cat, subcat: map.subcat,
+        desc, forma: 'C.C Master C6',
+        valor: Math.round(valor*100)/100,
+        pago: 'Não', origem: 'fatura_c6'
+      });
+    }
+
+    if(itens.length===0){ c6Feedback('✗ Nenhum lançamento válido encontrado nesta fatura.','err'); btn.disabled=false; btn.textContent='Pré-visualizar'; return; }
+
+    const total = itens.reduce((a,b)=>a+b.valor,0);
+    const naoMapeadasTxt = Object.keys(categoriasNaoMapeadas).length
+      ? '<br>⚠ Categorias não reconhecidas (importadas como "Outras Despesas"): ' + Object.entries(categoriasNaoMapeadas).map(([k,v])=>`${k} (${v}x)`).join(', ')
+      : '';
+    const ignoradosTxt = ignoradosNegativosOuZero
+      ? `<br>${ignoradosNegativosOuZero} linha(s) ignorada(s) (estornos/valor zero ou negativo).`
+      : '';
+
+    document.getElementById('c6-preview').style.display='block';
+    document.getElementById('c6-preview').innerHTML =
+      `<strong>${itens.length}</strong> lançamentos prontos para importar em <strong>${mkLabel(mkOf(mes,ano))||mes+'/'+ano}</strong>, forma <strong>C.C Master C6</strong>.<br>`+
+      `Valor total: <strong>${R(total,2)}</strong>.`+
+      ignoradosTxt + naoMapeadasTxt +
+      `<br><br>Revise antes de confirmar — categorias podem ser corrigidas depois em <strong>Lançamentos → Editar</strong>.`;
+
+    C6_STATE.itensPendentes = itens;
+    C6_STATE.resumoPendente = {total, ignoradosNegativosOuZero, categoriasNaoMapeadas};
+
+    document.getElementById('c6-feedback').style.display='none';
+    document.getElementById('c6-btn-preview').style.display='none';
+    document.getElementById('c6-btn-confirmar').style.display='';
+    btn.disabled=false; btn.textContent='Pré-visualizar';
+  }catch(e){
+    console.error('Erro import C6:', e);
+    c6Feedback('✗ Erro ao processar arquivo: '+e.message,'err');
+    btn.disabled=false; btn.textContent='Pré-visualizar';
+  }
+}
+
+async function confirmarImportC6(){
+  const itens = C6_STATE.itensPendentes;
+  if(!itens || !itens.length){ c6Feedback('⚠ Nada para importar. Pré-visualize novamente.','err'); return; }
+
+  const btn = document.getElementById('c6-btn-confirmar');
+  btn.disabled=true; btn.textContent='⏳ Importando...';
+
+  let erroSupabase=null;
+  if(usuarioAtual){
+    try{
+      const registros = itens.map(it=>({
+        usuario_id: usuarioAtual.id,
+        mes: it.mes, ano: it.ano, data: it.data || null,
+        categoria: it.cat, subcategoria: it.subcat || null,
+        descricao: it.desc || null, forma_pagamento: it.forma || null,
+        valor: it.valor, pago: it.pago, origem: it.origem
+      }));
+      const { data: res, error } = await getSB().from('lancamentos').insert(registros).select();
+      if(error) throw new Error(error.message);
+      if(res) res.forEach((r,i)=>{ if(itens[i]) itens[i].id = r.id; });
+    }catch(e){
+      erroSupabase = e.message;
+      console.error('Erro Supabase insert (fatura C6):', e);
+    }
+  }
+  itens.forEach(it=>{ if(!it.id) it.id = Date.now()+'-'+Math.random().toString(36).slice(2,7); });
+  itens.forEach(it=> DB.lancamentos.push(it));
+  invalidarAnosCache();
+
+  if(!erroSupabase){
+    c6Feedback(`✓ ${itens.length} lançamentos da fatura C6 importados com sucesso!`, 'ok');
+  } else {
+    c6Feedback(`⚠ Importado localmente, mas houve erro ao salvar no Supabase: ${erroSupabase}. Use "↑ Salvar no Supabase" na barra lateral para reenviar.`, '');
+    const btnSync = document.getElementById('btn-sync-save');
+    if(btnSync) btnSync.style.display='';
+  }
+
+  document.getElementById('c6-btn-confirmar').style.display='none';
+
+  populaFiltros();
+  populaOrcFiltros();
+  Object.values(CHARTS).forEach(c=>{try{c.destroy();}catch(e){}});
+  for(const k in rendered) delete rendered[k];
+  for(const k in CHARTS) delete CHARTS[k];
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const act=document.querySelector('.page.active');
+    if(act){ const id=act.id.replace('pg-',''); renderPage(id); }
+  }));
+
+  btn.disabled=false; btn.textContent='✓ Confirmar importação';
+  setTimeout(()=>{ fecharModal('c6'); }, 2500);
+}
+
 
 document.getElementById('file-input').addEventListener('change',e=>{
   const file=e.target.files[0];
