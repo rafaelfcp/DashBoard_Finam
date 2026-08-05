@@ -924,9 +924,6 @@ html.is-mobile .sidebar.open{
       <button class="btn-sync" id="btn-sync-save" onclick="salvarNoSupabase()" title="Salvar planilha no Supabase" style="display:none">
         ↑ Salvar no Supabase
       </button>
-      <button class="btn-sync" id="btn-import-c6" onclick="abrirImportC6()" title="Importar fatura do cartão C6" style="margin-top:6px">
-        💳 Importar fatura C6
-      </button>
     </div>
   </div>
   <!-- Status / erro (oculto por padrão) -->
@@ -2236,6 +2233,19 @@ html.is-mobile .sidebar.open{
   </div>
   <div style="max-width:680px;margin:0 auto;padding-top:4px">
 
+    <!-- Abas: Incluir manual / Importar fatura C6 -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--bd2)">
+      <button id="novo-tab-btn-manual" class="novo-tab-btn novo-tab-active" onclick="novoTab('manual')"
+        style="padding:10px 4px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tx);font-size:13px;font-weight:700;cursor:pointer">➕ Incluir manual</button>
+      <button id="novo-tab-btn-c6" class="novo-tab-btn" onclick="novoTab('c6')"
+        style="padding:10px 4px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tx2);font-size:13px;font-weight:700;cursor:pointer">💳 Importar fatura C6</button>
+    </div>
+    <style>
+      .novo-tab-active{color:var(--blue) !important;border-bottom-color:var(--blue) !important}
+      .c6-cell-input{width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:6px;padding:5px 7px;font-size:12px;outline:none}
+    </style>
+
+    <div id="novo-tab-manual">
     <!-- Formulário -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">Dados do lançamento</div>
@@ -2371,9 +2381,57 @@ html.is-mobile .sidebar.open{
       <!-- Feedback -->
       <div id="nv-feedback" style="display:none;margin-top:12px;padding:10px 14px;border-radius:var(--rs);font-size:13px;font-weight:600"></div>
     </div>
+    </div><!-- /novo-tab-manual -->
 
-    <!-- Lançamentos pendentes (aguardando export) -->
-    
+    <!-- Importar fatura C6 -->
+    <div id="novo-tab-c6" style="display:none">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Importar fatura do cartão C6</div>
+        <div style="font-size:12px;color:var(--tx2);margin-bottom:14px">Envie o arquivo .xls/.xlsx exportado da fatura. Se estiver protegido por senha, ela é usada só no seu navegador para decriptar — nada é enviado a nenhum servidor.</div>
+
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Arquivo da fatura *</label>
+          <input type="file" id="c6-file-input" accept=".xls,.xlsx" onchange="onC6FileSelected(this.files[0])"
+            style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+        </div>
+
+        <div id="c6-senha-wrap" style="display:none;margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Senha do arquivo</label>
+          <input type="password" id="c6-senha" placeholder="Ex: seu CPF (só números)"
+            style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Mês de vencimento da fatura *</label>
+            <select id="c6-mes" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+              <option value="Jan">Janeiro</option><option value="Fev">Fevereiro</option>
+              <option value="Mar">Março</option><option value="Abr">Abril</option>
+              <option value="Mai">Maio</option><option value="Jun">Junho</option>
+              <option value="Jul">Julho</option><option value="Ago">Agosto</option>
+              <option value="Set">Setembro</option><option value="Out">Outubro</option>
+              <option value="Nov">Novembro</option><option value="Dez">Dezembro</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Ano de vencimento *</label>
+            <input type="number" id="c6-ano" min="2020" max="2100" step="1"
+              style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+          </div>
+        </div>
+
+        <button id="c6-btn-analisar" onclick="analisarFaturaC6()" disabled
+          style="padding:11px 18px;font-size:13px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);cursor:pointer">
+          Analisar arquivo
+        </button>
+
+        <div id="c6-feedback" style="display:none;margin-top:12px;padding:10px 14px;border-radius:var(--rs);font-size:13px;font-weight:600"></div>
+
+        <!-- Tabela editável de pré-visualização, gerada após "Analisar arquivo" -->
+        <div id="c6-tabela-wrap" style="display:none"></div>
+      </div>
+    </div><!-- /novo-tab-c6 -->
+
   </div>
 </div>
 
@@ -2501,43 +2559,6 @@ html.is-mobile .sidebar.open{
 </footer>
 </div>
 
-
-<!-- MODAL IMPORTAR FATURA C6 -->
-<div class="modal-overlay" id="modal-c6" style="display:none" onclick="if(event.target===this)fecharModal('c6')">
-  <div class="modal-box">
-    <div class="modal-header">
-      <div class="modal-title">💳 Importar Fatura C6</div>
-      <button class="modal-close" onclick="fecharModal('c6')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-group">
-        <label class="modal-label">Arquivo da fatura (.xls / .xlsx)</label>
-        <input type="file" id="c6-file-input" class="modal-input" accept=".xls,.xlsx" onchange="onC6FileSelected(this.files[0])">
-      </div>
-      <div class="modal-group" id="c6-senha-wrap" style="display:none">
-        <label class="modal-label">Senha do arquivo</label>
-        <input type="password" id="c6-senha" class="modal-input" placeholder="Ex: seu CPF (só números)">
-      </div>
-      <div class="modal-g2">
-        <div><label class="modal-label">Mês de vencimento da fatura</label>
-          <select id="c6-mes" class="modal-input">
-            <option>Jan</option><option>Fev</option><option>Mar</option><option>Abr</option>
-            <option>Mai</option><option>Jun</option><option>Jul</option><option>Ago</option>
-            <option>Set</option><option>Out</option><option>Nov</option><option>Dez</option>
-          </select></div>
-        <div><label class="modal-label">Ano de vencimento</label>
-          <input type="number" id="c6-ano" class="modal-input" min="2020" max="2100" step="1"></div>
-      </div>
-      <div id="c6-preview" style="display:none;margin-top:10px;padding:12px;border-radius:var(--rs);background:var(--bg3);border:1px solid var(--bd);font-size:12px;line-height:1.7"></div>
-      <div id="c6-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-modal-cancel" onclick="fecharModal('c6')">Cancelar</button>
-      <button class="btn-modal-save" id="c6-btn-preview" onclick="previewImportC6()" disabled>Pré-visualizar</button>
-      <button class="btn-modal-save" id="c6-btn-confirmar" onclick="confirmarImportC6()" style="display:none">✓ Confirmar importação</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL EDITAR LANÇAMENTO -->
 <div class="modal-overlay" id="modal-editar" style="display:none" onclick="if(event.target===this)fecharModal('editar')">
@@ -3450,25 +3471,31 @@ function c6AdivinharMesAno(nomeArquivo, nomeAba){
 }
 
 // ── Abrir / fechar modal ──
-function abrirImportC6(){
-  C6_STATE.arrayBuffer=null; C6_STATE.senhaNecessaria=false; C6_STATE.itensPendentes=null; C6_STATE.resumoPendente=null;
-  document.getElementById('c6-file-input').value='';
-  document.getElementById('c6-senha').value='';
-  document.getElementById('c6-senha-wrap').style.display='none';
-  document.getElementById('c6-preview').style.display='none';
-  document.getElementById('c6-preview').innerHTML='';
-  document.getElementById('c6-feedback').style.display='none';
-  document.getElementById('c6-btn-preview').disabled=true;
-  document.getElementById('c6-btn-preview').style.display='';
-  document.getElementById('c6-btn-confirmar').style.display='none';
-  const {mes,ano} = c6AdivinharMesAno('', '');
-  document.getElementById('c6-mes').value=mes;
-  document.getElementById('c6-ano').value=ano;
-  abrirModal('c6');
+// ── Tabs da página "Novo Lançamento": Incluir manual vs Importar fatura C6 ──
+function novoTab(tab){
+  const bManual = document.getElementById('novo-tab-btn-manual');
+  const bC6 = document.getElementById('novo-tab-btn-c6');
+  const dManual = document.getElementById('novo-tab-manual');
+  const dC6 = document.getElementById('novo-tab-c6');
+  if(!bManual||!bC6||!dManual||!dC6) return;
+  if(tab==='c6'){
+    dManual.style.display='none'; dC6.style.display='';
+    bManual.classList.remove('novo-tab-active'); bC6.classList.add('novo-tab-active');
+    const anoEl = document.getElementById('c6-ano');
+    if(anoEl && !anoEl.value){
+      const {mes,ano} = c6AdivinharMesAno('', '');
+      document.getElementById('c6-mes').value = mes;
+      anoEl.value = ano;
+    }
+  } else {
+    dC6.style.display='none'; dManual.style.display='';
+    bC6.classList.remove('novo-tab-active'); bManual.classList.add('novo-tab-active');
+  }
 }
 
 function c6Feedback(msg, tipo){
   const fb = document.getElementById('c6-feedback');
+  if(!fb) return;
   fb.style.display='block';
   if(tipo==='err'){ fb.style.background='var(--rd)'; fb.style.color='var(--red)'; fb.style.border='1px solid rgba(217,122,122,.3)'; }
   else if(tipo==='ok'){ fb.style.background='var(--gd)'; fb.style.color='var(--green)'; fb.style.border='1px solid rgba(95,217,154,.3)'; }
@@ -3476,12 +3503,24 @@ function c6Feedback(msg, tipo){
   fb.innerHTML = msg;
 }
 
+function resetImportC6(){
+  C6_STATE.arrayBuffer=null; C6_STATE.senhaNecessaria=false; C6_STATE.itensPendentes=null;
+  const fi=document.getElementById('c6-file-input'); if(fi) fi.value='';
+  const sn=document.getElementById('c6-senha'); if(sn) sn.value='';
+  const sw=document.getElementById('c6-senha-wrap'); if(sw) sw.style.display='none';
+  const fb=document.getElementById('c6-feedback'); if(fb) fb.style.display='none';
+  const tw=document.getElementById('c6-tabela-wrap'); if(tw){ tw.style.display='none'; tw.innerHTML=''; }
+  const ba=document.getElementById('c6-btn-analisar'); if(ba){ ba.disabled=true; ba.textContent='Analisar arquivo'; }
+  const {mes,ano} = c6AdivinharMesAno('', '');
+  const me=document.getElementById('c6-mes'); if(me) me.value=mes;
+  const ae=document.getElementById('c6-ano'); if(ae) ae.value=ano;
+}
+
 function onC6FileSelected(file){
   if(!file) return;
+  c6Feedback('','');
   document.getElementById('c6-feedback').style.display='none';
-  document.getElementById('c6-preview').style.display='none';
-  document.getElementById('c6-btn-confirmar').style.display='none';
-  document.getElementById('c6-btn-preview').style.display='';
+  const tw=document.getElementById('c6-tabela-wrap'); if(tw){ tw.style.display='none'; tw.innerHTML=''; }
   const {mes,ano} = c6AdivinharMesAno(file.name, '');
   document.getElementById('c6-mes').value=mes;
   document.getElementById('c6-ano').value=ano;
@@ -3489,7 +3528,6 @@ function onC6FileSelected(file){
   const reader = new FileReader();
   reader.onload = evt=>{
     C6_STATE.arrayBuffer = evt.target.result;
-    // Detecta se o arquivo está protegido, sem precisar de senha ainda
     try{
       const cfb = XLSX.CFB.read(new Uint8Array(C6_STATE.arrayBuffer), {type:'array'});
       const entry = XLSX.CFB.find(cfb, 'Workbook') || XLSX.CFB.find(cfb, 'Book');
@@ -3507,12 +3545,14 @@ function onC6FileSelected(file){
       document.getElementById('c6-senha-wrap').style.display='none';
       C6_STATE.senhaNecessaria = false;
     }
-    document.getElementById('c6-btn-preview').disabled=false;
+    document.getElementById('c6-btn-analisar').disabled=false;
   };
   reader.readAsArrayBuffer(file);
 }
 
-function previewImportC6(){
+const C6_CATEGORIAS_LISTA = ['Alimentação','Compras','Doações & Presentes','Educação','Giovanna','Investimentos','Lazer','Moradia','Outras Despesas','Receitas','Saúde & Beleza','Serviços Financeiros','Transporte','Vestuário'];
+
+function analisarFaturaC6(){
   if(!C6_STATE.arrayBuffer){ c6Feedback('⚠ Selecione um arquivo primeiro.','err'); return; }
   const mes = document.getElementById('c6-mes').value;
   const ano = parseInt(document.getElementById('c6-ano').value,10);
@@ -3520,7 +3560,7 @@ function previewImportC6(){
   const senha = document.getElementById('c6-senha').value;
   if(C6_STATE.senhaNecessaria && !senha){ c6Feedback('⚠ Este arquivo está protegido por senha.','err'); return; }
 
-  const btn = document.getElementById('c6-btn-preview');
+  const btn = document.getElementById('c6-btn-analisar');
   btn.disabled=true; btn.textContent='⏳ Lendo...';
 
   try{
@@ -3529,7 +3569,7 @@ function previewImportC6(){
       if(prep.erro==='senha') c6Feedback('✗ Senha incorreta. Verifique e tente novamente.','err');
       else if(prep.erro==='formato-nao-suportado') c6Feedback('✗ Este arquivo usa um esquema de proteção não suportado. Remova a senha no Excel ("Salvar Como" → sem criptografia) e importe novamente.','err');
       else c6Feedback('✗ Não foi possível ler o arquivo (formato inesperado).','err');
-      btn.disabled=false; btn.textContent='Pré-visualizar';
+      btn.disabled=false; btn.textContent='Analisar arquivo';
       return;
     }
 
@@ -3543,7 +3583,7 @@ function previewImportC6(){
       const r = rows[i];
       if(r && r.some(c=>String(c||'').trim().toLowerCase()==='categoria')) { hIdx=i; break; }
     }
-    if(hIdx===-1){ c6Feedback('✗ Não encontrei a linha de cabeçalho ("Categoria") na planilha. O layout do arquivo pode ter mudado.','err'); btn.disabled=false; btn.textContent='Pré-visualizar'; return; }
+    if(hIdx===-1){ c6Feedback('✗ Não encontrei a linha de cabeçalho ("Categoria") na planilha. O layout do arquivo pode ter mudado.','err'); btn.disabled=false; btn.textContent='Analisar arquivo'; return; }
 
     const hdr = rows[hIdx].map(c=>String(c||'').trim().toLowerCase());
     const iData = hdr.findIndex(c=>c.startsWith('data'));
@@ -3551,21 +3591,20 @@ function previewImportC6(){
     const iDesc = hdr.findIndex(c=>c.startsWith('descri'));
     const iParc = hdr.findIndex(c=>c.startsWith('parcela'));
     let iValor = hdr.findIndex(c=>c.includes('valor') && c.includes('r$'));
-    if(iValor===-1) iValor = hdr.length-1; // fallback: última coluna costuma ser o valor final em R$
+    if(iValor===-1) iValor = hdr.length-1;
 
-    if(iCat===-1 || iValor===-1){ c6Feedback('✗ Não encontrei as colunas de Categoria/Valor no arquivo.','err'); btn.disabled=false; btn.textContent='Pré-visualizar'; return; }
+    if(iCat===-1 || iValor===-1){ c6Feedback('✗ Não encontrei as colunas de Categoria/Valor no arquivo.','err'); btn.disabled=false; btn.textContent='Analisar arquivo'; return; }
 
-    const itens=[]; let ignoradosNegativosOuZero=0; const categoriasNaoMapeadas={};
+    const itens=[]; let ignorados=0;
     for(let r=hIdx+1; r<rows.length; r++){
       const row = rows[r]; if(!row) continue;
       const categoriaRaw = row[iCat];
       const descRaw = iDesc>=0 ? row[iDesc] : '';
       const valorRaw = row[iValor];
-      if(categoriaRaw===null && descRaw===null && valorRaw===null) continue; // linha vazia
+      if(categoriaRaw===null && descRaw===null && valorRaw===null) continue;
       const valor = c6ParseValor(valorRaw);
-      if(isNaN(valor) || valor<=0){ ignoradosNegativosOuZero++; continue; }
+      if(isNaN(valor) || valor<=0){ ignorados++; continue; }
       const map = c6MapearCategoria(categoriaRaw, descRaw);
-      if(!map.mapeado){ const k=String(categoriaRaw||'(vazio)').trim(); categoriasNaoMapeadas[k]=(categoriasNaoMapeadas[k]||0)+1; }
       const parcela = iParc>=0 ? String(row[iParc]||'').trim() : '';
       let desc = String(descRaw||'').trim() || '(sem descrição)';
       if(parcela && parcela.toLowerCase()!=='única') desc += ` (${parcela})`;
@@ -3575,52 +3614,126 @@ function previewImportC6(){
         cat: map.cat, subcat: map.subcat,
         desc, forma: 'C.C Master C6',
         valor: Math.round(valor*100)/100,
-        pago: 'Não', origem: 'fatura_c6'
+        pago: 'Não', origem: 'fatura_c6',
+        _categoriaOriginalC6: categoriaRaw, _removido:false
       });
     }
 
-    if(itens.length===0){ c6Feedback('✗ Nenhum lançamento válido encontrado nesta fatura.','err'); btn.disabled=false; btn.textContent='Pré-visualizar'; return; }
-
-    const total = itens.reduce((a,b)=>a+b.valor,0);
-    const naoMapeadasTxt = Object.keys(categoriasNaoMapeadas).length
-      ? '<br>⚠ Categorias não reconhecidas (importadas como "Outras Despesas"): ' + Object.entries(categoriasNaoMapeadas).map(([k,v])=>`${k} (${v}x)`).join(', ')
-      : '';
-    const ignoradosTxt = ignoradosNegativosOuZero
-      ? `<br>${ignoradosNegativosOuZero} linha(s) ignorada(s) (estornos/valor zero ou negativo).`
-      : '';
-
-    document.getElementById('c6-preview').style.display='block';
-    document.getElementById('c6-preview').innerHTML =
-      `<strong>${itens.length}</strong> lançamentos prontos para importar em <strong>${mkLabel(mkOf(mes,ano))||mes+'/'+ano}</strong>, forma <strong>C.C Master C6</strong>.<br>`+
-      `Valor total: <strong>${R(total,2)}</strong>.`+
-      ignoradosTxt + naoMapeadasTxt +
-      `<br><br>Revise antes de confirmar — categorias podem ser corrigidas depois em <strong>Lançamentos → Editar</strong>.`;
+    if(itens.length===0){ c6Feedback('✗ Nenhum lançamento válido encontrado nesta fatura.','err'); btn.disabled=false; btn.textContent='Analisar arquivo'; return; }
 
     C6_STATE.itensPendentes = itens;
-    C6_STATE.resumoPendente = {total, ignoradosNegativosOuZero, categoriasNaoMapeadas};
+    if(ignorados) c6Feedback(`ℹ ${ignorados} linha(s) ignorada(s) automaticamente (estornos/valor zero ou negativo).`, '');
+    else document.getElementById('c6-feedback').style.display='none';
 
-    document.getElementById('c6-feedback').style.display='none';
-    document.getElementById('c6-btn-preview').style.display='none';
-    document.getElementById('c6-btn-confirmar').style.display='';
-    btn.disabled=false; btn.textContent='Pré-visualizar';
+    renderC6Tabela();
+    btn.disabled=false; btn.textContent='↻ Reanalisar arquivo';
   }catch(e){
     console.error('Erro import C6:', e);
     c6Feedback('✗ Erro ao processar arquivo: '+e.message,'err');
-    btn.disabled=false; btn.textContent='Pré-visualizar';
+    btn.disabled=false; btn.textContent='Analisar arquivo';
   }
 }
 
-async function confirmarImportC6(){
-  const itens = C6_STATE.itensPendentes;
-  if(!itens || !itens.length){ c6Feedback('⚠ Nada para importar. Pré-visualize novamente.','err'); return; }
+function c6SubcatOptions(cat, selecionada){
+  const lista = (typeof SUBCATS!=='undefined' && SUBCATS[cat]) ? SUBCATS[cat] : [];
+  let opts = lista.map(s=>`<option value="${s.trim()}"${s.trim()===selecionada?' selected':''}>${s.trim()}</option>`).join('');
+  if(selecionada && !lista.some(s=>s.trim()===selecionada)) opts = `<option value="${selecionada}" selected>${selecionada}</option>` + opts;
+  return opts || `<option value="${selecionada||''}">${selecionada||'—'}</option>`;
+}
 
-  const btn = document.getElementById('c6-btn-confirmar');
+function renderC6Tabela(){
+  const wrap = document.getElementById('c6-tabela-wrap');
+  const itens = C6_STATE.itensPendentes || [];
+  const visiveis = itens.filter(it=>!it._removido);
+
+  if(visiveis.length===0){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+
+  const total = visiveis.reduce((a,b)=>a+b.valor,0);
+
+  let rows = itens.map((it,i)=>{
+    if(it._removido) return '';
+    const catOpts = C6_CATEGORIAS_LISTA.map(c=>`<option value="${c}"${c===it.cat?' selected':''}>${c}</option>`).join('');
+    return `<tr data-idx="${i}">
+      <td style="padding:6px 4px"><input type="date" value="${it.data||''}" oninput="c6Campo(${i},'data',this.value)" class="c6-cell-input" style="width:120px"></td>
+      <td style="padding:6px 4px">
+        <select oninput="c6CampoCat(${i},this.value)" class="c6-cell-input">${catOpts}</select>
+      </td>
+      <td style="padding:6px 4px">
+        <select id="c6-subcat-${i}" oninput="c6Campo(${i},'subcat',this.value)" class="c6-cell-input">${c6SubcatOptions(it.cat, it.subcat)}</select>
+      </td>
+      <td style="padding:6px 4px"><input type="text" value="${(it.desc||'').replace(/"/g,'&quot;')}" oninput="c6Campo(${i},'desc',this.value)" class="c6-cell-input" style="width:100%;min-width:160px"></td>
+      <td style="padding:6px 4px;text-align:right"><input type="number" step="0.01" value="${it.valor}" oninput="c6Campo(${i},'valor',parseFloat(this.value)||0);c6RecalcTotal()" class="c6-cell-input" style="width:90px;text-align:right"></td>
+      <td style="padding:6px 4px;text-align:center"><button onclick="c6RemoverLinha(${i})" title="Remover linha" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  wrap.style.display='block';
+  wrap.innerHTML = `
+    <div style="font-size:12px;color:var(--tx2);margin:14px 0 8px" id="c6-resumo-linha">
+      <strong id="c6-count">${visiveis.length}</strong> lançamento(s) prontos para importar · Total: <strong id="c6-total">${R(total,2)}</strong>
+    </div>
+    <div style="max-height:420px;overflow:auto;border:1px solid var(--bd2);border-radius:var(--rs)">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="position:sticky;top:0;background:var(--bg3);z-index:1">
+          <tr style="text-align:left;color:var(--tx3);text-transform:uppercase;font-size:10px;letter-spacing:.05em">
+            <th style="padding:8px 4px">Data</th><th style="padding:8px 4px">Categoria</th>
+            <th style="padding:8px 4px">Subcategoria</th><th style="padding:8px 4px">Descrição</th>
+            <th style="padding:8px 4px;text-align:right">Valor (R$)</th><th style="padding:8px 4px"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button onclick="efetivarImportC6()" id="c6-btn-efetivar"
+        style="flex:1;padding:11px;font-size:13px;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);cursor:pointer">
+        ✓ Efetivar importação
+      </button>
+      <button onclick="resetImportC6()" class="btn-ghost" style="padding:11px 18px;font-size:13px">✕ Cancelar</button>
+    </div>`;
+}
+
+function c6Campo(idx, campo, valor){
+  const it = C6_STATE.itensPendentes[idx]; if(!it) return;
+  it[campo] = valor;
+}
+function c6CampoCat(idx, novaCat){
+  const it = C6_STATE.itensPendentes[idx]; if(!it) return;
+  it.cat = novaCat;
+  const lista = (typeof SUBCATS!=='undefined' && SUBCATS[novaCat]) ? SUBCATS[novaCat] : [];
+  it.subcat = lista[0] ? lista[0].trim() : 'Outros';
+  const sel = document.getElementById('c6-subcat-'+idx);
+  if(sel) sel.innerHTML = c6SubcatOptions(novaCat, it.subcat);
+}
+function c6RemoverLinha(idx){
+  const it = C6_STATE.itensPendentes[idx]; if(!it) return;
+  it._removido = true;
+  renderC6Tabela();
+}
+function c6RecalcTotal(){
+  const visiveis = (C6_STATE.itensPendentes||[]).filter(it=>!it._removido);
+  const total = visiveis.reduce((a,b)=>a+b.valor,0);
+  const elT = document.getElementById('c6-total'); if(elT) elT.textContent = R(total,2);
+  const elC = document.getElementById('c6-count'); if(elC) elC.textContent = visiveis.length;
+}
+
+async function efetivarImportC6(){
+  const itens = (C6_STATE.itensPendentes||[]).filter(it=>!it._removido);
+  if(!itens.length){ c6Feedback('⚠ Nada para importar.','err'); return; }
+  for(const it of itens){
+    if(!it.cat){ c6Feedback('⚠ Há linha(s) sem categoria selecionada.','err'); return; }
+    if(!it.valor || it.valor<=0){ c6Feedback('⚠ Há linha(s) com valor inválido.','err'); return; }
+  }
+
+  const btn = document.getElementById('c6-btn-efetivar');
   btn.disabled=true; btn.textContent='⏳ Importando...';
+
+  const itensLimpos = itens.map(({_categoriaOriginalC6, _removido, ...rest})=>rest);
 
   let erroSupabase=null;
   if(usuarioAtual){
     try{
-      const registros = itens.map(it=>({
+      const registros = itensLimpos.map(it=>({
         usuario_id: usuarioAtual.id,
         mes: it.mes, ano: it.ano, data: it.data || null,
         categoria: it.cat, subcategoria: it.subcat || null,
@@ -3629,25 +3742,23 @@ async function confirmarImportC6(){
       }));
       const { data: res, error } = await getSB().from('lancamentos').insert(registros).select();
       if(error) throw new Error(error.message);
-      if(res) res.forEach((r,i)=>{ if(itens[i]) itens[i].id = r.id; });
+      if(res) res.forEach((r,i)=>{ if(itensLimpos[i]) itensLimpos[i].id = r.id; });
     }catch(e){
       erroSupabase = e.message;
       console.error('Erro Supabase insert (fatura C6):', e);
     }
   }
-  itens.forEach(it=>{ if(!it.id) it.id = Date.now()+'-'+Math.random().toString(36).slice(2,7); });
-  itens.forEach(it=> DB.lancamentos.push(it));
+  itensLimpos.forEach(it=>{ if(!it.id) it.id = Date.now()+'-'+Math.random().toString(36).slice(2,7); });
+  itensLimpos.forEach(it=> DB.lancamentos.push(it));
   invalidarAnosCache();
 
   if(!erroSupabase){
-    c6Feedback(`✓ ${itens.length} lançamentos da fatura C6 importados com sucesso!`, 'ok');
+    c6Feedback(`✓ ${itensLimpos.length} lançamentos da fatura C6 importados com sucesso! Confira em <strong>Lançamentos</strong>.`, 'ok');
   } else {
     c6Feedback(`⚠ Importado localmente, mas houve erro ao salvar no Supabase: ${erroSupabase}. Use "↑ Salvar no Supabase" na barra lateral para reenviar.`, '');
     const btnSync = document.getElementById('btn-sync-save');
     if(btnSync) btnSync.style.display='';
   }
-
-  document.getElementById('c6-btn-confirmar').style.display='none';
 
   populaFiltros();
   populaOrcFiltros();
@@ -3659,11 +3770,10 @@ async function confirmarImportC6(){
     if(act){ const id=act.id.replace('pg-',''); renderPage(id); }
   }));
 
-  btn.disabled=false; btn.textContent='✓ Confirmar importação';
-  setTimeout(()=>{ fecharModal('c6'); }, 2500);
+  const tw=document.getElementById('c6-tabela-wrap'); if(tw){ tw.style.display='none'; tw.innerHTML=''; }
+  C6_STATE.itensPendentes = null;
+  document.getElementById('c6-btn-analisar').textContent='Analisar arquivo';
 }
-
-
 document.getElementById('file-input').addEventListener('change',e=>{
   const file=e.target.files[0];
   if(!file)return;
