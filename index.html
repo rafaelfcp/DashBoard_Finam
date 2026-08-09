@@ -1729,7 +1729,7 @@ html.is-mobile .sidebar.open{
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
       <input id="lan-busca" class="input-search" oninput="renderLan()" placeholder="🔍 Buscar na descrição, subcategoria..." style="flex:2;min-width:220px">
       <select id="lan-mes" onchange="renderLan()" style="flex:1;min-width:110px"><option value="">Todos os meses</option></select>
-      <select id="lan-cat" onchange="renderLan()" style="flex:1;min-width:140px"><option value="">Todas as categorias</option></select>
+      <select id="lan-cat" onchange="onLanCatChange()" style="flex:1;min-width:140px"><option value="">Todas as categorias</option></select>
       <select id="lan-subcat" onchange="renderLan()" style="flex:1;min-width:150px"><option value="">Todas as subcategorias</option></select>
       <select id="lan-tipo" onchange="renderLan()" style="flex:1;min-width:120px">
         <option value="">Todos os tipos</option>
@@ -3850,14 +3850,8 @@ function populaFiltros(){
   if(lanPagoFiltro && !lanPagoFiltro.value) lanPagoFiltro.value='';
   const lanCat=document.getElementById('lan-cat');
   if(lanCat){ const cats=[...new Set(DB.lancamentos.map(l=>l.cat))].sort(); lanCat.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>`<option>${c}</option>`).join(''); }
-  // Lançamentos — subcategoria (lista global, independente da categoria selecionada)
-  const lanSubcatEl=document.getElementById('lan-subcat');
-  if(lanSubcatEl){
-    const valorAnterior=lanSubcatEl.value;
-    const subcats=[...new Set(DB.lancamentos.map(l=>l.subcat).filter(Boolean))].sort();
-    lanSubcatEl.innerHTML='<option value="">Todas as subcategorias</option>'+subcats.map(s=>`<option value="${s}">${s}</option>`).join('');
-    if(subcats.includes(valorAnterior)) lanSubcatEl.value=valorAnterior;
-  }
+  // Lançamentos — subcategoria (relação com a categoria selecionada em lan-cat, se houver)
+  atualizarLanSubcatOptions();
   // Novas seções
   ['for-mes','efe-mes'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML='<option value="">Todos os meses</option>'+opts; });
   // Diagnóstico
@@ -5330,6 +5324,27 @@ function getMesAtualDados(){
   return melhor;
 }
 
+// Reconstrói as opções de lan-subcat a partir da categoria selecionada em lan-cat
+// (relação pai→filho: só mostra subcategorias que de fato pertencem à categoria escolhida).
+// Sem categoria selecionada, volta à lista global de todas as subcategorias.
+function atualizarLanSubcatOptions(){
+  const catSel=document.getElementById('lan-cat');
+  const subcatSel=document.getElementById('lan-subcat');
+  if(!subcatSel) return;
+  const cat=catSel?.value||'';
+  const valorAnterior=subcatSel.value;
+  const fonte=cat?DB.lancamentos.filter(l=>l.cat===cat):DB.lancamentos;
+  const subcats=[...new Set(fonte.map(l=>l.subcat).filter(Boolean))].sort();
+  subcatSel.innerHTML='<option value="">Todas as subcategorias</option>'+subcats.map(s=>`<option value="${s}">${s}</option>`).join('');
+  // Mantém a subcategoria escolhida apenas se ela ainda pertencer à categoria atual
+  if(subcats.includes(valorAnterior)) subcatSel.value=valorAnterior;
+}
+
+function onLanCatChange(){
+  atualizarLanSubcatOptions();
+  renderLan();
+}
+
 function setupLan(){
   showBody('lan');
   const elOrd = document.getElementById('lan-ord');
@@ -5348,6 +5363,7 @@ function limparFiltrosLan(){
   ['lan-mes','lan-cat','lan-subcat','lan-tipo','lan-pago-filtro'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
+  atualizarLanSubcatOptions(); // categoria voltou a "todas": subcategoria também volta à lista global
   const busca=document.getElementById('lan-busca'); if(busca) busca.value='';
   const ord=document.getElementById('lan-ord'); if(ord) ord.value='nao-pago-mes';
   lanShowAllFlag=false;
@@ -8314,6 +8330,8 @@ function applyFilters(){
     }
     fns.add(g.apply_fn);
   });
+  // Categoria (Lançamentos) trocada pelo drawer: subcategoria precisa refletir a nova relação pai→filho
+  if(cfg.groups.some(g=>g.source_id==='lan-cat')) atualizarLanSubcatOptions();
   fns.forEach(fn=>{if(fnMap[fn])fnMap[fn]();});
   updateFilterBadge();
   closeFilterDrawer();
