@@ -67,7 +67,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,-apple-s
 .nav-item.active{color:var(--blue);background:var(--bld);border-left-color:var(--blue)}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0}
 .nav-item.active .dot{opacity:1}
-.sb-foot{margin-top:auto;padding:14px 18px;border-top:1px solid var(--bd);font-size:11px;color:var(--tx3);line-height:1.6}
+.sb-foot{display:none;margin-top:auto;padding:14px 18px;border-top:1px solid var(--bd);font-size:11px;color:var(--tx3);line-height:1.6}
 
 /* ─ MAIN ─ */
 .main{margin-left:230px;width:calc(100% - 230px);min-width:0;box-sizing:border-box;height:calc(100vh - 40px);overflow-y:auto;overflow-x:hidden}
@@ -1134,7 +1134,16 @@ html.is-mobile .sidebar.open{
     <div class="section-header" style="margin-bottom:16px">
       <div class="section-header-left">
         <div class="page-title">Evolução Mensal</div>
-        <div class="page-sub" style="margin:0">Receitas, despesas e saldo acumulado da conta</div>
+        <div class="page-sub" style="margin:0" id="men-sub">Receitas, despesas e saldo acumulado da conta</div>
+      </div>
+      <div class="section-header-right">
+        <div class="filter-group">
+          <span class="filter-label">Período</span>
+          <select id="men-periodo" onchange="onMenPeriodo()" style="font-size:12px">
+            <option value="exercicio">Exercício selecionado</option>
+            <option value="tudo">Todos os períodos</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -1711,6 +1720,7 @@ html.is-mobile .sidebar.open{
       </div>
       <div class="section-header-right">
         <span id="lan-filtros-ativos" style="font-size:11px;color:var(--amber);font-weight:600;display:none">● Filtros ativos</span>
+        <button class="btn-ghost" onclick="exportarLanCSV()" title="Exportar os lançamentos do filtro atual em CSV">⬇ Exportar CSV</button>
         <button class="btn-ghost" onclick="limparFiltrosLan()">✕ Limpar</button>
       </div>
     </div>
@@ -1720,6 +1730,7 @@ html.is-mobile .sidebar.open{
       <input id="lan-busca" class="input-search" oninput="renderLan()" placeholder="🔍 Buscar na descrição, subcategoria..." style="flex:2;min-width:220px">
       <select id="lan-mes" onchange="renderLan()" style="flex:1;min-width:110px"><option value="">Todos os meses</option></select>
       <select id="lan-cat" onchange="renderLan()" style="flex:1;min-width:140px"><option value="">Todas as categorias</option></select>
+      <select id="lan-subcat" onchange="renderLan()" style="flex:1;min-width:150px"><option value="">Todas as subcategorias</option></select>
       <select id="lan-tipo" onchange="renderLan()" style="flex:1;min-width:120px">
         <option value="">Todos os tipos</option>
         <option value="Receitas">Receitas</option>
@@ -2777,10 +2788,11 @@ function getMesesFiltrados(){
 }
 
 // ══ EXERCÍCIO CONTÁBIL (apuração anual — Jan a Dez por ano) ══
-// getMeses() acima continua retornando TODOS os mk de todos os anos: é usado pela
-// Evolução Mensal (exceção explícita da regra de negócio) e pelo carry-over de saldo
-// em getSaldosPorMes, que precisa da série completa para arrastar o saldo Dez/26→Jan/27
-// corretamente. As páginas analíticas, em vez disso, usam getMesesAno(ano) como "todos".
+// getMeses() acima continua retornando TODOS os mk de todos os anos: usado pelo
+// carry-over de saldo em getSaldosPorMes, que precisa da série completa para arrastar
+// o saldo Dez/26→Jan/27 corretamente. As páginas analíticas usam getMesesAno(ano) como
+// "todos". A Evolução Mensal (mensal) também usa getMesesAno(ano) por padrão — só volta
+// à série corrida completa se o usuário escolher "Todos os períodos" no seletor da página.
 const ANO_APURACAO_KEY='ctrl-ano-apuracao';
 let _anoApuracao=null;
 
@@ -2802,7 +2814,8 @@ function getAnoApuracao(){
   return _anoApuracao;
 }
 // Páginas cuja apuração é anual — recarregadas ao trocar de exercício. Evolução Mensal
-// (mensal) fica de fora de propósito: mantém a granularidade mensal corrida, sem recorte.
+// (mensal) é tratada à parte logo abaixo, pois só deve recarregar quando o seletor
+// próprio da página estiver em modo "Exercício selecionado" (não em "Todos os períodos").
 const PAGINAS_ANUAIS=['visao','diagnostico','categorias','transporte','cartao','formas','efetivado','orcamento'];
 // Selects de período (tri-state tudo/mês/intervalo) que precisam resetar para "tudo"
 // ao trocar de exercício, para não herdar seleção de mês que pertencia ao ano anterior.
@@ -2819,8 +2832,10 @@ function setAnoApuracao(ano){
   if(typeof populaFiltros==='function') populaFiltros();
   if(typeof populaOrcFiltros==='function') populaOrcFiltros();
   PAGINAS_ANUAIS.forEach(id=>{ delete rendered[id]; });
+  delete rendered.mensal;
   const pgAtiva=document.querySelector('.page.active')?.id?.replace('pg-','');
   if(pgAtiva&&PAGINAS_ANUAIS.includes(pgAtiva)) renderPage(pgAtiva);
+  if(pgAtiva==='mensal' && document.getElementById('men-periodo')?.value!=='tudo') renderMensal();
   atualizarSeletorExercicio();
 }
 function atualizarSeletorExercicio(){
@@ -3835,6 +3850,14 @@ function populaFiltros(){
   if(lanPagoFiltro && !lanPagoFiltro.value) lanPagoFiltro.value='';
   const lanCat=document.getElementById('lan-cat');
   if(lanCat){ const cats=[...new Set(DB.lancamentos.map(l=>l.cat))].sort(); lanCat.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>`<option>${c}</option>`).join(''); }
+  // Lançamentos — subcategoria (lista global, independente da categoria selecionada)
+  const lanSubcatEl=document.getElementById('lan-subcat');
+  if(lanSubcatEl){
+    const valorAnterior=lanSubcatEl.value;
+    const subcats=[...new Set(DB.lancamentos.map(l=>l.subcat).filter(Boolean))].sort();
+    lanSubcatEl.innerHTML='<option value="">Todas as subcategorias</option>'+subcats.map(s=>`<option value="${s}">${s}</option>`).join('');
+    if(subcats.includes(valorAnterior)) lanSubcatEl.value=valorAnterior;
+  }
   // Novas seções
   ['for-mes','efe-mes'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML='<option value="">Todos os meses</option>'+opts; });
   // Diagnóstico
@@ -4144,13 +4167,26 @@ function renderVisao(){
 }
 
 // ══ EVOLUÇÃO MENSAL ══
+function onMenPeriodo(){
+  renderMensal();
+}
+
 function renderMensal(){
   showBody('men');
-  const rm    = getResumo();
-  const meses = getMeses();
+  const periodoSel = document.getElementById('men-periodo')?.value || 'exercicio';
+  const meses = periodoSel === 'tudo' ? getMeses() : getMesesAno(getAnoApuracao());
+  const rmTodos = getResumo();
+  const rm = meses.map(mk => rmTodos.find(r=>r.mes===mk) || {mes:mk,rec:0,inv:0,desp:0,saldo:0});
 
-  // Saldo acumulado da conta (usa getSaldosPorMes que lê saldo_inicial da planilha)
-  const saldosObj = getSaldosPorMes();
+  const menSubEl = document.getElementById('men-sub');
+  if(menSubEl) menSubEl.textContent = periodoSel === 'tudo'
+    ? 'Receitas, despesas e saldo acumulado da conta · histórico completo'
+    : `Receitas, despesas e saldo acumulado da conta · Exercício ${getAnoApuracao()}`;
+
+  // Saldo acumulado da conta (usa getSaldosPorMes, que sempre acumula sobre a série
+  // COMPLETA internamente — o carry-over Dez/ano→Jan/ano+1 continua correto mesmo
+  // filtrando a exibição para um único exercício)
+  const saldosObj = getSaldosPorMes(meses);
   const saldoConta = meses.map(m => {
     const s = saldosObj.find(x => x.mes === m);
     return s ? s.saldo_atu : null;
@@ -5309,7 +5345,7 @@ function setupLan(){
 }
 
 function limparFiltrosLan(){
-  ['lan-mes','lan-cat','lan-tipo','lan-pago-filtro'].forEach(id=>{
+  ['lan-mes','lan-cat','lan-subcat','lan-tipo','lan-pago-filtro'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   const busca=document.getElementById('lan-busca'); if(busca) busca.value='';
@@ -5391,10 +5427,12 @@ function renderLan(){
   const mesAtual = getMesAtualDados();
 
   const formaFiltro = document.getElementById('lan-forma')?.value || '';
+  const subcatFiltro = document.getElementById('lan-subcat')?.value || '';
 
   let lan = DB.lancamentos.filter((l,i) => {
     if(mes && !matchMes(l,mes)) return false;
     if(cat && l.cat !== cat) return false;
+    if(subcatFiltro && l.subcat !== subcatFiltro) return false;
     if(tipo === 'despesa' && (l.cat==='Receitas'||l.cat==='Investimentos')) return false;
     if(tipo === 'Receitas' && l.cat!=='Receitas') return false;
     if(tipo === 'Investimentos' && l.cat!=='Investimentos') return false;
@@ -5535,6 +5573,70 @@ function renderLan(){
     else
       subLabel.textContent = `${lanComIdx.length.toLocaleString('pt-BR')} registros`;
   }
+}
+
+// Exporta os lançamentos do FILTRO ATUAL da tela (mesmos critérios de renderLan) para CSV.
+// Mantido como passe de filtro isolado (não reaproveita renderLan) para não acoplar
+// a exportação ao estado de ordenação/paginação da tabela.
+function exportarLanCSV(){
+  const mes         = document.getElementById('lan-mes')?.value || '';
+  const cat         = document.getElementById('lan-cat')?.value || '';
+  const subcat      = document.getElementById('lan-subcat')?.value || '';
+  const tipo        = document.getElementById('lan-tipo')?.value || '';
+  const pagoFiltro  = document.getElementById('lan-pago-filtro')?.value || '';
+  const formaFiltro = document.getElementById('lan-forma')?.value || '';
+  const busca       = (document.getElementById('lan-busca')?.value||'').toLowerCase().trim();
+
+  const lan = DB.lancamentos.filter(l => {
+    if(mes && !matchMes(l,mes)) return false;
+    if(cat && l.cat !== cat) return false;
+    if(subcat && l.subcat !== subcat) return false;
+    if(tipo === 'despesa' && (l.cat==='Receitas'||l.cat==='Investimentos')) return false;
+    if(tipo === 'Receitas' && l.cat!=='Receitas') return false;
+    if(tipo === 'Investimentos' && l.cat!=='Investimentos') return false;
+    if(pagoFiltro && l.pago !== pagoFiltro) return false;
+    if(formaFiltro && l.forma !== formaFiltro) return false;
+    if(busca && !l.desc.toLowerCase().includes(busca)
+             && !l.subcat.toLowerCase().includes(busca)
+             && !l.cat.toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  if(!lan.length){ alert('Nenhum lançamento no filtro atual para exportar.'); return; }
+
+  // Escapa para CSV com separador ';' (padrão Excel pt-BR): aspas duplicadas e
+  // envolve em aspas apenas quando o campo contém ';', '"' ou quebra de linha.
+  const esc = v => {
+    const s = String(v==null?'':v).replace(/"/g,'""');
+    return /[;"\n]/.test(s) ? `"${s}"` : s;
+  };
+  const header = ['Data','Categoria','Subcategoria','Descrição','Forma de Pagamento','Mês','Valor','Pago'];
+  const linhas = lan
+    .slice()
+    .sort((a,b)=>(a.data||'').localeCompare(b.data||''))
+    .map(l => [
+      l.data || '',
+      l.cat || '',
+      l.subcat || '',
+      l.desc || '',
+      l.forma || '',
+      (l.mes||'') + '/' + (l.ano||''),
+      l.valor.toFixed(2).replace('.', ','),
+      l.pago || ''
+    ].map(esc).join(';'));
+
+  // BOM UTF-8 no início garante acentuação correta ao abrir no Excel.
+  const csv = '\uFEFF' + header.join(';') + '\n' + linhas.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `lancamentos_${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 
@@ -8092,6 +8194,7 @@ const PAGE_FILTERS = {
   lancamentos: { title:'Filtrar Lançamentos', groups:[
     { label:'Mês', type:'select', source_id:'lan-mes', apply_fn:'renderLan' },
     { label:'Categoria', type:'select', source_id:'lan-cat', apply_fn:'renderLan' },
+    { label:'Subcategoria', type:'select', source_id:'lan-subcat', apply_fn:'renderLan' },
     { label:'Tipo', type:'select', source_id:'lan-tipo', apply_fn:'renderLan' },
     { label:'Status', type:'select', source_id:'lan-pago-filtro', apply_fn:'renderLan' },
     { label:'Forma de Pagamento', type:'select', source_id:'lan-forma', apply_fn:'renderLan' }
