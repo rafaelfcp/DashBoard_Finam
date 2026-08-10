@@ -2211,6 +2211,69 @@ html.is-mobile .sidebar.open{
 
     </div>
 
+    <!-- Projeção de reserva até dezembro do exercício -->
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="card-title" style="margin:0">📈 Projeção de reserva até Dezembro/<span id="diag-proj-ano"></span></div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:3px" id="diag-proj-sub">Cenário ideal (respeitando o orçado, sem novas parcelas) vs. trajetória atual — mês a mês até o fim do exercício</div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Meta de reserva</span>
+          <input type="number" id="diag-meta-reserva" placeholder="ex: 20000" step="100" min="0"
+            oninput="onDiagMetaChange()" style="width:120px;font-size:12px">
+        </div>
+      </div>
+
+      <div id="diag-proj-vazio" style="display:none;padding:16px;background:var(--bg3);border-radius:var(--rs);font-size:13px;color:var(--tx2);margin-top:10px">
+        Este exercício não tem meses futuros a partir do mês corrente para projetar. Selecione um exercício em andamento no seletor "Exercício" da barra lateral para ver a projeção.
+      </div>
+
+      <div id="diag-proj-conteudo">
+        <div class="g3">
+          <div class="kpi kpi-accent-ok">
+            <div class="kpi-lbl">Potencial máximo <span style="font-weight:400">(orçado à risca, sem parcelas novas)</span></div>
+            <div class="kpi-val ok" id="diag-proj-ideal">—</div>
+            <div class="kpi-sub" id="diag-proj-ideal-sub">acumulado projetado</div>
+          </div>
+          <div class="kpi" id="diag-proj-real-kpi">
+            <div class="kpi-lbl">Trajetória atual <span style="font-weight:400">(mantendo o ritmo real)</span></div>
+            <div class="kpi-val" id="diag-proj-real">—</div>
+            <div class="kpi-sub" id="diag-proj-real-sub">acumulado projetado</div>
+          </div>
+          <div class="kpi" id="diag-proj-gap-kpi">
+            <div class="kpi-lbl">Impacto acumulado <span style="font-weight:400">(o que está sendo perdido)</span></div>
+            <div class="kpi-val" id="diag-proj-gap">—</div>
+            <div class="kpi-sub" id="diag-proj-gap-sub">potencial − trajetória atual</div>
+          </div>
+        </div>
+
+        <div class="chart-wrap" style="height:240px;margin-bottom:14px">
+          <canvas id="chart-diag-projecao" role="img" aria-label="Projeção de reserva acumulada até dezembro"></canvas>
+        </div>
+
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <table class="dtable" style="min-width:680px">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding-left:14px">Mês</th>
+                <th>Receita proj.</th>
+                <th>Despesa orçada</th>
+                <th>Despesa real média</th>
+                <th>Parcelas comprometidas</th>
+                <th>Saldo ideal</th>
+                <th>Saldo real</th>
+                <th style="padding-right:14px">Acumulado ideal / real</th>
+              </tr>
+            </thead>
+            <tbody id="diag-proj-tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="diag-proj-insight" style="margin-top:14px;background:linear-gradient(135deg,rgba(224,179,95,.1),rgba(224,179,95,.04));border:1px solid rgba(224,179,95,.3);border-radius:var(--r);padding:14px 16px;font-size:13px;font-weight:600;color:var(--tx);line-height:1.7"></div>
+      </div>
+    </div>
+
     <!-- Diagnóstico do consultor — IA -->
     <div class="card" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -6033,6 +6096,12 @@ function setupDiagnostico(){
   ['diag-mes','diag-de','diag-ate'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
   const elAte=document.getElementById('diag-ate');
   if(elAte&&meses.length)elAte.value=meses[meses.length-1];
+  const elMeta=document.getElementById('diag-meta-reserva');
+  if(elMeta && !elMeta.dataset.filled){
+    let salvo=''; try{ salvo=localStorage.getItem(META_RESERVA_KEY)||''; }catch(e){}
+    elMeta.value=salvo;
+    elMeta.dataset.filled='1';
+  }
   renderDiagnostico();
 }
 
@@ -6116,6 +6185,138 @@ function renderDiagnostico(){
     const desvioTag=orcado>0?`<span class="badge ${desvio>500?'b-danger':desvio>100?'b-warn':desvio<=0?'b-ok':'b-info'}" style="font-size:10px">${desvio>0?'+':''}${R(desvio)}</span>`:`<span style="font-size:10px;color:var(--tx3)">sem orçado</span>`;
     return `<div style="padding:11px 0;border-bottom:1px solid var(--bd)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px"><span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><span style="width:8px;height:8px;border-radius:50%;background:${CORES[c]||'#8a9a8c'}"></span>${c}</span><div style="display:flex;align-items:center;gap:8px">${desvioTag}<span style="font-size:13px;font-weight:800;color:${barColor}">${R(media)}/mês</span></div></div><div style="position:relative;height:7px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:5px">${orcado>0?`<div style="position:absolute;left:0;top:0;height:100%;width:${barOrc}%;background:rgba(111,184,201,.3);border-radius:99px"></div>`:''}<div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(barReal,100)}%;background:${barColor};border-radius:99px;opacity:.85"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--tx3)"><span>${pct}% da renda</span>${orcado>0?`<span>orçado: ${R(orcado)}/mês (${pctOrc}% renda)</span>`:`<span>sem orçamento definido</span>`}</div></div>`;
   }).join('');
+  renderProjecaoReserva();
+}
+
+// Detecta se um lançamento é uma parcela de cartão de crédito (mesmo critério de buildComprometimento).
+// Usado para excluir parcelas da média histórica "recorrente" na projeção de reserva — evita contar
+// 2x quando o comprometimento específico de cada mês futuro é somado de volta separadamente (mais
+// preciso que diluir numa média fixa, pois sabe exatamente quando cada parcela termina).
+function isLancamentoParcela(l){
+  if(l.cat==='Receitas')return false;
+  const forma=(l.forma||'').toLowerCase();
+  const isCartao=forma.includes('credito')||forma.includes('master')||forma.includes('c.c');
+  if(!isCartao)return false;
+  const reParc=/\((\d{1,3})\/(\d{1,3})\)|(\d{1,3})\/(\d{1,3})/;
+  const m=reParc.exec(l.desc||'');if(!m)return false;
+  const total=parseInt(m[2]||m[4]);
+  return total>=2&&total<=24;
+}
+
+const META_RESERVA_KEY='ctrl-diag-meta-reserva';
+
+function onDiagMetaChange(){
+  const el=document.getElementById('diag-meta-reserva');
+  const v=parseFloat(el?.value)||0;
+  try{ localStorage.setItem(META_RESERVA_KEY,String(v)); }catch(e){}
+  renderProjecaoReserva();
+}
+
+// ══ PROJEÇÃO DE RESERVA (Diagnóstico) ══
+// Metodologia (independente do filtro de período "diag-tipo" — sempre olha o exercício inteiro):
+// · Cenário IDEAL: despesa = Orçamento por categoria (getOrcCat — o próprio planejamento de
+//   Rafael em Orçado vs Real, ou seja "cortar despesa" = gastar só o planejado) e ZERO parcelas
+//   novas (não soma comprometimento de cartão nenhum — simula não parcelar nada daqui pra frente).
+// · Cenário REAL: despesa = média histórica recorrente (exclui parcelas, ver isLancamentoParcela)
+//   + comprometimento de parcelas JÁ ASSUMIDO, projetado mês a mês via buildComprometimento()
+//   (mesma função usada na página Cartão/Parcelas — mostra o comprometimento minguando conforme
+//   as parcelas ativas vão terminando, em vez de uma média fixa).
+// Ambos partem do mesmo saldo atual real (getSaldosPorMes), garantindo que os dois acumulados
+// sejam comparáveis ponto a ponto.
+function renderProjecaoReserva(){
+  const ano=getAnoApuracao();
+  const mesesAno=getMesesAno(ano);
+  const elAno=document.getElementById('diag-proj-ano'); if(elAno) elAno.textContent=ano;
+  if(!mesesAno.length) return;
+
+  const saldos=getSaldosPorMes(mesesAno);
+  const comPago=saldos.filter(s=>s.tem_pago);
+  const mesAtualObj=comPago.length>0?comPago[comPago.length-1]:saldos[0];
+  const idxAtual=mesesAno.indexOf(mesAtualObj.mes);
+  const mesesFuturos=mesesAno.slice(idxAtual+1);
+
+  const vazio=document.getElementById('diag-proj-vazio'),conteudo=document.getElementById('diag-proj-conteudo');
+  if(!mesesFuturos.length){
+    if(vazio)vazio.style.display='block';
+    if(conteudo)conteudo.style.display='none';
+    return;
+  }
+  if(vazio)vazio.style.display='none';
+  if(conteudo)conteudo.style.display='block';
+
+  // Base histórica: meses já efetivados (pagos) do exercício, até o mês atual
+  const mesesBase=comPago.map(s=>s.mes);
+  const nBase=Math.max(mesesBase.length,1);
+  const lanBase=DB.lancamentos.filter(l=>l.pago==='Sim'&&mesesBase.some(m=>matchMes(l,m)));
+  const receitaMedia=Math.round(SM(lanBase.filter(l=>l.cat==='Receitas').map(l=>l.valor))/nBase);
+  const despesaRecorrenteMedia=Math.round(SM(lanBase.filter(l=>l.cat!=='Receitas'&&l.cat!=='Investimentos'&&!isLancamentoParcela(l)).map(l=>l.valor))/nBase);
+
+  const {comprometimento}=buildComprometimento();
+  const saldoBase=mesAtualObj.saldo_atu;
+
+  let acumIdeal=saldoBase,acumReal=saldoBase;
+  const linhas=[];
+  mesesFuturos.forEach(mk=>{
+    const parcMes=Object.values(comprometimento[mk]||{}).flat().reduce((s,x)=>s+x.valor,0);
+    const despOrcada=CATS.reduce((s,c)=>s+getOrcCat(c,[mk]),0);
+    const saldoIdeal=receitaMedia-despOrcada;
+    const saldoReal=receitaMedia-despesaRecorrenteMedia-parcMes;
+    acumIdeal+=saldoIdeal;
+    acumReal+=saldoReal;
+    linhas.push({mk,receitaMedia,despOrcada,despesaRecorrenteMedia,parcMes,saldoIdeal,saldoReal,acumIdeal,acumReal});
+  });
+
+  const gap=acumIdeal-acumReal;
+  const ultimoMes=mesesFuturos[mesesFuturos.length-1];
+  document.getElementById('diag-proj-ideal').textContent=(acumIdeal>=0?'':'-')+R(Math.abs(acumIdeal));
+  document.getElementById('diag-proj-ideal-sub').textContent=`até ${mkLabel(ultimoMes)} · partindo de ${R(saldoBase)}`;
+  const realEl=document.getElementById('diag-proj-real');
+  realEl.textContent=(acumReal>=0?'':'-')+R(Math.abs(acumReal));
+  realEl.className='kpi-val '+(acumReal>=0?'ok':'danger');
+  document.getElementById('diag-proj-real-kpi').className='kpi '+(acumReal>=0?'kpi-accent-ok':'kpi-accent-danger');
+  const gapEl=document.getElementById('diag-proj-gap');
+  gapEl.textContent=R(Math.abs(gap));
+  gapEl.className='kpi-val '+(gap>500?'danger':gap>100?'warn':'ok');
+  document.getElementById('diag-proj-gap-kpi').className='kpi '+(gap>500?'kpi-accent-danger':gap>100?'kpi-accent-warn':'kpi-accent-ok');
+
+  const metaVal=parseFloat(document.getElementById('diag-meta-reserva')?.value)||0;
+  const labels=[mkLabel(mesAtualObj.mes),...mesesFuturos.map(mkLabel)];
+  const serieIdeal=[saldoBase,...linhas.map(l=>l.acumIdeal)];
+  const serieReal=[saldoBase,...linhas.map(l=>l.acumReal)];
+  const datasets=[
+    {label:'Potencial (ideal)',data:serieIdeal,borderColor:'#5fd99a',backgroundColor:'rgba(95,217,154,.08)',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#5fd99a',fill:false,tension:.25},
+    {label:'Trajetória atual',data:serieReal,borderColor:'#d97a7a',backgroundColor:'rgba(217,122,122,.08)',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#d97a7a',fill:false,tension:.25}
+  ];
+  if(metaVal>0){
+    datasets.push({label:'Meta',data:labels.map(()=>metaVal),borderColor:'rgba(224,179,95,.8)',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false});
+  }
+  mkChart('chart-diag-projecao',{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{color:CC.tick,font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw>=0?'':'-'}${R(Math.abs(ctx.raw))}`}}},scales:{x:{grid:{display:false},ticks:{color:CC.tick,font:{size:11}}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(1)+'k'}}}}});
+
+  const fmtS=v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">${v>=0?'+':'-'}${R(Math.abs(v))}</span>`;
+  document.getElementById('diag-proj-tbody').innerHTML=linhas.map(l=>`
+    <tr>
+      <td style="padding:9px 10px;font-weight:700">${mkLabel(l.mk)}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:12px">${R(l.receitaMedia)}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:12px">${R(l.despOrcada)}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:12px">${R(l.despesaRecorrenteMedia)}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:12px">${l.parcMes>0?R(l.parcMes):'—'}</td>
+      <td style="padding:9px 10px;text-align:right">${fmtS(l.saldoIdeal)}</td>
+      <td style="padding:9px 10px;text-align:right">${fmtS(l.saldoReal)}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:12px">${R(l.acumIdeal)} <span style="color:var(--tx3)">/</span> ${R(l.acumReal)}</td>
+    </tr>`).join('');
+
+  const totalParcelasFuturas=linhas.reduce((s,l)=>s+l.parcMes,0);
+  const insightEl=document.getElementById('diag-proj-insight');
+  let msg=`Se você <strong>respeitar o orçado</strong> em todas as categorias e <strong>não fizer novas compras parceladas</strong> daqui até ${mkLabel(ultimoMes)}, o acumulado projetado é de <strong style="color:var(--green)">${R(Math.abs(acumIdeal))}</strong>. `;
+  msg+=`No ritmo atual, a projeção cai para <strong style="color:${acumReal>=0?'var(--green)':'var(--red)'}">${R(Math.abs(acumReal))}</strong> — uma diferença de <strong style="color:var(--amber)">${R(Math.abs(gap))}</strong>`;
+  if(totalParcelasFuturas>0) msg+=`, dos quais <strong>${R(totalParcelasFuturas)}</strong> só em parcelas de cartão já comprometidas`;
+  msg+='.';
+  if(metaVal>0){
+    if(acumReal>=metaVal) msg+=` No ritmo atual você já <strong style="color:var(--green)">atinge a meta de ${R(metaVal)}</strong>.`;
+    else if(acumIdeal>=metaVal) msg+=` A meta de <strong>${R(metaVal)}</strong> só é alcançada <strong>cortando despesas e parcelas</strong> — no ritmo atual falta <strong style="color:var(--red)">${R(metaVal-acumReal)}</strong>.`;
+    else msg+=` Mesmo no cenário ideal, a meta de <strong>${R(metaVal)}</strong> fica <strong style="color:var(--red)">${R(metaVal-acumIdeal)}</strong> fora de alcance neste exercício — vale revisar o valor ou o prazo.`;
+  }
+  if(insightEl)insightEl.innerHTML=msg;
 }
 
 function gerarDiagnostico(){
