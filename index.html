@@ -6269,7 +6269,7 @@ function renderProjecaoReserva(){
   const gap=acumIdeal-acumReal;
   const ultimoMes=mesesFuturos[mesesFuturos.length-1];
   document.getElementById('diag-proj-ideal').textContent=(acumIdeal>=0?'':'-')+R(Math.abs(acumIdeal));
-  document.getElementById('diag-proj-ideal-sub').textContent=`até ${mkLabel(ultimoMes)} · partindo de ${R(saldoBase)}`;
+  document.getElementById('diag-proj-ideal-sub').textContent=`até ${mkLabel(ultimoMes)} · partindo de ${saldoBase>=0?'':'-'}${R(Math.abs(saldoBase))}`;
   const realEl=document.getElementById('diag-proj-real');
   realEl.textContent=(acumReal>=0?'':'-')+R(Math.abs(acumReal));
   realEl.className='kpi-val '+(acumReal>=0?'ok':'danger');
@@ -6302,7 +6302,7 @@ function renderProjecaoReserva(){
       <td style="padding:9px 10px;text-align:right;font-size:12px">${l.parcMes>0?R(l.parcMes):'—'}</td>
       <td style="padding:9px 10px;text-align:right">${fmtS(l.saldoIdeal)}</td>
       <td style="padding:9px 10px;text-align:right">${fmtS(l.saldoReal)}</td>
-      <td style="padding:9px 10px;text-align:right;font-size:12px">${R(l.acumIdeal)} <span style="color:var(--tx3)">/</span> ${R(l.acumReal)}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:12px">${l.acumIdeal>=0?'':'-'}${R(Math.abs(l.acumIdeal))} <span style="color:var(--tx3)">/</span> ${l.acumReal>=0?'':'-'}${R(Math.abs(l.acumReal))}</td>
     </tr>`).join('');
 
   const totalParcelasFuturas=linhas.reduce((s,l)=>s+l.parcMes,0);
