@@ -953,6 +953,7 @@ html.is-mobile .sidebar.open{
   <div class="nav-item" onclick="navTo('orcamento',this)"><span class="dot"></span>Orçado vs Real</div>
   <div class="nav-item" onclick="navTo('simulador',this)"><span class="dot"></span>Simulador</div>
   <div class="nav-item" onclick="navTo('metas',this)"><span class="dot"></span>Metas & Reserva</div>
+  <div class="nav-item" onclick="navTo('casapropria',this)"><span class="dot"></span>Casa Própria</div>
   <div class="nav-sec">Dados</div>
   <div class="nav-item" onclick="navTo('novo',this)"><span class="dot"></span>➕ Novo Lançamento</div>
   <div class="nav-item" onclick="navTo('lancamentos',this)"><span class="dot"></span>Lançamentos</div>
@@ -1651,6 +1652,42 @@ html.is-mobile .sidebar.open{
   </div>
 </div>
 
+<!-- CASA PRÓPRIA -->
+<div class="page" id="pg-casapropria">
+  <div id="cprop-empty" class="empty"><div class="empty-icon">🏠</div><div class="empty-title">Importe os dados primeiro</div></div>
+  <div id="cprop-body" style="display:none">
+    <div class="section-header">
+      <div class="section-header-left"><div class="page-title">Casa Própria</div><div class="page-sub" style="margin:0">Acumulação para entrada — saldo real vs. projeção conservadora e otimista</div></div>
+      <div class="section-header-right">
+        <button class="btn-icon" style="padding:8px 14px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:12px;margin-right:8px" onclick="abrirCpRevisaoForm()">📋 Nova reavaliação</button>
+        <button class="btn-modal-save" onclick="abrirCpSaldoForm()">+ Novo saldo</button>
+      </div>
+    </div>
+
+    <div class="g4" id="cprop-kpis"></div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Saldo real vs. projeção (conservador / otimista)</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="chart-cprop-curva" role="img" aria-label="Curva de projeção da meta Casa Própria"></canvas></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--tx2)">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6fb8c9;margin-right:5px"></span>Conservador (projeção)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0b35f;margin-right:5px"></span>Otimista (projeção)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#5fd99a;margin-right:5px"></span>Saldo real (lançado)</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Histórico de saldos lançados</div>
+      <div id="cprop-saldos-tabela" style="overflow-x:auto"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Histórico de reavaliações</div>
+      <div id="cprop-revisoes-tabela" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL META -->
 <div class="modal-overlay" id="modal-meta" style="display:none" onclick="if(event.target===this)fecharModal('meta')">
   <div class="modal-box">
@@ -1706,6 +1743,75 @@ html.is-mobile .sidebar.open{
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="fecharModal('meta')">Cancelar</button>
       <button class="btn-modal-save" id="btn-meta-save" onclick="salvarMeta()">💾 Salvar meta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CASA PRÓPRIA: NOVO SALDO -->
+<div class="modal-overlay" id="modal-cpsaldo" style="display:none" onclick="if(event.target===this)fecharModal('cpsaldo')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🏠 Novo saldo — Casa Própria</div>
+      <button class="modal-close" onclick="fecharModal('cpsaldo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-g2">
+        <div><label class="modal-label">Data</label>
+          <input type="date" id="cpsaldo-data" class="modal-input"></div>
+        <div><label class="modal-label">Saldo real (R$)</label>
+          <input type="number" id="cpsaldo-valor" class="modal-input" step="0.01" min="0"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Observação</label>
+        <input type="text" id="cpsaldo-obs" class="modal-input" placeholder="opcional — ex: extrato de 07/09" maxlength="120">
+      </div>
+      <div id="cpsaldo-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('cpsaldo')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-cpsaldo-save" onclick="salvarCpSaldo()">💾 Salvar saldo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CASA PRÓPRIA: NOVA REAVALIAÇÃO -->
+<div class="modal-overlay" id="modal-cprevisao" style="display:none" onclick="if(event.target===this)fecharModal('cprevisao')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">📋 Nova reavaliação — Casa Própria</div>
+      <button class="modal-close" onclick="fecharModal('cprevisao')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-group">
+        <label class="modal-label">Data de vigência</label>
+        <input type="date" id="cprev-data" class="modal-input">
+      </div>
+      <div class="tip" style="margin:-4px 0 10px">Vale a partir desta data — meses anteriores continuam usando os parâmetros da revisão vigente na época (a curva não é reancorada).</div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Taxa CDI conservador (% a.a.)</label>
+          <input type="number" id="cprev-taxa-cons" class="modal-input" step="0.01" min="0" placeholder="ex: 10.00"></div>
+        <div><label class="modal-label">Taxa CDI otimista (% a.a.)</label>
+          <input type="number" id="cprev-taxa-otim" class="modal-input" step="0.01" min="0" placeholder="ex: 13.90"></div>
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Valor do imóvel-alvo (R$)</label>
+          <input type="number" id="cprev-imovel" class="modal-input" step="0.01" min="0"></div>
+        <div><label class="modal-label">Entrada estimada (R$)</label>
+          <input type="number" id="cprev-entrada" class="modal-input" step="0.01" min="0"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">ITBI/Cartório (R$)</label>
+        <input type="number" id="cprev-itbi" class="modal-input" step="0.01" min="0">
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Motivo da reavaliação</label>
+        <input type="text" id="cprev-motivo" class="modal-input" placeholder="ex: revisão semestral — CDI caiu, imóvel valorizou 4%" maxlength="160">
+      </div>
+      <div id="cprev-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('cprevisao')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-cprevisao-save" onclick="salvarCpRevisao()">💾 Salvar reavaliação</button>
     </div>
   </div>
 </div>
@@ -2371,6 +2477,15 @@ html.is-mobile .sidebar.open{
         </div>
       </div>
 
+      <!-- Objetivo (só para Investimentos) -->
+      <div id="nv-objetivo-wrap" style="display:none;margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Objetivo</label>
+        <select id="nv-objetivo" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+          <option value="">Sem objetivo específico</option>
+        </select>
+        <div style="font-size:10px;color:var(--tx3);margin-top:4px">Pra quem já usa "Renda Fixa" pra mais de um objetivo (casa, carro, etc.) — escolhe pra qual esse aporte é.</div>
+      </div>
+
       <!-- Descrição -->
       <div style="margin-bottom:14px">
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Descrição *</label>
@@ -2741,7 +2856,7 @@ html.is-mobile .sidebar.open{
 
 <script>
 // ══ DADOS ══
-let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
+let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
 const CHARTS = {};
 const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
 const CORES = { Transporte:'#e0935f',Moradia:'#6fb8c9',Educação:'#a892d4',Alimentação:'#5fd99a',Compras:'#8a9a8c',Lazer:'#e0b35f',Giovanna:'#d9a86f','Saúde & Beleza':'#7fcf9e','Serviços Financeiros':'#c9a85f','Outras Despesas':'#56655a',Vestuário:'#8fc4cf','Doações & Presentes':'#d97a9a' };
@@ -2963,7 +3078,7 @@ function closeSidebar(onClosed){
   }
 }
 
-const PAGE_NAMES={visao:'Visão Geral',config:'Configurações',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
+const PAGE_NAMES={visao:'Visão Geral',config:'Configurações',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',casapropria:'Casa Própria',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
 
 function syncMobileUI(id){
   // Título topbar
@@ -3002,7 +3117,7 @@ function mobileNavTo(id){
     delete rendered[id];
   }
   if(DB.lancamentos.length > 0){
-    const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',metas:'met',cartao:'car',formas:'for',novo:'novo'};
+    const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',metas:'met',casapropria:'cprop',cartao:'car',formas:'for',novo:'novo'};
     const pref = prefMap[id] || id;
 
     // Forçar corpo visível (esconde empty-state)
@@ -3050,7 +3165,7 @@ const rendered={};
 function renderPage(id){
   if(!DB.lancamentos.length){ return; } // sem dados: empty-state já visível
   if(rendered[id]) return;
-  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:()=>setupConfig().catch(console.error),mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
+  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:()=>setupConfig().catch(console.error),mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,casapropria:renderCasaPropria,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){ rendered[id]=true; fns[id](); } // marca APÓS confirmar que há função
 }
 
@@ -3059,7 +3174,7 @@ function forceRenderPage(id){
   if(!DB.lancamentos.length) return;
   const prefMap={lancamentos:'lan',categorias:'cat',transporte:'tra',orcamento:'orc',
     simulador:'sim',diagnostico:'diag',efetivado:'efe',visao:'vg',mensal:'men',
-    metas:'met',cartao:'car',formas:'for',novo:'novo'};
+    metas:'met',casapropria:'cprop',cartao:'car',formas:'for',novo:'novo'};
   const pref = prefMap[id]||id;
   // Destruir charts da página
   Object.keys(CHARTS).filter(k=>k.startsWith(pref)).forEach(k=>{
@@ -3076,7 +3191,7 @@ function forceRenderPage(id){
   // Chamar render diretamente
   const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,
     mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,
-    orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,
+    orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,casapropria:renderCasaPropria,
     lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){
     try{ delete rendered[id]; fns[id](); }
@@ -5374,6 +5489,291 @@ async function excluirMeta(id, nome){
   }
 }
 
+// ══ CASA PRÓPRIA ══
+// Motor: juros compostos mensais a pct_cdi_contratado × CDI do cenário, SEM reset de saldo_base
+// a cada reavaliação — cada mês usa a taxa da revisão vigente naquela data (segmentos encadeados
+// sobre o mesmo saldo contínuo). IR regressivo aplicado por tranche (saldo_base + cada aporte)
+// pelo prazo decorrido de cada uma até o mês de corte. Fórmula validada por simulação:
+// bateu R$744.070/R$781.325 (calculado) vs. R$744.000/R$781.000 (estimativa original).
+
+function cpTaxaMensal(aa){ return Math.pow(1+aa, 1/12) - 1; }
+
+function cpAddMeses(dataISO, n){
+  const d = new Date(dataISO+'T00:00:00');
+  d.setMonth(d.getMonth()+n);
+  return d;
+}
+
+function cpMesLabel(d){ return MESES_ORD[d.getMonth()]+'/'+String(d.getFullYear()).slice(-2); }
+
+// Revisão vigente numa data: a de data_vigencia_inicio mais recente <= data (revisoes ordenadas asc)
+function cpRevisaoVigente(revisoes, data){
+  let atual = revisoes[0];
+  for(const r of revisoes){
+    if(new Date(r.dataVigenciaInicio+'T00:00:00') <= data) atual = r;
+    else break;
+  }
+  return atual;
+}
+
+function cpIrRegressivo(dias){
+  if(dias<=180) return 0.225;
+  if(dias<=360) return 0.20;
+  if(dias<=720) return 0.175;
+  return 0.15;
+}
+
+// Tranches: saldo_base (mesOffset 0) + cada aporte programado do plano imutável
+function cpTranches(plano){
+  const tranches = [{ valor: plano.saldoBase, mesOffset: 0 }];
+  (plano.aportesProgramados||[]).forEach(a=>{
+    tranches.push({ valor: a.valor, mesOffset: a.mesOffset, label: a.label });
+  });
+  return tranches;
+}
+
+// Saldo BRUTO de uma tranche num mês de corte, compondo mês a mês pela taxa vigente em cada mês
+function cpSaldoTrancheEm(tranche, plano, revisoes, cenario, corteOffset){
+  if(tranche.mesOffset > corteOffset) return null;
+  let saldo = tranche.valor;
+  for(let m=tranche.mesOffset+1; m<=corteOffset; m++){
+    const dataM = cpAddMeses(plano.dataBase, m);
+    const rev = cpRevisaoVigente(revisoes, dataM);
+    const taxaAA = cenario==='conservador' ? rev.taxaCdiConservadorAa : rev.taxaCdiOtimistaAa;
+    saldo *= (1 + cpTaxaMensal(plano.pctCdiContratado * taxaAA));
+  }
+  return saldo;
+}
+
+// Curva completa (mesOffset 0..horizonte), líquida de IR regressivo por tranche
+function cpCurva(plano, revisoes, cenario){
+  const tranches = cpTranches(plano);
+  const pontos = [];
+  for(let corte=0; corte<=plano.horizonteMeses; corte++){
+    let principal=0, liquido=0;
+    tranches.forEach(t=>{
+      if(t.mesOffset>corte) return;
+      const bruto = cpSaldoTrancheEm(t, plano, revisoes, cenario, corte);
+      const rendimento = bruto - t.valor;
+      const dias = Math.round((cpAddMeses(plano.dataBase,corte) - cpAddMeses(plano.dataBase,t.mesOffset)) / 86400000);
+      const ir = rendimento>0 ? rendimento*cpIrRegressivo(dias) : 0;
+      principal += t.valor;
+      liquido += t.valor + rendimento - ir;
+    });
+    pontos.push({ mesOffset:corte, data:cpAddMeses(plano.dataBase,corte), principal, liquido });
+  }
+  return pontos;
+}
+
+// Nº de meses (inteiro) entre data_base do plano e uma data ISO qualquer
+function cpOffsetDeData(plano, dataISO){
+  const base = new Date(plano.dataBase+'T00:00:00');
+  const d = new Date(dataISO+'T00:00:00');
+  return (d.getFullYear()-base.getFullYear())*12 + (d.getMonth()-base.getMonth());
+}
+
+function renderCasaPropria(){
+  showBody('cprop');
+  const plano = DB.casaPropriaPlano;
+  const wrap = document.getElementById('cprop-kpis');
+  if(!plano){
+    wrap.innerHTML = `<div class="card" style="grid-column:1/-1"><div style="text-align:center;padding:24px;color:var(--tx2)">Plano ainda não cadastrado (tabela casa_propria_plano vazia).</div></div>`;
+    document.getElementById('cprop-saldos-tabela').innerHTML='';
+    document.getElementById('cprop-revisoes-tabela').innerHTML='';
+    return;
+  }
+  const revisoes = DB.casaPropriaRevisoes.length ? DB.casaPropriaRevisoes : [{
+    dataVigenciaInicio: plano.dataBase, taxaCdiConservadorAa:0.10, taxaCdiOtimistaAa:0.139,
+    valorImovelAlvo:0, entradaEstimada:0, itbiCartorio:0, motivoReavaliacao:null
+  }];
+  const revisaoAtual = cpRevisaoVigente(revisoes, new Date());
+
+  const curvaCons = cpCurva(plano, revisoes, 'conservador');
+  const curvaOtim = cpCurva(plano, revisoes, 'otimista');
+
+  const saldos = DB.casaPropriaSaldos;
+  const ultimoSaldo = saldos.length ? saldos[saldos.length-1] : null;
+
+  let desvioCons=null, desvioOtim=null;
+  if(ultimoSaldo){
+    const offset = Math.max(0, Math.min(plano.horizonteMeses, cpOffsetDeData(plano, ultimoSaldo.data)));
+    desvioCons = ultimoSaldo.saldoReal - curvaCons[offset].liquido;
+    desvioOtim = ultimoSaldo.saldoReal - curvaOtim[offset].liquido;
+  }
+  const saldoAtualExibicao = ultimoSaldo ? ultimoSaldo.saldoReal : plano.saldoBase;
+  const entradaDisponivel = saldoAtualExibicao - plano.colchaoEmergenciaAlvo;
+
+  const kpi = (lbl,val,sub,accent)=>`<div class="kpi${accent?' kpi-accent-'+accent:''}"><div class="kpi-lbl">${lbl}</div><div class="kpi-val${accent?' '+accent:''}">${val}</div><div class="kpi-sub">${sub}</div></div>`;
+
+  wrap.innerHTML =
+    kpi('Saldo atual', R(saldoAtualExibicao), ultimoSaldo?`lançado em ${ultimoSaldo.data.split('-').reverse().join('/')}`:'saldo inicial do plano') +
+    kpi('Disponível p/ entrada', R(Math.max(0,entradaDisponivel)), `após colchão de ${R(plano.colchaoEmergenciaAlvo)}`) +
+    kpi('Desvio vs. conservador', desvioCons!=null?`${desvioCons>=0?'+':'-'}${R(Math.abs(desvioCons))}`:'—', desvioCons!=null?(desvioCons>=0?'adiantado':'atrasado'):'sem saldo lançado ainda', desvioCons!=null?(desvioCons>=0?'ok':'danger'):null) +
+    kpi('Taxa vigente', `${(revisaoAtual.taxaCdiConservadorAa*100).toFixed(2)}% / ${(revisaoAtual.taxaCdiOtimistaAa*100).toFixed(2)}%`, 'CDI conservador / otimista a.a.');
+
+  const labels = curvaCons.map(p=>cpMesLabel(p.data));
+  const dadosReal = curvaCons.map(p=>{
+    const s = saldos.find(sd=>cpOffsetDeData(plano, sd.data)===p.mesOffset);
+    return s ? s.saldoReal : null;
+  });
+  mkChart('chart-cprop-curva',{
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Conservador', data:curvaCons.map(p=>Math.round(p.liquido)), borderColor:'#6fb8c9', backgroundColor:'transparent', borderDash:[6,4], tension:.25, pointRadius:0 },
+      { label:'Otimista', data:curvaOtim.map(p=>Math.round(p.liquido)), borderColor:'#e0b35f', backgroundColor:'transparent', borderDash:[6,4], tension:.25, pointRadius:0 },
+      { label:'Real', data:dadosReal, borderColor:'#5fd99a', backgroundColor:'transparent', tension:.25, spanGaps:true, pointRadius:4, pointBackgroundColor:'#5fd99a' }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>`${ctx.dataset.label}: ${ctx.raw!=null?R(ctx.raw):'—'}` } } },
+      scales:{ x:{ grid:{display:false}, ticks:{color:CC.tick,font:{size:11,family:CC.font}} }, y:{ grid:{color:CC.grid}, ticks:{color:CC.tick,font:{size:11,family:CC.font}, callback:v=>'R$'+(v/1000).toFixed(0)+'k'} } }
+    }
+  });
+
+  const tabSaldos = document.getElementById('cprop-saldos-tabela');
+  tabSaldos.innerHTML = !saldos.length
+    ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhum saldo lançado ainda. Clique em "+ Novo saldo".</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+          <th style="padding:6px 8px">Data</th><th style="padding:6px 8px;text-align:right">Saldo real</th>
+          <th style="padding:6px 8px;text-align:right">Cons.</th><th style="padding:6px 8px;text-align:right">Otim.</th>
+          <th style="padding:6px 8px">Observação</th>
+        </tr></thead><tbody>
+        ${[...saldos].reverse().map(s=>{
+          const offset = Math.max(0,Math.min(plano.horizonteMeses,cpOffsetDeData(plano,s.data)));
+          return `<tr style="border-bottom:1px solid var(--bd)">
+            <td style="padding:6px 8px;color:var(--tx2)">${s.data.split('-').reverse().join('/')}</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700">${R(s.saldoReal)}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${R(curvaCons[offset].liquido)}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${R(curvaOtim[offset].liquido)}</td>
+            <td style="padding:6px 8px;color:var(--tx2)">${s.observacao||'—'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table>`;
+
+  const tabRev = document.getElementById('cprop-revisoes-tabela');
+  tabRev.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+      <th style="padding:6px 8px">Vigência</th><th style="padding:6px 8px;text-align:right">CDI cons.</th>
+      <th style="padding:6px 8px;text-align:right">CDI otim.</th><th style="padding:6px 8px;text-align:right">Imóvel-alvo</th>
+      <th style="padding:6px 8px">Motivo</th>
+    </tr></thead><tbody>
+    ${[...revisoes].reverse().map(r=>`<tr style="border-bottom:1px solid var(--bd)">
+      <td style="padding:6px 8px;color:var(--tx2)">${r.dataVigenciaInicio.split('-').reverse().join('/')}</td>
+      <td style="padding:6px 8px;text-align:right">${(r.taxaCdiConservadorAa*100).toFixed(2)}%</td>
+      <td style="padding:6px 8px;text-align:right">${(r.taxaCdiOtimistaAa*100).toFixed(2)}%</td>
+      <td style="padding:6px 8px;text-align:right">${R(r.valorImovelAlvo)}</td>
+      <td style="padding:6px 8px;color:var(--tx2)">${r.motivoReavaliacao||'—'}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function abrirCpSaldoForm(){
+  document.getElementById('cpsaldo-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cpsaldo-valor').value = '';
+  document.getElementById('cpsaldo-obs').value = '';
+  const fb=document.getElementById('cpsaldo-feedback'); if(fb) fb.style.display='none';
+  abrirModal('cpsaldo');
+}
+
+async function salvarCpSaldo(){
+  const data = document.getElementById('cpsaldo-data').value;
+  const valor = parseFloat(document.getElementById('cpsaldo-valor').value);
+  const obs = document.getElementById('cpsaldo-obs').value.trim();
+  const fb = document.getElementById('cpsaldo-feedback');
+  const btn = document.getElementById('btn-cpsaldo-save');
+
+  function feedback(msg,ok){
+    fb.style.display='block';
+    fb.style.background = ok?'var(--gd)':'var(--rd)';
+    fb.style.color = ok?'var(--green)':'var(--red)';
+    fb.style.border = ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+
+  if(!data || !valor || isNaN(valor) || valor<=0){ feedback('⚠ Preencha data e saldo (> 0).', false); return; }
+  if(!usuarioAtual){ feedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    const payload = { usuario_id: usuarioAtual.id, data, saldo_real: Math.round(valor*100)/100, observacao: obs||null };
+    const {data:res, error} = await getSB().from('casa_propria_saldos').insert(payload).select();
+    if(error) throw new Error(error.message);
+    const novo = res[0];
+    DB.casaPropriaSaldos.push({ id:novo.id, data, saldoReal: valor, observacao: obs||null });
+    DB.casaPropriaSaldos.sort((a,b)=>a.data.localeCompare(b.data));
+    feedback('✓ Saldo salvo com sucesso!', true);
+    setTimeout(()=>{ fecharModal('cpsaldo'); renderCasaPropria(); }, 900);
+  } catch(e){
+    feedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar saldo';
+  }
+}
+
+function abrirCpRevisaoForm(){
+  const revisoes = DB.casaPropriaRevisoes;
+  const ultima = revisoes.length ? revisoes[revisoes.length-1] : null;
+  document.getElementById('cprev-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cprev-taxa-cons').value = ultima ? (ultima.taxaCdiConservadorAa*100).toFixed(2) : '';
+  document.getElementById('cprev-taxa-otim').value = ultima ? (ultima.taxaCdiOtimistaAa*100).toFixed(2) : '';
+  document.getElementById('cprev-imovel').value = ultima ? ultima.valorImovelAlvo : '';
+  document.getElementById('cprev-entrada').value = ultima ? ultima.entradaEstimada : '';
+  document.getElementById('cprev-itbi').value = ultima ? ultima.itbiCartorio : '';
+  document.getElementById('cprev-motivo').value = '';
+  const fb=document.getElementById('cprev-feedback'); if(fb) fb.style.display='none';
+  abrirModal('cprevisao');
+}
+
+async function salvarCpRevisao(){
+  const dataVigencia = document.getElementById('cprev-data').value;
+  const taxaCons = parseFloat(document.getElementById('cprev-taxa-cons').value);
+  const taxaOtim = parseFloat(document.getElementById('cprev-taxa-otim').value);
+  const imovel = parseFloat(document.getElementById('cprev-imovel').value)||0;
+  const entrada = parseFloat(document.getElementById('cprev-entrada').value)||0;
+  const itbi = parseFloat(document.getElementById('cprev-itbi').value)||0;
+  const motivo = document.getElementById('cprev-motivo').value.trim();
+  const fb = document.getElementById('cprev-feedback');
+  const btn = document.getElementById('btn-cprevisao-save');
+
+  function feedback(msg,ok){
+    fb.style.display='block';
+    fb.style.background = ok?'var(--gd)':'var(--rd)';
+    fb.style.color = ok?'var(--green)':'var(--red)';
+    fb.style.border = ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+
+  if(!dataVigencia || isNaN(taxaCons) || isNaN(taxaOtim) || taxaCons<0 || taxaOtim<0){
+    feedback('⚠ Preencha data de vigência e as duas taxas CDI (%).', false); return;
+  }
+  if(!usuarioAtual){ feedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    const payload = {
+      usuario_id: usuarioAtual.id, data_vigencia_inicio: dataVigencia,
+      taxa_cdi_conservador_aa: taxaCons/100, taxa_cdi_otimista_aa: taxaOtim/100,
+      valor_imovel_alvo: Math.round(imovel*100)/100, entrada_estimada: Math.round(entrada*100)/100,
+      itbi_cartorio: Math.round(itbi*100)/100, motivo_reavaliacao: motivo||null
+    };
+    const {data:res, error} = await getSB().from('casa_propria_revisoes').insert(payload).select();
+    if(error) throw new Error(error.message);
+    const novo = res[0];
+    DB.casaPropriaRevisoes.push({
+      id:novo.id, dataVigenciaInicio:dataVigencia,
+      taxaCdiConservadorAa:taxaCons/100, taxaCdiOtimistaAa:taxaOtim/100,
+      valorImovelAlvo:imovel, entradaEstimada:entrada, itbiCartorio:itbi, motivoReavaliacao:motivo||null
+    });
+    DB.casaPropriaRevisoes.sort((a,b)=>a.dataVigenciaInicio.localeCompare(b.dataVigenciaInicio));
+    feedback('✓ Reavaliação registrada!', true);
+    setTimeout(()=>{ fecharModal('cprevisao'); renderCasaPropria(); }, 900);
+  } catch(e){
+    feedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar reavaliação';
+  }
+}
+
 // ══ LANÇAMENTOS ══
 let lanShowAllFlag = false;
 
@@ -6402,6 +6802,19 @@ function onNvCat(){
   const elSub=document.getElementById('nv-subcat');
   const subs=SUBCATS[cat]||[];
   elSub.innerHTML=subs.length?'<option value="">Selecione...</option>'+subs.map(s=>`<option>${s}</option>`).join(''):'<option value="">—</option>';
+
+  // Objetivo: só relevante pra Investimentos (várias metas podem compartilhar a mesma subcategoria)
+  const wrapObj = document.getElementById('nv-objetivo-wrap');
+  const elObj = document.getElementById('nv-objetivo');
+  if(cat==='Investimentos'){
+    wrapObj.style.display='block';
+    const ativas = (DB.metas||[]).filter(m=>m.status==='ativa');
+    elObj.innerHTML = '<option value="">Sem objetivo específico</option>' +
+      ativas.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  } else {
+    wrapObj.style.display='none';
+    elObj.value='';
+  }
 }
 
 // Exibe/oculta o bloco de Cartão (Modalidade/Parcelas) conforme a forma de pagamento
@@ -6465,6 +6878,7 @@ async function salvarLancamento(){
   const mes    = document.getElementById('nv-mes').value;
   const ano    = parseInt(document.getElementById('nv-ano').value,10);
   const pago   = document.getElementById('nv-pago').value;
+  const metaIdSel = cat==='Investimentos' ? (document.getElementById('nv-objetivo').value||null) : null;
   const ehCartao    = isFormaCartao(forma);
   const modalidade  = ehCartao ? document.getElementById('nv-modalidade').value : 'avista';
   const nParcelas   = (ehCartao && modalidade==='parcelado') ? parseInt(document.getElementById('nv-parcelas').value,10) : 1;
@@ -6506,11 +6920,11 @@ async function salvarLancamento(){
         desc: `${desc} (${i+1}/${nParcelas})`,
         forma, valor: valorArred,
         pago: 'Não', // todas as parcelas começam como Não — conforme decidido
-        origem: 'manual'
+        origem: 'manual', meta_id: metaIdSel
       };
     });
   } else {
-    itens = [{ data, mes, ano, cat, subcat: sub||'Outros', desc, forma, valor: valorArred, pago, origem:'manual' }];
+    itens = [{ data, mes, ano, cat, subcat: sub||'Outros', desc, forma, valor: valorArred, pago, origem:'manual', meta_id: metaIdSel }];
   }
 
   let erroSupabase = null;
@@ -6529,7 +6943,8 @@ async function salvarLancamento(){
         forma_pagamento:it.forma || null,
         valor:          it.valor,
         pago:           it.pago,
-        origem:         it.origem
+        origem:         it.origem,
+        meta_id:        it.meta_id || null
       }));
       const { data: res, error } = await getSB()
         .from('lancamentos')
@@ -6567,6 +6982,8 @@ async function salvarLancamento(){
   document.getElementById('nv-valor').value='';
   document.getElementById('nv-cat').value='';
   document.getElementById('nv-subcat').innerHTML='<option value="">Selecione a categoria primeiro</option>';
+  document.getElementById('nv-objetivo-wrap').style.display='none';
+  document.getElementById('nv-objetivo').value='';
   document.getElementById('nv-desc').value='';
 
   if(btnSave){ btnSave.disabled=false; btnSave.textContent='✓ Salvar lançamento'; }
@@ -7204,20 +7621,29 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [lans, r2, r3, r4] = await Promise.all([
+    const [lans, r2, r3, r4, r5, r6, r7] = await Promise.all([
       fetchTodosLancamentos(sb, usuarioAtual.id),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
-      sb.from('metas').select('*').eq('usuario_id', usuarioAtual.id).order('criado_em',{ascending:true})
+      sb.from('metas').select('*').eq('usuario_id', usuarioAtual.id).order('criado_em',{ascending:true}),
+      sb.from('casa_propria_plano').select('*').eq('usuario_id', usuarioAtual.id).limit(1),
+      sb.from('casa_propria_revisoes').select('*').eq('usuario_id', usuarioAtual.id).order('data_vigencia_inicio',{ascending:true}),
+      sb.from('casa_propria_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true})
     ]);
 
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
     if(r3.error) throw new Error('Orçamentos: ' + r3.error.message);
     if(r4.error) throw new Error('Metas: ' + r4.error.message);
+    if(r5.error) throw new Error('Casa Própria (plano): ' + r5.error.message);
+    if(r6.error) throw new Error('Casa Própria (revisões): ' + r6.error.message);
+    if(r7.error) throw new Error('Casa Própria (saldos): ' + r7.error.message);
 
     const saldos= r2.data || [];
     const orcs  = r3.data || [];
     const metasRows = r4.data || [];
+    const cpPlanoRows = r5.data || [];
+    const cpRevisoesRows = r6.data || [];
+    const cpSaldosRows = r7.data || [];
 
     if(lans.length === 0){
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
@@ -7245,6 +7671,28 @@ async function carregarDoSupabase(){
       valorOrcado: parseFloat(m.valor_orcado)||0,
       aporteMensalSugerido: m.aporte_mensal_sugerido!=null?parseFloat(m.aporte_mensal_sugerido):null,
       status: m.status, anoApuracao: m.ano_apuracao
+    }));
+
+    const cpPlanoRow = cpPlanoRows[0] || null;
+    DB.casaPropriaPlano = cpPlanoRow ? {
+      id: cpPlanoRow.id, metaId: cpPlanoRow.meta_id||null,
+      dataBase: cpPlanoRow.data_base, saldoBase: parseFloat(cpPlanoRow.saldo_base)||0,
+      pctCdiContratado: parseFloat(cpPlanoRow.pct_cdi_contratado)||1.015,
+      horizonteMeses: cpPlanoRow.horizonte_meses||24,
+      colchaoEmergenciaAlvo: parseFloat(cpPlanoRow.colchao_emergencia_alvo)||0,
+      aportesProgramados: (cpPlanoRow.aportes_programados||[]).map(a=>({mesOffset:a.mes_offset, valor:a.valor, label:a.label}))
+    } : null;
+    DB.casaPropriaRevisoes = cpRevisoesRows.map(r=>({
+      id: r.id, dataVigenciaInicio: r.data_vigencia_inicio,
+      taxaCdiConservadorAa: parseFloat(r.taxa_cdi_conservador_aa)||0,
+      taxaCdiOtimistaAa: parseFloat(r.taxa_cdi_otimista_aa)||0,
+      valorImovelAlvo: parseFloat(r.valor_imovel_alvo)||0,
+      entradaEstimada: parseFloat(r.entrada_estimada)||0,
+      itbiCartorio: parseFloat(r.itbi_cartorio)||0,
+      motivoReavaliacao: r.motivo_reavaliacao||null
+    }));
+    DB.casaPropriaSaldos = cpSaldosRows.map(s=>({
+      id: s.id, data: s.data, saldoReal: parseFloat(s.saldo_real)||0, observacao: s.observacao||null
     }));
 
     DB.saldos_iniciais = {};
@@ -7443,7 +7891,7 @@ function toggleHideValues(){
   // Invalidar cache de TODAS as páginas para que ao navegar
   // qualquer página re-renderize com o estado correto de ocultar
   ['visao','diagnostico','mensal','categorias','transporte','cartao',
-   'formas','efetivado','orcamento','metas','simulador','lancamentos'].forEach(p=>{
+   'formas','efetivado','orcamento','metas','casapropria','simulador','lancamentos'].forEach(p=>{
     delete rendered[p];
   });
   // Re-renderizar apenas a página ativa agora
@@ -8420,6 +8868,7 @@ const PAGE_FILTERS = {
   ]},
   simulador: { title:'Simulador', groups:[] },
   metas: { title:'Metas', groups:[] },
+  casapropria: { title:'Casa Própria', groups:[] },
   config: { title:'Configurações', groups:[] },
   novo: { title:'Novo Lançamento', groups:[] },
 };
