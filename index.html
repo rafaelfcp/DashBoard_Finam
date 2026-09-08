@@ -7187,6 +7187,11 @@ function confirmarDeletar(idx){
   const fb = document.getElementById('del-feedback');
   if(fb) fb.style.display = 'none';
 
+  // Reset do botão de confirmação — evita ficar travado em "Excluindo..."
+  // caso o modal seja reaberto após uma exclusão anterior (bem-sucedida ou não)
+  const btn = document.getElementById('btn-del-confirm');
+  if(btn){ btn.disabled = false; btn.textContent = '🗑 Confirmar exclusão'; }
+
   abrirModal('deletar');
 }
 
@@ -7459,6 +7464,16 @@ function authShowView(view){
   ['auth-login-err','auth-cad-err','auth-rec-msg'].forEach(id=>{
     const el = document.getElementById(id); if(el) el.style.display='none';
   });
+
+  // Reset dos botões de auth — evita ficar travado em "Entrando.../Criando..."
+  // quando o overlay reaparece após logout (authLogin() nunca reseta no sucesso,
+  // já que a tela é ocultada em vez de fechada como os demais modais)
+  const btnLogin = document.getElementById('auth-btn-login');
+  if(btnLogin){ btnLogin.disabled = false; btnLogin.textContent = 'Entrar'; }
+  const btnCad = document.getElementById('auth-btn-cad');
+  if(btnCad){ btnCad.disabled = false; btnCad.textContent = 'Criar conta'; }
+  const btnRec = document.getElementById('auth-btn-rec');
+  if(btnRec){ btnRec.disabled = false; btnRec.textContent = 'Enviar link'; }
 }
 
 function authShowErr(id, msg){
