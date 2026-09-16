@@ -955,6 +955,8 @@ html.is-mobile .sidebar.open{
   <div class="nav-item" onclick="navTo('simulador',this)"><span class="dot"></span>Simulador</div>
   <div class="nav-item" onclick="navTo('metas',this)"><span class="dot"></span>Metas & Reserva</div>
   <div class="nav-item" onclick="navTo('casapropria',this)"><span class="dot"></span>Casa Própria</div>
+  <div class="nav-sec">Investimentos</div>
+  <div class="nav-item" onclick="navTo('investidor',this)"><span class="dot"></span>Carteira de Investimentos</div>
   <div class="nav-sec">Dados</div>
   <div class="nav-item" onclick="navTo('novo',this)"><span class="dot"></span>➕ Novo Lançamento</div>
   <div class="nav-item" onclick="navTo('lancamentos',this)"><span class="dot"></span>Lançamentos</div>
@@ -1450,7 +1452,7 @@ html.is-mobile .sidebar.open{
       <div class="kpi">
         <div class="kpi-lbl">No limite</div>
         <div class="kpi-val" id="orc-cats-ok">—</div>
-        <div class="kpi-sub">categorias dentro do orçado</div>
+        <div class="kpi-sub" id="orc-cats-ok-sub">categorias dentro do orçado</div>
       </div>
     </div>
 
@@ -1661,6 +1663,7 @@ html.is-mobile .sidebar.open{
       <div class="section-header-left"><div class="page-title">Casa Própria</div><div class="page-sub" style="margin:0">Acumulação para entrada — saldo real vs. projeção conservadora e otimista</div></div>
       <div class="section-header-right">
         <button class="btn-icon" style="padding:8px 14px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:12px;margin-right:8px" onclick="abrirCpRevisaoForm()">📋 Nova reavaliação</button>
+        <button class="btn-icon" style="padding:8px 14px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:12px;margin-right:8px" onclick="abrirCpFgtsSaldoForm()">🧾 Novo saldo FGTS</button>
         <button class="btn-modal-save" onclick="abrirCpSaldoForm()">+ Novo saldo</button>
       </div>
     </div>
@@ -1674,12 +1677,19 @@ html.is-mobile .sidebar.open{
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6fb8c9;margin-right:5px"></span>Conservador (projeção)</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0b35f;margin-right:5px"></span>Otimista (projeção)</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#5fd99a;margin-right:5px"></span>Saldo real (lançado)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#a892d4;margin-right:5px"></span>FGTS (projeção)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0935f;margin-right:5px"></span>FGTS (real)</span>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:14px">
       <div class="card-title">Histórico de saldos lançados</div>
       <div id="cprop-saldos-tabela" style="overflow-x:auto"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Histórico de saldos FGTS lançados</div>
+      <div id="cprop-fgts-tabela" style="overflow-x:auto"></div>
     </div>
 
     <div class="card" style="margin-bottom:14px">
@@ -1775,6 +1785,33 @@ html.is-mobile .sidebar.open{
   </div>
 </div>
 
+<!-- MODAL CASA PRÓPRIA: NOVO SALDO FGTS -->
+<div class="modal-overlay" id="modal-cpfgtssaldo" style="display:none" onclick="if(event.target===this)fecharModal('cpfgtssaldo')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🧾 Novo saldo FGTS</div>
+      <button class="modal-close" onclick="fecharModal('cpfgtssaldo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-g2">
+        <div><label class="modal-label">Data</label>
+          <input type="date" id="cpfgtssaldo-data" class="modal-input"></div>
+        <div><label class="modal-label">Saldo real (R$)</label>
+          <input type="number" id="cpfgtssaldo-valor" class="modal-input" step="0.01" min="0"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Observação</label>
+        <input type="text" id="cpfgtssaldo-obs" class="modal-input" placeholder="opcional — ex: extrato Caixa de 07/09" maxlength="120">
+      </div>
+      <div id="cpfgtssaldo-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('cpfgtssaldo')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-cpfgtssaldo-save" onclick="salvarCpFgtsSaldo()">💾 Salvar saldo FGTS</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CASA PRÓPRIA: NOVA REAVALIAÇÃO -->
 <div class="modal-overlay" id="modal-cprevisao" style="display:none" onclick="if(event.target===this)fecharModal('cprevisao')">
   <div class="modal-box">
@@ -1813,6 +1850,96 @@ html.is-mobile .sidebar.open{
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="fecharModal('cprevisao')">Cancelar</button>
       <button class="btn-modal-save" id="btn-cprevisao-save" onclick="salvarCpRevisao()">💾 Salvar reavaliação</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVESTIDOR -->
+<div class="page" id="pg-investidor">
+  <div class="section-header">
+    <div class="section-header-left"><div class="page-title">Carteira de Investimentos</div><div class="page-sub" style="margin:0">Tranche Satélite (renda variável) — a Tranche Segurança é acompanhada em Casa Própria</div></div>
+    <div class="section-header-right">
+      <button class="btn-modal-save" onclick="abrirInvPosForm()">+ Novo aporte</button>
+    </div>
+  </div>
+
+  <div class="g4" id="inv-kpis">
+    <div class="kpi"><div class="kpi-lbl">Total investido (satélite)</div><div class="kpi-val" id="inv-kpi-total">—</div><div class="kpi-sub" id="inv-kpi-total-sub">—</div></div>
+    <div class="kpi"><div class="kpi-lbl">Valor atual</div><div class="kpi-val" id="inv-kpi-atual">—</div><div class="kpi-sub" id="inv-kpi-atual-sub">—</div></div>
+    <div class="kpi" id="inv-kpi-rent-card"><div class="kpi-lbl">Rentabilidade</div><div class="kpi-val" id="inv-kpi-rent">—</div><div class="kpi-sub" id="inv-kpi-rent-sub">—</div></div>
+    <div class="kpi"><div class="kpi-lbl">Posições ativas</div><div class="kpi-val" id="inv-kpi-pos">—</div><div class="kpi-sub">tickers distintos</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Referência — Tranche Segurança (Casa Própria)</div>
+    <div id="inv-seguranca-ref" style="font-size:13px;color:var(--tx2);margin-top:6px"></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Composição por tipo de ativo</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chart-inv-comp" role="img" aria-label="Composição da carteira satélite"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Posições (agrupadas por ticker)</div>
+      <div id="inv-posicoes-tabela" style="overflow-x:auto"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="card-title">🔍 Analisar ativo (posição ou candidato)</div>
+    <div class="modal-g2" style="margin-top:8px">
+      <div><label class="modal-label">Ticker</label>
+        <input type="text" id="inv-analise-ticker" class="modal-input" placeholder="ex: CXSE3" style="text-transform:uppercase"></div>
+      <div><label class="modal-label">Valor a simular (R$) — opcional</label>
+        <input type="number" id="inv-analise-valor" class="modal-input" step="0.01" min="0" placeholder="ex: 5000"></div>
+    </div>
+    <button class="btn-modal-save" style="margin-top:10px" onclick="analisarTicker()">Analisar</button>
+    <div id="inv-analise-resultado" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<!-- MODAL NOVA POSIÇÃO (Investidor) -->
+<div class="modal-overlay" id="modal-invpos" style="display:none" onclick="if(event.target===this)fecharModal('invpos')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">📈 Novo aporte — Tranche Satélite</div>
+      <button class="modal-close" onclick="fecharModal('invpos')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-group">
+        <label class="modal-label">Tipo de ativo</label>
+        <select id="invpos-tipo" class="modal-input">
+          <option value="ACAO">Ação</option>
+          <option value="FII">FII</option>
+          <option value="ETF">ETF</option>
+        </select>
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Ticker</label>
+          <input type="text" id="invpos-ticker" class="modal-input" placeholder="ex: CXSE3" maxlength="10" style="text-transform:uppercase"></div>
+        <div><label class="modal-label">Corretora</label>
+          <input type="text" id="invpos-instituicao" class="modal-input" placeholder="ex: XP, Rico, Clear"></div>
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Data do aporte</label>
+          <input type="date" id="invpos-data" class="modal-input"></div>
+        <div><label class="modal-label">Quantidade</label>
+          <input type="number" id="invpos-quantidade" class="modal-input" step="1" min="1"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Preço médio pago (R$)</label>
+        <input type="number" id="invpos-preco" class="modal-input" step="0.01" min="0.01">
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Observações</label>
+        <input type="text" id="invpos-obs" class="modal-input" placeholder="opcional" maxlength="120">
+      </div>
+      <div id="invpos-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('invpos')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-invpos-save" onclick="salvarInvPos()">💾 Salvar aporte</button>
     </div>
   </div>
 </div>
@@ -2857,7 +2984,7 @@ html.is-mobile .sidebar.open{
 
 <script>
 // ══ DADOS ══
-let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
+let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
 const CHARTS = {};
 const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
 const CORES = { Transporte:'#e0935f',Moradia:'#6fb8c9',Educação:'#a892d4',Alimentação:'#5fd99a',Compras:'#8a9a8c',Lazer:'#e0b35f',Giovanna:'#d9a86f','Saúde & Beleza':'#7fcf9e','Serviços Financeiros':'#c9a85f','Outras Despesas':'#56655a',Vestuário:'#8fc4cf','Doações & Presentes':'#d97a9a' };
@@ -2871,6 +2998,27 @@ const _Rfmt = (v,d=0) => 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFracti
 const R = (v,d=0) => _valuesHidden ? 'R$ ••••' : _Rfmt(v,d);
 const SM = arr => arr.reduce((a,b)=>a+b,0);
 const MESES_ORD = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+// ══ NUMBER TWEEN (efeito de contagem ao trocar filtro/categoria) ══
+// Anima a transição do texto de um elemento entre o valor atualmente exibido
+// (guardado no próprio dataset do elemento) e um novo valor numérico. Usa
+// ease-out cúbico. formatFn recebe o valor numérico "cru" a cada frame e
+// devolve a string final (ex.: R, ou v=>(v>=0?'+':'')+R(v) para sinal).
+// Quando os valores estão ocultos (_valuesHidden) ou a variação é irrelevante,
+// pula a animação e escreve direto — evita RAF inútil.
+function tweenText(el, toValue, formatFn, duration=550){
+  if(!el || typeof toValue !== 'number' || !isFinite(toValue)) return;
+  const fromValue = parseFloat(el.dataset.tweenRaw ?? toValue) || 0;
+  el.dataset.tweenRaw = toValue;
+  if(_valuesHidden || Math.abs(toValue-fromValue) < 0.005){ el.textContent = formatFn(toValue); return; }
+  const start = performance.now();
+  function frame(now){
+    const t = Math.min(1, (now-start)/duration);
+    const eased = 1 - Math.pow(1-t, 3);
+    el.textContent = formatFn(fromValue + (toValue-fromValue)*eased);
+    if(t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 
 // ══ CHAVE CANÔNICA DE MÊS (mk = "AAAA-MM", ordenável entre anos) ══
 // Toda comparação/ordenação de "mês" que precisa ser correta entre anos diferentes
@@ -3085,7 +3233,7 @@ function closeSidebar(onClosed){
   }
 }
 
-const PAGE_NAMES={visao:'Visão Geral',config:'Configurações',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',casapropria:'Casa Própria',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
+const PAGE_NAMES={visao:'Visão Geral',config:'Configurações',diagnostico:'Diagnóstico',mensal:'Evolução Mensal',categorias:'Categorias',transporte:'Transporte',cartao:'Cartão/Parcelas',formas:'Formas Pgto.',efetivado:'Efetivados',orcamento:'Orçado vs Real',simulador:'Simulador',metas:'Metas & Reserva',casapropria:'Casa Própria',investidor:'Investidor',novo:'Novo Lançamento',lancamentos:'Lançamentos',extrato:'Extrato'};
 
 function syncMobileUI(id){
   // Título topbar
@@ -3172,7 +3320,7 @@ const rendered={};
 function renderPage(id){
   if(!DB.lancamentos.length){ return; } // sem dados: empty-state já visível
   if(rendered[id]) return;
-  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:()=>setupConfig().catch(console.error),mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,casapropria:renderCasaPropria,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
+  const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,config:()=>setupConfig().catch(console.error),mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,casapropria:renderCasaPropria,investidor:renderInvestidor,lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){ rendered[id]=true; fns[id](); } // marca APÓS confirmar que há função
 }
 
@@ -3198,7 +3346,7 @@ function forceRenderPage(id){
   // Chamar render diretamente
   const fns={visao:renderVisao,diagnostico:setupDiagnostico,novo:setupNovo,
     mensal:renderMensal,categorias:setupCat,transporte:renderTransporte,
-    orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,casapropria:renderCasaPropria,
+    orcamento:renderOrcamento,simulador:()=>renderSim(),metas:renderMetas,casapropria:renderCasaPropria,investidor:renderInvestidor,
     lancamentos:setupLan,cartao:setupCartao,formas:setupFormas,efetivado:setupEfetivado};
   if(fns[id]){
     try{ delete rendered[id]; fns[id](); }
@@ -3930,7 +4078,7 @@ function c6RemoverLinha(idx){
 function c6RecalcTotal(){
   const visiveis = (C6_STATE.itensPendentes||[]).filter(it=>!it._removido);
   const total = visiveis.reduce((a,b)=>a+b.valor,0);
-  const elT = document.getElementById('c6-total'); if(elT) elT.textContent = R(total,2);
+  const elT = document.getElementById('c6-total'); if(elT) tweenText(elT, total, v=>R(v,2));
   const elC = document.getElementById('c6-count'); if(elC) elC.textContent = visiveis.length;
 }
 
@@ -4098,13 +4246,13 @@ function renderVisao(){
   document.getElementById('vg-sub').textContent=`Diagnóstico consolidado · ${lbl}`;
 
   // KPIs primários
-  document.getElementById('vg-rec').textContent=R(aRec);
-  document.getElementById('vg-desp').textContent=R(aDesp);
+  tweenText(document.getElementById('vg-rec'), aRec, R);
+  tweenText(document.getElementById('vg-desp'), aDesp, R);
   document.getElementById('vg-desp-pct').textContent=`${pDesp}% da renda · orçado ${Math.round(SM(Object.values(DB.orcamento))/aRec*100)||0}%`;
-  document.getElementById('vg-inv').textContent=R(aInv);
+  tweenText(document.getElementById('vg-inv'), aInv, R);
   document.getElementById('vg-inv').className='kpi-val '+(pInv>=15?'ok':pInv>=10?'warn':'danger');
   document.getElementById('vg-inv-pct').textContent=`${pInv}% da renda · meta 15%`;
-  document.getElementById('vg-saldo').textContent=(aSaldo>=0?'+':'-')+R(aSaldo);
+  tweenText(document.getElementById('vg-saldo'), aSaldo, v=>(v>=0?'+':'-')+R(v));
   document.getElementById('vg-saldo').className='kpi-val '+(aSaldo>=0?'ok':'danger');
   document.getElementById('vg-saldo-sub').textContent=aSaldo>=0?'fluxo operacional positivo':'⚠ fluxo negativo';
   const skpi=document.getElementById('vg-saldo-kpi');
@@ -4138,7 +4286,7 @@ function renderVisao(){
     // Atualizar card KPI conta
     const elConta = document.getElementById('vg-conta-saldo');
     if(elConta){
-      elConta.textContent = (isPos?'':'-') + R(Math.abs(saldoAtual));
+      tweenText(elConta, saldoAtual, v=>(v>=0?'':'-')+R(v));
       elConta.className   = 'kpi-val ' + (isPos ? 'ok' : 'danger');
       elConta.style.fontSize = '28px';
     }
@@ -4158,7 +4306,7 @@ function renderVisao(){
     // Saldo previsto
     const elPrev = document.getElementById('vg-conta-prev-val');
     if(elPrev){
-      elPrev.textContent = (isPrevPos?'':'-') + R(Math.abs(saldoPrev));
+      tweenText(elPrev, saldoPrev, v=>(v>=0?'':'-')+R(v));
       elPrev.className   = 'kpi-val ' + (isPrevPos ? 'ok' : 'warn');
       elPrev.style.fontSize = '22px';
     }
@@ -4174,7 +4322,7 @@ function renderVisao(){
     // Tendência
     const elTend = document.getElementById('vg-tendencia');
     if(elTend){
-      elTend.textContent = (tendencia>=0?'+':'-') + R(Math.abs(tendencia));
+      tweenText(elTend, tendencia, v=>(v>=0?'+':'-')+R(v));
       elTend.className   = 'kpi-val ' + (tendencia>=0?'ok':'danger');
       elTend.style.fontSize = '18px';
     }
@@ -4193,10 +4341,10 @@ function renderVisao(){
 
   const aAlim=Math.round((catTots['Alimentação']||0)/n);
   const aTran=Math.round((catTots['Transporte']||0)/n);
-  document.getElementById('vg-alim').textContent=R(aAlim);
+  tweenText(document.getElementById('vg-alim'), aAlim, R);
   document.getElementById('vg-alim').className='kpi-val '+(aAlim>1260?'danger':aAlim>1050?'warn':'ok');
   document.getElementById('vg-alim-pct').textContent=`${aAlim>1050?'+'+(Math.round((aAlim-1050)/1050*100))+'% acima':'dentro do'} orçado`;
-  document.getElementById('vg-transp').textContent=R(aTran);
+  tweenText(document.getElementById('vg-transp'), aTran, R);
   document.getElementById('vg-transp').className='kpi-val '+(aTran>4500?'danger':aTran>3675?'warn':'ok');
   document.getElementById('vg-transp-pct').textContent=`${aTran>3675?'+'+(Math.round((aTran-3675)/3675*100))+'% acima':'dentro do'} orçado`;
 
@@ -4214,7 +4362,7 @@ function renderVisao(){
   const maxAbs=Math.max(...rm.map(r=>Math.abs(r.saldo)),1);
   const acum=Math.round(SM(rm.map(r=>r.saldo)));
   document.getElementById('vg-acumulado-badge').className='badge '+(acum>=0?'b-ok':'b-danger');
-  document.getElementById('vg-acumulado-badge').textContent=(acum>=0?'Acum. +':'Acum. -')+R(acum);
+  tweenText(document.getElementById('vg-acumulado-badge'), acum, v=>(v>=0?'Acum. +':'Acum. -')+R(v));
   document.getElementById('vg-saldos').innerHTML=rm.map(r=>`
     <div class="stat-row">
       <span class="stat-label">${mkLabel(r.mes)}</span>
@@ -4223,7 +4371,7 @@ function renderVisao(){
       </div>
       <span class="stat-value ${r.saldo>=0?'ok':'danger'}">${r.saldo>=0?'+':''}${R(r.saldo)}</span>
     </div>`).join('');
-  document.getElementById('vg-acumulado').textContent=(acum>=0?'+':'')+R(acum);
+  tweenText(document.getElementById('vg-acumulado'), acum, v=>(v>=0?'+':'')+R(v));
   document.getElementById('vg-acumulado').style.color=acum>=0?'var(--green)':'var(--red)';
 
   // Composição
@@ -4385,9 +4533,9 @@ function renderMensal(){
   el('men-melhor-val').textContent = resultados[melhorIdx] !== undefined ? '+'+R(resultados[melhorIdx]) : '—';
   el('men-pior-mes').textContent   = mkLabel(meses[piorIdx]) || '—';
   el('men-pior-val').textContent   = resultados[piorIdx] !== undefined ? (resultados[piorIdx]>=0?'+':'')+R(resultados[piorIdx]) : '—';
-  el('men-saldo-conta').textContent = (saldoAtualConta>=0?'':'-')+R(Math.abs(saldoAtualConta));
+  tweenText(el('men-saldo-conta'), saldoAtualConta, v=>(v>=0?'':'-')+R(v));
   el('men-saldo-conta').className   = 'kpi-val '+(saldoAtualConta>=0?'ok':'danger');
-  el('men-media-res').textContent   = (mediaRes>=0?'+':'')+R(Math.abs(mediaRes));
+  tweenText(el('men-media-res'), mediaRes, v=>(v>=0?'+':'')+R(v));
   el('men-media-res').className     = 'kpi-val '+(mediaRes>=0?'ok':'danger');
 
   // Eixo Y comum para barras (esquerda) e saldo conta (direita)
@@ -4583,9 +4731,9 @@ function renderCat(){
   // KPIs
   document.getElementById('cat-sub').textContent=`${cat} · ${periodoLbl}`;
   document.getElementById('cat-tbl-title').textContent=`Subcategorias — ${cat}`;
-  document.getElementById('cat-kpi-total').textContent=R(tot);
+  tweenText(document.getElementById('cat-kpi-total'), tot, R);
   document.getElementById('cat-kpi-periodo').textContent=periodoLbl;
-  document.getElementById('cat-kpi-media').textContent=R(Math.round(tot/n));
+  tweenText(document.getElementById('cat-kpi-media'), Math.round(tot/n), R);
   const maior=subs[0];
   document.getElementById('cat-kpi-maior').textContent=maior?maior.nome.split(' ').slice(0,3).join(' '):'—';
   document.getElementById('cat-kpi-maior-val').textContent=maior?R(maior.total)+' total ('+Math.round(maior.total/tot*100)+'%)':'—';
@@ -4748,20 +4896,20 @@ function renderTransporte(){
   const totMedia=Math.round(totTotal/n);
 
   // KPIs dinâmicos
-  document.getElementById('tra-total').textContent=mesFiltro?R(totTotal):R(totMedia);
+  tweenText(document.getElementById('tra-total'), mesFiltro?totTotal:totMedia, R);
   document.getElementById('tra-total-sub').textContent=mesFiltro?`total em ${mkLabel(mesFiltro)}`:`média mensal · total ${R(totTotal)}`;
 
   const financ=subs.filter(s=>s.nome.toLowerCase().includes('financiamento'));
   const totFinanc=SM(financ.map(s=>s.total));
   const mediaFinanc=Math.round(totFinanc/n);
-  document.getElementById('tra-financ').textContent=mesFiltro?R(totFinanc):R(mediaFinanc);
+  tweenText(document.getElementById('tra-financ'), mesFiltro?totFinanc:mediaFinanc, R);
   document.getElementById('tra-financ-pct').textContent=totTotal>0?`${Math.round(totFinanc/totTotal*100)}% do total`:'—';
 
   const findSub=nome=>subs.find(s=>s.nome.toLowerCase().includes(nome.toLowerCase()));
   const comb=findSub('combustível')||findSub('combustivel');
   const manut=findSub('manutenção')||findSub('manutencao');
-  document.getElementById('tra-comb').textContent=comb?R(mesFiltro?comb.total:comb.media):R(0);
-  document.getElementById('tra-manut').textContent=manut?R(mesFiltro?manut.total:manut.media):R(0);
+  tweenText(document.getElementById('tra-comb'), comb?(mesFiltro?comb.total:comb.media):0, R);
+  tweenText(document.getElementById('tra-manut'), manut?(mesFiltro?manut.total:manut.media):0, R);
 
   // Donut com legenda
   const clrs=['#e0935f','#6fb8c9','#e0b35f','#a892d4','#5fd99a','#d97a9a','#8a9a8c','#c9a85f'];
@@ -4871,15 +5019,19 @@ function renderOrcamento(){
   const catsOk    = cats.filter((c, i) => reais[i] <= orc[i] && orc[i] > 0).length;
   const totComOrc = cats.filter((_, i) => orc[i] > 0).length;
 
-  document.getElementById('orc-total-real').textContent = R(totReal);
+  tweenText(document.getElementById('orc-total-real'), totReal, R);
   document.getElementById('orc-total-real').className   = 'kpi-val ' + (totReal > totOrc ? 'danger' : 'ok');
   document.getElementById('orc-media-real').textContent = tipo === 'mes' ? 'no mês selecionado' : 'média mensal';
-  document.getElementById('orc-desvio-total').textContent = (dev >= 0 ? '+' : '') + R(dev);
+  tweenText(document.getElementById('orc-desvio-total'), dev, v=>(v>=0?'+':'')+R(v));
   document.getElementById('orc-desvio-total').className   = 'kpi-val ' + (dev > 1000 ? 'danger' : dev > 0 ? 'warn' : 'ok');
   document.getElementById('orc-desvio-pct').textContent   = (pDev >= 0 ? '+' : '') + pDev + '% vs orçado';
   document.getElementById('orc-desvio-kpi').className     = 'kpi ' + (dev > 1000 ? 'kpi-accent-danger' : dev > 0 ? 'kpi-accent-warn' : 'kpi-accent-ok');
   document.getElementById('orc-cats-ok').textContent  = catsOk + '/' + totComOrc;
   document.getElementById('orc-cats-ok').className    = 'kpi-val ' + (catsOk === totComOrc ? 'ok' : catsOk >= totComOrc / 2 ? 'warn' : 'danger');
+  // Semáforo: verde = encerrou dentro do orçado, vermelho = encerrou acima
+  document.getElementById('orc-cats-ok-sub').innerHTML = totComOrc > 0
+    ? `<span style="color:var(--green)">●</span> ${catsOk} dentro · <span style="color:var(--red)">●</span> ${totComOrc-catsOk} fora`
+    : 'nenhuma categoria com orçamento definido';
 
   // Badge maior desvio
   const desvios = cats.map((c, i) => reais[i] - orc[i]);
@@ -5137,18 +5289,18 @@ function renderSim(){
   const ecoTotal = SM(Object.values(ecos));
 
   // Labels dos sliders
-  document.getElementById('out-rest').textContent   = R(rest);
-  document.getElementById('out-comb').textContent   = R(comb);
-  document.getElementById('out-manut').textContent  = R(manut);
-  document.getElementById('out-comp').textContent   = R(comp);
-  document.getElementById('out-lazer').textContent  = R(lazer);
+  tweenText(document.getElementById('out-rest'), rest, R);
+  tweenText(document.getElementById('out-comb'), comb, R);
+  tweenText(document.getElementById('out-manut'), manut, R);
+  tweenText(document.getElementById('out-comp'), comp, R);
+  tweenText(document.getElementById('out-lazer'), lazer, R);
   document.getElementById('out-ipva').textContent   = ipva > 0 ? `Sim (economia ${R(ipvaEco)})` : 'Não';
-  document.getElementById('out-renda').textContent  = R(renda);
-  document.getElementById('out-inv-meta').textContent = R(invMeta);
+  tweenText(document.getElementById('out-renda'), renda, R);
+  tweenText(document.getElementById('out-inv-meta'), invMeta, R);
 
   // KPI saldo
   const elSaldo = document.getElementById('sim-saldo');
-  elSaldo.textContent = (saldo >= 0 ? '+' : '') + R(saldo);
+  tweenText(elSaldo, saldo, v=>(v>=0?'+':'')+R(v));
   elSaldo.style.color = saldo >= 0 ? 'var(--green)' : saldo > -2000 ? 'var(--amber)' : 'var(--red)';
   document.getElementById('sim-saldo-box').style.borderTop = `3px solid ${saldo>=0?'var(--green)':saldo>-2000?'var(--amber)':'var(--red)'}`;
 
@@ -5159,7 +5311,7 @@ function renderSim(){
 
   // KPI poupança
   const elPoup = document.getElementById('sim-poup');
-  elPoup.textContent = R(poup);
+  tweenText(elPoup, poup, R);
   elPoup.style.color = poup > 0 ? 'var(--green)' : 'var(--tx3)';
 
   // Resumo
@@ -5586,6 +5738,7 @@ function renderCasaPropria(){
   if(!plano){
     wrap.innerHTML = `<div class="card" style="grid-column:1/-1"><div style="text-align:center;padding:24px;color:var(--tx2)">Plano ainda não cadastrado (tabela casa_propria_plano vazia).</div></div>`;
     document.getElementById('cprop-saldos-tabela').innerHTML='';
+    document.getElementById('cprop-fgts-tabela').innerHTML='';
     document.getElementById('cprop-revisoes-tabela').innerHTML='';
     return;
   }
@@ -5609,18 +5762,39 @@ function renderCasaPropria(){
   }
   const saldoAtualExibicao = ultimoSaldo ? ultimoSaldo.saldoReal : plano.saldoBase;
   const entradaDisponivel = saldoAtualExibicao - plano.colchaoEmergenciaAlvo;
+  const fgtsSaldosArr = DB.casaPropriaFgtsSaldos||[];
+  const fgtsAtual = fgtsSaldosArr.length ? fgtsSaldosArr[fgtsSaldosArr.length-1].saldoReal : 0;
+  const totalConsolidado = saldoAtualExibicao + fgtsAtual;
 
-  const kpi = (lbl,val,sub,accent)=>`<div class="kpi${accent?' kpi-accent-'+accent:''}"><div class="kpi-lbl">${lbl}</div><div class="kpi-val${accent?' '+accent:''}">${val}</div><div class="kpi-sub">${sub}</div></div>`;
+  const kpi = (lbl,val,sub,accent,full)=>`<div class="kpi${accent?' kpi-accent-'+accent:''}"${full?' style="grid-column:1/-1;margin-top:4px"':''}><div class="kpi-lbl">${lbl}</div><div class="kpi-val${accent?' '+accent:''}">${val}</div><div class="kpi-sub">${sub}</div></div>`;
 
   wrap.innerHTML =
     kpi('Saldo atual', R(saldoAtualExibicao), ultimoSaldo?`lançado em ${ultimoSaldo.data.split('-').reverse().join('/')}`:'saldo inicial do plano') +
     kpi('Disponível p/ entrada', R(Math.max(0,entradaDisponivel)), `após colchão de ${R(plano.colchaoEmergenciaAlvo)}`) +
     kpi('Desvio vs. conservador', desvioCons!=null?`${desvioCons>=0?'+':'-'}${R(Math.abs(desvioCons))}`:'—', desvioCons!=null?(desvioCons>=0?'adiantado':'atrasado'):'sem saldo lançado ainda', desvioCons!=null?(desvioCons>=0?'ok':'danger'):null) +
-    kpi('Taxa vigente', `${(revisaoAtual.taxaCdiConservadorAa*100).toFixed(2)}% / ${(revisaoAtual.taxaCdiOtimistaAa*100).toFixed(2)}%`, 'CDI conservador / otimista a.a.');
+    kpi('Taxa vigente', `${(revisaoAtual.taxaCdiConservadorAa*100).toFixed(2)}% / ${(revisaoAtual.taxaCdiOtimistaAa*100).toFixed(2)}%`, 'CDI conservador / otimista a.a.') +
+    kpi('Total consolidado (CDB + FGTS)', R(totalConsolidado), fgtsSaldosArr.length?`CDB ${R(saldoAtualExibicao)} + FGTS ${R(fgtsAtual)}`:'FGTS ainda não lançado — somando só o CDB', null, true);
 
   const labels = curvaCons.map(p=>cpMesLabel(p.data));
   const dadosReal = curvaCons.map(p=>{
     const s = saldos.find(sd=>cpOffsetDeData(plano, sd.data)===p.mesOffset);
+    return s ? s.saldoReal : null;
+  });
+  // Tranches com label contendo "FGTS" — isolar seu valor acumulado em cada mês de corte,
+  // pra explicar visualmente saltos como o do aporte único de FGTS previsto no plano.
+  const tranchesFgts = cpTranches(plano).filter(t=>t.label && t.label.toUpperCase().includes('FGTS'));
+  const dadosFgts = curvaCons.map(p=>{
+    if(!tranchesFgts.length) return null;
+    const algumaAtiva = tranchesFgts.some(t=>t.mesOffset<=p.mesOffset);
+    if(!algumaAtiva) return null;
+    return Math.round(tranchesFgts.reduce((acc,t)=>{
+      const v = cpSaldoTrancheEm(t, plano, revisoes, 'conservador', p.mesOffset);
+      return v!=null ? acc+v : acc;
+    },0));
+  });
+  const fgtsSaldos = DB.casaPropriaFgtsSaldos||[];
+  const dadosFgtsReal = curvaCons.map(p=>{
+    const s = fgtsSaldos.find(sd=>cpOffsetDeData(plano, sd.data)===p.mesOffset);
     return s ? s.saldoReal : null;
   });
   mkChart('chart-cprop-curva',{
@@ -5631,7 +5805,11 @@ function renderCasaPropria(){
       { label:'Otimista', data:curvaOtim.map(p=>Math.round(p.liquido)), borderColor:'#e0b35f', backgroundColor:'transparent', borderDash:[6,4], tension:.25, pointRadius:0,
         datalabels:{ display:ctx=>{const i=ctx.dataIndex,n=ctx.dataset.data.length; return i%6===0||i===n-1;}, color:'#e0b35f', align:'top', offset:6, font:{size:9,family:CC.font,weight:'600'}, formatter:v=>v!=null?'R$'+(v/1000).toFixed(0)+'k':'' } },
       { label:'Real', data:dadosReal, borderColor:'#5fd99a', backgroundColor:'transparent', tension:.25, spanGaps:true, pointRadius:4, pointBackgroundColor:'#5fd99a',
-        datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#5fd99a', align:'top', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?R(v):'' } }
+        datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#5fd99a', align:'top', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?R(v):'' } },
+      { label:'FGTS (projeção)', data:dadosFgts, borderColor:'#a892d4', backgroundColor:'transparent', tension:0, spanGaps:false, pointRadius:5, pointBackgroundColor:'#a892d4', borderWidth:2,
+        datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#a892d4', align:'bottom', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?'+'+R(v):'' } },
+      { label:'FGTS (real)', data:dadosFgtsReal, borderColor:'#e0935f', backgroundColor:'transparent', tension:.25, spanGaps:true, pointRadius:4, pointBackgroundColor:'#e0935f',
+        datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#e0935f', align:'bottom', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?R(v):'' } }
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
       layout:{ padding:{top:22,bottom:14} },
@@ -5657,6 +5835,27 @@ function renderCasaPropria(){
             <td style="padding:6px 8px;text-align:right;font-weight:700">${R(s.saldoReal)}</td>
             <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${R(curvaCons[offset].liquido)}</td>
             <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${R(curvaOtim[offset].liquido)}</td>
+            <td style="padding:6px 8px;color:var(--tx2)">${s.observacao||'—'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table>`;
+
+  const tabFgts = document.getElementById('cprop-fgts-tabela');
+  tabFgts.innerHTML = !fgtsSaldos.length
+    ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhum saldo FGTS lançado ainda. Clique em "🧾 Novo saldo FGTS".</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+          <th style="padding:6px 8px">Data</th><th style="padding:6px 8px;text-align:right">Saldo real</th>
+          <th style="padding:6px 8px;text-align:right">Projeção (plano)</th>
+          <th style="padding:6px 8px">Observação</th>
+        </tr></thead><tbody>
+        ${[...fgtsSaldos].reverse().map(s=>{
+          const offset = Math.max(0,Math.min(plano.horizonteMeses,cpOffsetDeData(plano,s.data)));
+          const proj = dadosFgts[offset];
+          return `<tr style="border-bottom:1px solid var(--bd)">
+            <td style="padding:6px 8px;color:var(--tx2)">${s.data.split('-').reverse().join('/')}</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700">${R(s.saldoReal)}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${proj!=null?R(proj):'—'}</td>
             <td style="padding:6px 8px;color:var(--tx2)">${s.observacao||'—'}</td>
           </tr>`;
         }).join('')}
@@ -5719,6 +5918,49 @@ async function salvarCpSaldo(){
     feedback('✗ Erro ao salvar: '+e.message, false);
   } finally {
     btn.disabled=false; btn.textContent='💾 Salvar saldo';
+  }
+}
+
+function abrirCpFgtsSaldoForm(){
+  document.getElementById('cpfgtssaldo-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cpfgtssaldo-valor').value = '';
+  document.getElementById('cpfgtssaldo-obs').value = '';
+  const fb=document.getElementById('cpfgtssaldo-feedback'); if(fb) fb.style.display='none';
+  abrirModal('cpfgtssaldo');
+}
+
+async function salvarCpFgtsSaldo(){
+  const data = document.getElementById('cpfgtssaldo-data').value;
+  const valor = parseFloat(document.getElementById('cpfgtssaldo-valor').value);
+  const obs = document.getElementById('cpfgtssaldo-obs').value.trim();
+  const fb = document.getElementById('cpfgtssaldo-feedback');
+  const btn = document.getElementById('btn-cpfgtssaldo-save');
+
+  function feedback(msg,ok){
+    fb.style.display='block';
+    fb.style.background = ok?'var(--gd)':'var(--rd)';
+    fb.style.color = ok?'var(--green)':'var(--red)';
+    fb.style.border = ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+
+  if(!data || !valor || isNaN(valor) || valor<=0){ feedback('⚠ Preencha data e saldo (> 0).', false); return; }
+  if(!usuarioAtual){ feedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    const payload = { usuario_id: usuarioAtual.id, data, saldo_real: Math.round(valor*100)/100, observacao: obs||null };
+    const {data:res, error} = await getSB().from('casa_propria_fgts_saldos').insert(payload).select();
+    if(error) throw new Error(error.message);
+    const novo = res[0];
+    DB.casaPropriaFgtsSaldos.push({ id:novo.id, data, saldoReal: valor, observacao: obs||null });
+    DB.casaPropriaFgtsSaldos.sort((a,b)=>a.data.localeCompare(b.data));
+    feedback('✓ Saldo FGTS salvo com sucesso!', true);
+    setTimeout(()=>{ fecharModal('cpfgtssaldo'); renderCasaPropria(); }, 900);
+  } catch(e){
+    feedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar saldo FGTS';
   }
 }
 
@@ -5969,14 +6211,14 @@ function renderLan(){
   const saldo   = totRec - totDesp;
   const nNaoPago= lanComIdx.filter(({l})=>l.pago!=='Sim'&&l.cat!=='Receitas').length;
 
-  document.getElementById('lan-count').textContent = lanComIdx.length.toLocaleString('pt-BR');
+  tweenText(document.getElementById('lan-count'), lanComIdx.length, v=>Math.round(v).toLocaleString('pt-BR'));
   const subEl = document.getElementById('lan-count-sub');
   if(subEl) subEl.textContent = nNaoPago > 0
     ? `${nNaoPago} pendentes de pagamento`
     : 'todos efetivados';
-  document.getElementById('lan-tot-rec').textContent  = R(totRec);
-  document.getElementById('lan-tot-desp').textContent = R(totDesp);
-  document.getElementById('lan-tot-saldo').textContent = (saldo>=0?'+':'')+R(saldo);
+  tweenText(document.getElementById('lan-tot-rec'), totRec, R);
+  tweenText(document.getElementById('lan-tot-desp'), totDesp, R);
+  tweenText(document.getElementById('lan-tot-saldo'), saldo, v=>(v>=0?'+':'')+R(v));
   document.getElementById('lan-tot-saldo').className = 'kpi-val '+(saldo>=0?'ok':'danger');
   const skipi = document.getElementById('lan-saldo-kpi');
   if(skipi) skipi.className = 'kpi '+(saldo>=0?'kpi-accent-ok':'kpi-accent-danger');
@@ -6262,15 +6504,15 @@ function renderCartao(){
   const totPar=Math.round(SM(lanPar.map(l=>l.valor)));
   const ticket=lanCart.length>0?Math.round(totCart/lanCart.length):0;
   if(document.getElementById('car-gasto-total')){
-    document.getElementById('car-gasto-total').textContent=R(totCart);
+    tweenText(document.getElementById('car-gasto-total'), totCart, R);
     document.getElementById('car-gasto-sub').textContent=lanCart.length+' lançamentos no cartão';
-    document.getElementById('car-avista').textContent=R(totAV);
+    tweenText(document.getElementById('car-avista'), totAV, R);
     document.getElementById('car-avista-pct').textContent=(totCart>0?Math.round(totAV/totCart*100):0)+'% do gasto no cartão';
-    document.getElementById('car-parcelado').textContent=R(totPar);
+    tweenText(document.getElementById('car-parcelado'), totPar, R);
     document.getElementById('car-parcelado-pct').textContent=(totCart>0?Math.round(totPar/totCart*100):0)+'% do gasto no cartão';
-    document.getElementById('car-ticket').textContent=R(ticket);
+    tweenText(document.getElementById('car-ticket'), ticket, R);
   }
-  document.getElementById('car-total').textContent=R(totalGeral);
+  tweenText(document.getElementById('car-total'), totalGeral, R);
   const mesAtualMk=getMesAtualDados()||(getMeses().length>0?getMeses()[getMeses().length-1]:null);
   const proximoMes=mesesFut.find(m=>mesAtualMk===null||m>mesAtualMk);
   const valProximo=proximoMes?totMesCat(proximoMes,catFiltro):0;
@@ -6389,13 +6631,13 @@ function renderFormas(){
   const totDebPix=Object.entries(formaMap).filter(([f])=>isDebPix(f)).reduce((a,[,v])=>a+v.total,0);
   const totCred=Object.entries(formaMap).filter(([f])=>isCred(f)).reduce((a,[,v])=>a+v.total,0);
   document.getElementById('for-sub').textContent=mesFiltro?`Distribuição em ${mkLabel(mesFiltro)}`:`Distribuição geral — Exercício ${anoFor}`;
-  document.getElementById('for-total').textContent=R(Math.round(totalGeral));
+  tweenText(document.getElementById('for-total'), Math.round(totalGeral), R);
   document.getElementById('for-total-sub').textContent=mesFiltro?`total em ${mkLabel(mesFiltro)}`:'total acumulado';
-  document.getElementById('for-cartao').textContent=R(Math.round(totCartao));
+  tweenText(document.getElementById('for-cartao'), Math.round(totCartao), R);
   document.getElementById('for-cartao-pct').textContent=Math.round(totCartao/totalGeral*100)+'% do total';
-  document.getElementById('for-debito').textContent=R(Math.round(totDebPix));
+  tweenText(document.getElementById('for-debito'), Math.round(totDebPix), R);
   document.getElementById('for-debito-pct').textContent=Math.round(totDebPix/totalGeral*100)+'% do total';
-  document.getElementById('for-credito').textContent=R(Math.round(totCred));
+  tweenText(document.getElementById('for-credito'), Math.round(totCred), R);
   document.getElementById('for-credito-pct').textContent=Math.round(totCred/totalGeral*100)+'% do total';
   const formasCores={'C.Credito Master':'#d97a7a','C.C Master C6':'#e0935f','Débito em Conta':'#6fb8c9','PIX':'#5fd99a','Crédito em Conta':'#e0b35f','Outros':'#8a9a8c'};
   const formasOrdenadas=Object.entries(formaMap).sort((a,b)=>b[1].total-a[1].total);
@@ -6437,15 +6679,15 @@ function renderEfetivado(){
   const totGeral=totPago+totNPago||1;
   const pctNPago=Math.round(totNPago/totGeral*100);
   document.getElementById('efe-sub').textContent=mesFiltro?`Status em ${mkLabel(mesFiltro)}`:`Status geral — Exercício ${anoEfe}`;
-  document.getElementById('efe-pago').textContent=R(totPago);
+  tweenText(document.getElementById('efe-pago'), totPago, R);
   document.getElementById('efe-pago-n').textContent=pagos.length+' lançamentos efetivados';
-  document.getElementById('efe-nao').textContent=R(totNPago);
+  tweenText(document.getElementById('efe-nao'), totNPago, R);
   document.getElementById('efe-nao-n').textContent=nPagos.length+' lançamentos pendentes';
   document.getElementById('efe-pct').textContent=pctNPago+'%';
   document.getElementById('efe-pct').className='kpi-val '+(pctNPago>40?'danger':pctNPago>20?'warn':'ok');
   const recTot=Math.round(SM(DB.lancamentos.filter(l=>l.cat==='Receitas'&&(!mesFiltro||matchMes(l,mesFiltro))).map(l=>l.valor)));
   const saldoPrev=recTot-totGeral;
-  document.getElementById('efe-saldo-prev').textContent=(saldoPrev>=0?'+':'')+R(saldoPrev);
+  tweenText(document.getElementById('efe-saldo-prev'), saldoPrev, v=>(v>=0?'+':'')+R(v));
   document.getElementById('efe-saldo-prev').className='kpi-val '+(saldoPrev>=0?'ok':'danger');
   const alertaEl=document.getElementById('efe-alerta');
   if(pctNPago>30){alertaEl.style.display='flex';alertaEl.className='sbanner sb-danger';alertaEl.innerHTML=`⚠ <strong>${pctNPago}%</strong> pendente — R$ ${R(totNPago)} aguardando confirmação.`;}
@@ -6553,15 +6795,15 @@ function renderDiagnostico(){
   const anoDiag=getAnoApuracao();
   const diagPeriodoLbl=meses.length===getMesesAno(anoDiag).length?`Período de apuração: ${labelExercicioCompleto(anoDiag)}`:`Período: ${mkLabel(meses[0])}–${mkLabel(meses[meses.length-1])}`;
   document.getElementById('diag-sub').textContent=`${diagPeriodoLbl} · ${comPago.length} meses analisados`;
-  document.getElementById('diag-saldo-atual').textContent=R(Math.abs(saldoAtual));
+  tweenText(document.getElementById('diag-saldo-atual'), Math.abs(saldoAtual), R);
   document.getElementById('diag-saldo-atual').className='kpi-val '+(saldoAtual>=0?'ok':'danger');
   document.getElementById('diag-saldo-mes').textContent=mkLabel(mesAtual.mes)+' · valores efetivados';
-  document.getElementById('diag-saldo-prev').textContent=R(Math.abs(saldoPrev));
+  tweenText(document.getElementById('diag-saldo-prev'), Math.abs(saldoPrev), R);
   document.getElementById('diag-saldo-prev').className='kpi-val '+(saldoPrev>=0?'ok':'warn');
   document.getElementById('diag-prev-kpi').className='kpi '+(saldoPrev>=0?'kpi-accent-ok':'kpi-accent-warn');
-  document.getElementById('diag-resultado-mes').textContent=(resultado>=0?'+':'')+R(resultado);
+  tweenText(document.getElementById('diag-resultado-mes'), resultado, v=>(v>=0?'+':'')+R(v));
   document.getElementById('diag-resultado-mes').className='kpi-val '+(resultado>=0?'ok':'danger');
-  document.getElementById('diag-tendencia').textContent=(tendencia>=0?'+':'')+R(tendencia);
+  tweenText(document.getElementById('diag-tendencia'), tendencia, v=>(v>=0?'+':'')+R(v));
   document.getElementById('diag-tendencia').className='kpi-val '+(tendencia>=0?'ok':'danger');
   document.getElementById('diag-tendencia-sub').textContent=`${mkLabel(meses[0])} → ${mkLabel(mesAtual.mes)} acumulado`;
   document.getElementById('diag-tendencia-kpi').className='kpi '+(tendencia>=0?'kpi-accent-ok':'kpi-accent-danger');
@@ -6680,14 +6922,14 @@ function renderProjecaoReserva(){
 
   const gap=acumIdeal-acumReal;
   const ultimoMes=mesesFuturos[mesesFuturos.length-1];
-  document.getElementById('diag-proj-ideal').textContent=(acumIdeal>=0?'':'-')+R(Math.abs(acumIdeal));
+  tweenText(document.getElementById('diag-proj-ideal'), acumIdeal, v=>(v>=0?'':'-')+R(v));
   document.getElementById('diag-proj-ideal-sub').textContent=`até ${mkLabel(ultimoMes)} · partindo de ${saldoBase>=0?'':'-'}${R(Math.abs(saldoBase))}`;
   const realEl=document.getElementById('diag-proj-real');
-  realEl.textContent=(acumReal>=0?'':'-')+R(Math.abs(acumReal));
+  tweenText(realEl, acumReal, v=>(v>=0?'':'-')+R(v));
   realEl.className='kpi-val '+(acumReal>=0?'ok':'danger');
   document.getElementById('diag-proj-real-kpi').className='kpi '+(acumReal>=0?'kpi-accent-ok':'kpi-accent-danger');
   const gapEl=document.getElementById('diag-proj-gap');
-  gapEl.textContent=R(Math.abs(gap));
+  tweenText(gapEl, Math.abs(gap), R);
   gapEl.className='kpi-val '+(gap>500?'danger':gap>100?'warn':'ok');
   document.getElementById('diag-proj-gap-kpi').className='kpi '+(gap>500?'kpi-accent-danger':gap>100?'kpi-accent-warn':'kpi-accent-ok');
 
@@ -6751,6 +6993,10 @@ function gerarDiagnostico(){
       const catTot={};CATS.forEach(c=>{catTot[c]=Math.round(SM(lanPagos.filter(l=>l.cat===c&&l.pago==='Sim').map(l=>l.valor))/nM);});
       const catDesvio=CATS.filter(c=>catTot[c]>0&&getOrcCat(c,mesesFilt)>0).map(c=>({cat:c,real:catTot[c],orc:getOrcCat(c,mesesFilt),dev:catTot[c]-getOrcCat(c,mesesFilt)})).filter(x=>x.dev>0).sort((a,b)=>b.dev-a.dev);
       const mesesNeg=saldos.filter(s=>s.tem_pago&&s.resultado_pago<0);
+      // Categorias com gasto real mas sem orçamento definido — risco de "gasto invisível"
+      const semOrc=CATS.filter(c=>catTot[c]>0&&getOrcCat(c,mesesFilt)===0);
+      const semOrcTotal=SM(semOrc.map(c=>catTot[c]));
+      const pctSemOrc=recMedia>0?Math.round(semOrcTotal/recMedia*100):0;
       const sec=(icone,titulo,cor='var(--tx)')=>`<div style="font-size:14px;font-weight:800;color:${cor};margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bd)">${icone} ${titulo}</div>`;
       const item=(txt,cor='var(--tx2)')=>`<div style="display:flex;gap:8px;margin:5px 0;padding:7px 12px;background:var(--bg3);border-radius:var(--rs);font-size:12px;color:${cor}"><span style="flex-shrink:0">›</span><span>${txt}</span></div>`;
       const acao=(n,txt)=>`<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd);align-items:flex-start"><div style="width:26px;height:26px;border-radius:50%;background:var(--bld);color:var(--blue);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${n}</div><div style="font-size:12px;color:var(--tx);line-height:1.6">${txt}</div></div>`;
@@ -6764,6 +7010,8 @@ function gerarDiagnostico(){
       if(catDesvio.length>0)html+=item(`<strong>${catDesvio[0].cat} ${R(catDesvio[0].real)}/mês</strong> — ${Math.round(catDesvio[0].dev/catDesvio[0].orc*100)}% acima do orçado (${R(catDesvio[0].orc)}).`);
       if(tendencia<0)html+=item(`<strong>Tendência decrescente</strong>: ${R(Math.abs(tendencia))} de deterioração desde ${mkLabel(saldos[0].mes)}.`);
       if(pDesp>85)html+=item(`<strong>Comprometimento de ${pDesp}% da renda</strong> — margem de apenas ${R(recMedia-despMedia-invMedia)}/mês.`);
+      if(catDesvio.length>=3)html+=item(`<strong>${catDesvio.length} categorias acima do orçado</strong> ao mesmo tempo — sinal de que o planejamento como um todo pode estar desalinhado, não só a execução.`);
+      if(semOrc.length>0&&pctSemOrc>=5)html+=item(`<strong>${semOrc.length} categoria(s) sem orçamento definido</strong> (${semOrc.join(', ')}) somam ${R(semOrcTotal)}/mês — ${pctSemOrc}% da renda fora de controle.`);
       html+=sec('🎯','Ações Imediatas — próximos 30 dias','var(--blue)');
       let nAcao=1;
       if(catDesvio.length>0)html+=acao(nAcao++,`<strong>Cortar ${catDesvio[0].cat}</strong> para ${R(catDesvio[0].orc)}/mês. Economia potencial de <strong style="color:var(--green)">${R(catDesvio[0].dev)}/mês</strong>.`);
@@ -6771,9 +7019,16 @@ function gerarDiagnostico(){
       html+=acao(nAcao++,`<strong>Automatizar aporte</strong> no dia do salário. Meta mínima: ${R(Math.round(recMedia*0.10))}/mês (10%).`);
       if(saldoAtual<0)html+=acao(nAcao++,'<strong>Suspender compras parceladas novas</strong> enquanto saldo negativo.');
       html+=acao(nAcao++,`<strong>Meta reserva emergência</strong>: ${R(despMedia*3)} (3 meses). Aportar ${R(Math.round(despMedia*3/24))}/mês por 24 meses.`);
-      html+=sec('💡','Insight Crítico','var(--amber)');
-      const insight=catDesvio[0]?`${catDesvio[0].cat} sozinho consome ${R(catDesvio[0].dev)}/mês a mais que o planejado.`:pDesp>85?`Com ${pDesp}% comprometido em despesas, qualquer imprevisto desequilibra o mês.`:'Manter a disciplina atual é fundamental para alcançar as metas de investimento.';
-      html+=`<div style="background:linear-gradient(135deg,rgba(224,179,95,.1),rgba(224,179,95,.04));border:1px solid rgba(224,179,95,.3);border-radius:var(--r);padding:14px 16px;font-size:13px;font-weight:600;color:var(--tx);line-height:1.7">${insight}</div>`;
+      if(semOrc.length>0)html+=acao(nAcao++,`<strong>Definir orçamento</strong> para ${semOrc.slice(0,2).join(' e ')} — hoje sem teto, ${R(semOrcTotal)}/mês passam sem controle.`);
+      if(catDesvio.length>=3)html+=acao(nAcao++,'<strong>Revisar o orçamento por completo</strong>, categoria por categoria — estouros simultâneos indicam que os valores planejados podem estar desatualizados.');
+      html+=sec('💡','Insights e Recomendações','var(--amber)');
+      const insights=[];
+      if(catDesvio.length>0)insights.push(`<strong>${catDesvio[0].cat}</strong> sozinho consome ${R(catDesvio[0].dev)}/mês a mais que o planejado — é a alavanca de maior impacto imediato.`);
+      if(pInv<20)insights.push(`Taxa de investimento em <strong>${pInv}%</strong>. Subir 1 ponto percentual por trimestre é um caminho realista até os 20% recomendados.`);
+      if(semOrc.length>0&&pctSemOrc>=5)insights.push(`${semOrc.length} categoria(s) ainda sem orçamento definido (${R(semOrcTotal)}/mês, ${pctSemOrc}% da renda). Definir um teto é o primeiro passo pra reduzir surpresa.`);
+      if(mesesNeg.length>=2)insights.push(`<strong>${mesesNeg.length} meses fecharam negativos</strong> no período — mais que imprevisto isolado, isso costuma indicar orçamento desalinhado com a realidade, não só gasto impulsivo.`);
+      if(insights.length===0)insights.push(pDesp<=85&&saldoAtual>=0?'Situação estável: renda, despesa e investimento equilibrados. Manter o ritmo atual por mais alguns meses consolida a reserva de emergência.':`Com ${pDesp}% da renda comprometido, qualquer imprevisto tende a desequilibrar o mês — vale revisar as categorias com maior desvio.`);
+      html+=insights.slice(0,3).map(txt=>`<div style="background:linear-gradient(135deg,rgba(224,179,95,.1),rgba(224,179,95,.04));border:1px solid rgba(224,179,95,.3);border-radius:var(--r);padding:14px 16px;font-size:13px;font-weight:600;color:var(--tx);line-height:1.7;margin-bottom:8px">${txt}</div>`).join('');
       loading.style.display='none';resultado.style.display='block';resultado.innerHTML=html;if(planoCard)planoCard.style.display='none';
       btn.textContent='↺ Atualizar análise';
     }catch(err){
@@ -7042,6 +7297,205 @@ function limparFormNovo(){
   document.getElementById('nv-feedback').style.display='none';
   onNvForma();
   setupNovo();
+}
+
+function abrirInvPosForm(){
+  document.getElementById('invpos-tipo').value = 'ACAO';
+  document.getElementById('invpos-ticker').value = '';
+  document.getElementById('invpos-instituicao').value = '';
+  document.getElementById('invpos-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('invpos-quantidade').value = '';
+  document.getElementById('invpos-preco').value = '';
+  document.getElementById('invpos-obs').value = '';
+  const fb=document.getElementById('invpos-feedback'); if(fb) fb.style.display='none';
+  abrirModal('invpos');
+}
+
+async function salvarInvPos(){
+  const tipo_ativo = document.getElementById('invpos-tipo').value;
+  const ticker = document.getElementById('invpos-ticker').value.trim().toUpperCase();
+  const instituicao = document.getElementById('invpos-instituicao').value.trim();
+  const data_aporte = document.getElementById('invpos-data').value;
+  const quantidade = parseFloat(document.getElementById('invpos-quantidade').value);
+  const preco_medio = parseFloat(document.getElementById('invpos-preco').value);
+  const obs = document.getElementById('invpos-obs').value.trim();
+  const fb = document.getElementById('invpos-feedback');
+  const btn = document.getElementById('btn-invpos-save');
+
+  function feedback(msg,ok){
+    fb.style.display='block';
+    fb.style.background = ok?'var(--gd)':'var(--rd)';
+    fb.style.color = ok?'var(--green)':'var(--red)';
+    fb.style.border = ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+
+  if(!ticker || !instituicao || !data_aporte || !quantidade || quantidade<=0 || !preco_medio || preco_medio<=0){
+    feedback('⚠ Preencha ticker, corretora, data, quantidade e preço médio (> 0).', false); return;
+  }
+  if(!usuarioAtual){ feedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    const payload = { usuario_id: usuarioAtual.id, tipo_ativo, ticker, instituicao, data_aporte, quantidade, preco_medio, observacoes: obs||null };
+    const {data:res, error} = await getSB().from('investimentos_posicoes').insert(payload).select();
+    if(error) throw new Error(error.message);
+    DB_INVEST.push(res[0]);
+    feedback('✓ Aporte salvo com sucesso!', true);
+    setTimeout(()=>{ fecharModal('invpos'); renderInvestidor(); }, 900);
+  } catch(e){
+    feedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar aporte';
+  }
+}
+
+async function renderInvestidor(){
+  if(!usuarioAtual) return;
+  if(!DB_INVEST._loaded){
+    const {data,error} = await getSB().from('investimentos_posicoes').select('*').eq('usuario_id',usuarioAtual.id).eq('ativo',true).order('data_aporte',{ascending:true});
+    if(error){ console.error('[investidor] erro ao carregar posições:',error); DB_INVEST=[]; }
+    else DB_INVEST = data||[];
+    DB_INVEST._loaded = true;
+  }
+
+  const porTicker = {};
+  DB_INVEST.forEach(p=>{
+    if(!porTicker[p.ticker]) porTicker[p.ticker]={ticker:p.ticker,tipo_ativo:p.tipo_ativo,instituicao:p.instituicao,quantidade:0,custoTotal:0};
+    porTicker[p.ticker].quantidade += Number(p.quantidade);
+    porTicker[p.ticker].custoTotal += Number(p.quantidade)*Number(p.preco_medio);
+  });
+  const tickers = Object.keys(porTicker);
+  let cotacoes = {};
+  if(tickers.length){
+    try{
+      const {data:res, error:err} = await getSB().functions.invoke('get-quotes',{body:{tickers}});
+      if(err) throw err;
+      (res.cotacoes||[]).forEach(c=>cotacoes[c.ticker]=c);
+    }catch(e){ console.error('[investidor] erro ao buscar cotações:',e); }
+  }
+
+  let totalInvestido=0, totalAtual=0;
+  const linhas = tickers.map(tk=>{
+    const p = porTicker[tk];
+    const custoMedio = p.custoTotal/p.quantidade;
+    const cot = cotacoes[tk];
+    const precoAtual = cot ? cot.preco : custoMedio;
+    const valorAtual = precoAtual*p.quantidade;
+    totalInvestido += p.custoTotal;
+    totalAtual += valorAtual;
+    const variacao = p.custoTotal>0 ? (valorAtual/p.custoTotal-1)*100 : 0;
+    return {...p,custoMedio,precoAtual,valorAtual,variacao,semCotacao:!cot};
+  });
+
+  const rentPct = totalInvestido>0 ? (totalAtual/totalInvestido-1)*100 : 0;
+  // Cards fixos no HTML estático (ver #inv-kpis) — aqui só atualizamos texto/classe,
+  // nunca innerHTML, pra não recriar os nós e perder o estado do tweenText.
+  tweenText(document.getElementById('inv-kpi-total'), totalInvestido, v=>R(v,2));
+  document.getElementById('inv-kpi-total-sub').textContent = `${tickers.length} posição(ões)`;
+  tweenText(document.getElementById('inv-kpi-atual'), totalAtual, v=>R(v,2));
+  document.getElementById('inv-kpi-atual-sub').textContent = tickers.length?'com cotação ao vivo':'sem posições';
+  const rentCard = document.getElementById('inv-kpi-rent-card');
+  const rentVal = document.getElementById('inv-kpi-rent');
+  rentCard.className = 'kpi' + (totalInvestido>0 ? (rentPct>=0?' kpi-accent-ok':' kpi-accent-danger') : '');
+  rentVal.className = 'kpi-val' + (totalInvestido>0 ? (rentPct>=0?' ok':' danger') : '');
+  tweenText(rentVal, rentPct, v=>`${v>=0?'+':''}${v.toFixed(2)}%`);
+  document.getElementById('inv-kpi-rent-sub').textContent = totalInvestido>0?'desde os aportes':'—';
+  tweenText(document.getElementById('inv-kpi-pos'), tickers.length, v=>String(Math.round(v)));
+
+  const cpSaldos = DB.casaPropriaSaldos||[];
+  const cpUlt = cpSaldos.length ? cpSaldos[cpSaldos.length-1] : null;
+  document.getElementById('inv-seguranca-ref').innerHTML = cpUlt
+    ? `Último saldo lançado em ${cpUlt.data.split('-').reverse().join('/')}: <b style="color:var(--tx)">${R(cpUlt.saldoReal)}</b> — CDB + Tesouro Selic, acompanhados na página <b>Casa Própria</b> (não duplicado aqui).`
+    : 'Nenhum saldo lançado ainda em Casa Própria.';
+
+  const tabDiv = document.getElementById('inv-posicoes-tabela');
+  tabDiv.innerHTML = !linhas.length
+    ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhum aporte cadastrado ainda. Clique em "+ Novo aporte".</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+          <th style="padding:6px 8px">Ticker</th><th style="padding:6px 8px">Tipo</th><th style="padding:6px 8px">Corretora</th>
+          <th style="padding:6px 8px;text-align:right">Qtd.</th><th style="padding:6px 8px;text-align:right">Preço médio</th>
+          <th style="padding:6px 8px;text-align:right">Cotação</th><th style="padding:6px 8px;text-align:right">Valor atual</th>
+          <th style="padding:6px 8px;text-align:right">Var.</th>
+        </tr></thead><tbody>
+        ${linhas.map(l=>`<tr style="border-bottom:1px solid var(--bd)">
+          <td style="padding:6px 8px;font-weight:700">${l.ticker}${l.semCotacao?' <span title="Cotação indisponível — usando preço médio" style="color:var(--amber)">⚠</span>':''} <a href="#" onclick="analisarTicker('${l.ticker}',${l.valorAtual});return false" title="Analisar indicadores" style="color:var(--blue);text-decoration:none">🔍</a></td>
+          <td style="padding:6px 8px;color:var(--tx2)">${l.tipo_ativo}</td>
+          <td style="padding:6px 8px;color:var(--tx2)">${l.instituicao}</td>
+          <td style="padding:6px 8px;text-align:right">${l.quantidade}</td>
+          <td style="padding:6px 8px;text-align:right">${R(l.custoMedio,2)}</td>
+          <td style="padding:6px 8px;text-align:right">${R(l.precoAtual,2)}</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:700">${R(l.valorAtual,2)}</td>
+          <td style="padding:6px 8px;text-align:right;color:${l.variacao>=0?'var(--green)':'var(--red)'}">${l.variacao>=0?'+':''}${l.variacao.toFixed(2)}%</td>
+        </tr>`).join('')}
+        </tbody></table>`;
+
+  const porTipo = {};
+  linhas.forEach(l=>{ porTipo[l.tipo_ativo]=(porTipo[l.tipo_ativo]||0)+l.valorAtual; });
+  const tipos = Object.keys(porTipo);
+  mkChart('chart-inv-comp',{type:'doughnut',data:{labels:tipos,datasets:[{data:tipos.map(t=>porTipo[t]),backgroundColor:['#5fd99a','#6fb8c9','#e0b35f'].slice(0,tipos.length),borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:tipos.length>0,position:'bottom',labels:{color:'#8a9690'}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${R(ctx.raw,2)}`}}},cutout:'62%'}});
+}
+
+async function analisarTicker(tickerParam, valorAtualParam){
+  const inputTicker = document.getElementById('inv-analise-ticker');
+  const inputValor = document.getElementById('inv-analise-valor');
+  const ticker = (tickerParam || inputTicker.value || '').trim().toUpperCase();
+  const out = document.getElementById('inv-analise-resultado');
+  if(!ticker){ out.innerHTML = '<div style="color:var(--red)">Informe um ticker.</div>'; return; }
+  inputTicker.value = ticker;
+  if(valorAtualParam!=null) inputValor.value = Math.round(valorAtualParam*100)/100;
+  out.innerHTML = '<div style="color:var(--tx2)">⏳ Buscando indicadores...</div>';
+  try{
+    const {data:res, error} = await getSB().functions.invoke('get-analysis',{body:{ticker}});
+    if(error) throw error;
+    if(res.error){ out.innerHTML = `<div style="color:var(--red)">✗ ${res.error}</div>`; return; }
+    const r = res.resultado;
+    const valorSim = parseFloat(inputValor.value) || 0;
+
+    const fmtPct = (v,decimals=2)=> v==null ? '—' : `${v.toFixed(decimals)}%`;
+    // heurística: a brapi às vezes retorna dividendYield como fração (0.052) e às vezes como percentual (5.2) — trate <1 como fração
+    const dyPct = r.dy==null ? null : (r.dy < 1 ? r.dy*100 : r.dy);
+    const roePct = r.roe;
+
+    let bandaHtml = '—';
+    if(r.banda52.min!=null && r.banda52.max!=null && r.banda52.posicaoPct!=null){
+      bandaHtml = `${R(r.banda52.min,2)} — ${R(r.banda52.max,2)} (preço atual está a ${r.banda52.posicaoPct.toFixed(0)}% da banda)`;
+    }
+
+    let divProjHtml = '—';
+    if(dyPct!=null && valorSim>0){
+      const anual = valorSim*(dyPct/100);
+      divProjHtml = `~${R(anual,2)}/ano (~${R(anual/12,2)}/mês) sobre ${R(valorSim,2)}, assumindo yield atual constante`;
+    } else if(dyPct!=null){
+      divProjHtml = `${fmtPct(dyPct)} ao ano — informe um valor pra simular em R$`;
+    }
+
+    let retornoHtml = '—';
+    if(r.retorno12m){
+      retornoHtml = `pior janela: ${fmtPct(r.retorno12m.min)} · melhor janela: ${fmtPct(r.retorno12m.max)} · média: ${fmtPct(r.retorno12m.medio)} (${r.retorno12m.janelas} janelas de 12m, últimos ~5 anos)`;
+    }
+
+    const kpi = (lbl,val)=>`<div class="kpi"><div class="kpi-lbl">${lbl}</div><div class="kpi-val">${val}</div></div>`;
+    out.innerHTML = `
+      <div style="font-weight:700;margin-bottom:8px">${r.nome||r.ticker} <span style="color:var(--tx2);font-weight:400">— ${R(r.preco,2)} (${(r.variacaoDia||0)>=0?'+':''}${(r.variacaoDia||0).toFixed(2)}% hoje)</span></div>
+      <div class="g4" style="margin-bottom:10px">
+        ${kpi('P/L', r.pl!=null?r.pl.toFixed(1):'—')}
+        ${kpi('P/VP', r.pvp!=null?r.pvp.toFixed(2):'—')}
+        ${kpi('Div. Yield', fmtPct(dyPct))}
+        ${kpi('ROE', fmtPct(roePct))}
+      </div>
+      <div style="font-size:12px;color:var(--tx2);line-height:1.7">
+        <div><b style="color:var(--tx)">Banda 52 semanas:</b> ${bandaHtml}</div>
+        <div><b style="color:var(--tx)">Projeção de dividendos:</b> ${divProjHtml}</div>
+        <div><b style="color:var(--tx)">Faixa histórica de retorno (12m):</b> ${retornoHtml}</div>
+      </div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)">
+        ⚠ Não é recomendação de investimento — são indicadores objetivos e dados históricos. Rentabilidade passada não garante resultado futuro.
+      </div>`;
+  }catch(e){
+    out.innerHTML = `<div style="color:var(--red)">✗ Erro: ${e.message||e}</div>`;
+  }
 }
 
 function fecharModal(tipo){
@@ -7648,14 +8102,15 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [lans, r2, r3, r4, r5, r6, r7] = await Promise.all([
+    const [lans, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
       fetchTodosLancamentos(sb, usuarioAtual.id),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('metas').select('*').eq('usuario_id', usuarioAtual.id).order('criado_em',{ascending:true}),
       sb.from('casa_propria_plano').select('*').eq('usuario_id', usuarioAtual.id).limit(1),
       sb.from('casa_propria_revisoes').select('*').eq('usuario_id', usuarioAtual.id).order('data_vigencia_inicio',{ascending:true}),
-      sb.from('casa_propria_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true})
+      sb.from('casa_propria_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
+      sb.from('casa_propria_fgts_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true})
     ]);
 
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
@@ -7664,6 +8119,7 @@ async function carregarDoSupabase(){
     if(r5.error) throw new Error('Casa Própria (plano): ' + r5.error.message);
     if(r6.error) throw new Error('Casa Própria (revisões): ' + r6.error.message);
     if(r7.error) throw new Error('Casa Própria (saldos): ' + r7.error.message);
+    if(r8.error) throw new Error('Casa Própria (FGTS): ' + r8.error.message);
 
     const saldos= r2.data || [];
     const orcs  = r3.data || [];
@@ -7671,6 +8127,7 @@ async function carregarDoSupabase(){
     const cpPlanoRows = r5.data || [];
     const cpRevisoesRows = r6.data || [];
     const cpSaldosRows = r7.data || [];
+    const cpFgtsSaldosRows = r8.data || [];
 
     if(lans.length === 0){
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
@@ -7719,6 +8176,9 @@ async function carregarDoSupabase(){
       motivoReavaliacao: r.motivo_reavaliacao||null
     }));
     DB.casaPropriaSaldos = cpSaldosRows.map(s=>({
+      id: s.id, data: s.data, saldoReal: parseFloat(s.saldo_real)||0, observacao: s.observacao||null
+    }));
+    DB.casaPropriaFgtsSaldos = cpFgtsSaldosRows.map(s=>({
       id: s.id, data: s.data, saldoReal: parseFloat(s.saldo_real)||0, observacao: s.observacao||null
     }));
 
@@ -7995,6 +8455,7 @@ let DB_FORMAS = [];     // formas_pagamento do Supabase
 let DB_CATS   = [];     // categorias do Supabase
 let DB_ANOS   = [];     // anos_fiscais do Supabase (exercícios cadastrados manualmente, mesmo sem lançamentos)
 let DB_SUBCATS = [];    // subcategorias do Supabase
+let DB_INVEST  = [];    // investimentos_posicoes do Supabase (tranche satélite)
 let _migracaoFeita = false;
 
 // ── Migração automática na primeira vez ──
@@ -9153,7 +9614,7 @@ function renderFaturas(){
       </div>
     </div>`;
   }).join('');
-  tEl.textContent=R(tot);tEl.style.color=tot>0?'var(--red)':'var(--green)';
+  tweenText(tEl, tot, R);tEl.style.color=tot>0?'var(--red)':'var(--green)';
 }
 
 // ══ GRÁFICO CARTÃO vs RECEITA ══
