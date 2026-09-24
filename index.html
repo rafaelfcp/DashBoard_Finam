@@ -5605,10 +5605,13 @@ async function salvarMeta(){
       const idx = DB.metas.findIndex(m=>m.id===id);
       if(idx>=0) DB.metas[idx] = {...DB.metas[idx], nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status};
     } else {
-      const {data,error} = await getSB().from('metas').insert(payload).select();
+      // ano_apuracao é NOT NULL sem default no banco — enviado só no INSERT (no UPDATE
+      // o ano original da meta é preservado). Usa o exercício selecionado no app.
+      const anoMeta = getAnoApuracao();
+      const {data,error} = await getSB().from('metas').insert({...payload, ano_apuracao: anoMeta}).select();
       if(error) throw new Error(error.message);
       const novo = data[0];
-      DB.metas.push({id:novo.id, nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status, anoApuracao:new Date().getFullYear()});
+      DB.metas.push({id:novo.id, nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status, anoApuracao:novo.ano_apuracao ?? anoMeta});
     }
     mostrarFeedback('✓ Meta salva com sucesso!', true);
     setTimeout(()=>{ fecharModal('meta'); renderMetas(); }, 900);
