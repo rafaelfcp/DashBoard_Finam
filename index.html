@@ -1679,12 +1679,29 @@ html.is-mobile .sidebar.open{
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#5fd99a;margin-right:5px"></span>Saldo real (lançado)</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#a892d4;margin-right:5px"></span>FGTS (projeção)</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0935f;margin-right:5px"></span>FGTS (real)</span>
+        <span><span style="display:inline-block;width:14px;height:0;border-top:2px dotted #5fd99a;margin-right:5px;vertical-align:middle"></span>Tendência (real → horizonte)</span>
+        <span><span style="display:inline-block;width:14px;height:0;border-top:2px dashed #d97a7a;margin-right:5px;vertical-align:middle"></span>Necessário (entrada + ITBI + colchão)</span>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:14px">
-      <div class="card-title">Histórico de saldos lançados</div>
+      <div class="card-title">Insights &amp; recomendações</div>
+      <div id="cprop-insights"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Recebíveis — parcelas a receber</div>
+      <div id="cprop-recebiveis"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Histórico de saldos lançados — evolução e rendimento</div>
       <div id="cprop-saldos-tabela" style="overflow-x:auto"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Projeção mês a mês — plano vs. real vs. tendência</div>
+      <div id="cprop-mensal-tabela" style="overflow:auto;max-height:420px"></div>
     </div>
 
     <div class="card" style="margin-bottom:14px">
@@ -1773,6 +1790,11 @@ html.is-mobile .sidebar.open{
           <input type="number" id="cpsaldo-valor" class="modal-input" step="0.01" min="0"></div>
       </div>
       <div class="modal-group">
+        <label class="modal-label">Aporte desde o último lançamento (R$)</label>
+        <input type="number" id="cpsaldo-aporte" class="modal-input" step="0.01" min="0" placeholder="0 — dinheiro novo que entrou (não conta rendimento)">
+      </div>
+      <div class="tip" style="margin:-4px 0 10px">Separar o aporte do saldo é o que permite calcular quanto o dinheiro <b>rendeu</b> em cada período.</div>
+      <div class="modal-group">
         <label class="modal-label">Observação</label>
         <input type="text" id="cpsaldo-obs" class="modal-input" placeholder="opcional — ex: extrato de 07/09" maxlength="120">
       </div>
@@ -1781,6 +1803,35 @@ html.is-mobile .sidebar.open{
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="fecharModal('cpsaldo')">Cancelar</button>
       <button class="btn-modal-save" id="btn-cpsaldo-save" onclick="salvarCpSaldo()">💾 Salvar saldo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CASA PRÓPRIA: RECEBIMENTO DE PARCELA -->
+<div class="modal-overlay" id="modal-cprec" style="display:none" onclick="if(event.target===this)fecharModal('cprec')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="cprec-title">💰 Registrar recebimento</div>
+      <button class="modal-close" onclick="fecharModal('cprec')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cprec-id">
+      <div class="modal-g2">
+        <div><label class="modal-label">Data do recebimento</label>
+          <input type="date" id="cprec-data" class="modal-input"></div>
+        <div><label class="modal-label">Valor recebido (R$)</label>
+          <input type="number" id="cprec-valor" class="modal-input" step="0.01" min="0.01"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Observação</label>
+        <input type="text" id="cprec-obs" class="modal-input" maxlength="120" placeholder="opcional">
+      </div>
+      <div class="tip" style="margin:-4px 0 10px">Depois de aplicar o valor no CDB, lance o saldo em "+ Novo saldo" informando este valor no campo <b>Aporte</b> — é isso que concilia a parcela com o saldo.</div>
+      <div id="cprec-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('cprec')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-cprec-save" onclick="salvarCpRecebimento()">💾 Registrar</button>
     </div>
   </div>
 </div>
@@ -2984,7 +3035,7 @@ html.is-mobile .sidebar.open{
 
 <script>
 // ══ DADOS ══
-let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
+let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], casaPropriaRecebiveis: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
 const CHARTS = {};
 const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
 const CORES = { Transporte:'#e0935f',Moradia:'#6fb8c9',Educação:'#a892d4',Alimentação:'#5fd99a',Compras:'#8a9a8c',Lazer:'#e0b35f',Giovanna:'#d9a86f','Saúde & Beleza':'#7fcf9e','Serviços Financeiros':'#c9a85f','Outras Despesas':'#56655a',Vestuário:'#8fc4cf','Doações & Presentes':'#d97a9a' };
@@ -5734,6 +5785,289 @@ function cpOffsetDeData(plano, dataISO){
   return (d.getFullYear()-base.getFullYear())*12 + (d.getMonth()-base.getMonth());
 }
 
+// ── Análise real vs. plano ─────────────────────────────────────────────────────
+// Aportes programados num offset (FGTS opcional — FGTS é conta separada do CDB)
+function cpAportesNoOffset(plano, off, incluiFgts){
+  return (plano.aportesProgramados||[])
+    .filter(a=>a.mesOffset===off && (incluiFgts || !String(a.label||'').toUpperCase().includes('FGTS')))
+    .reduce((acc,a)=>acc+(parseFloat(a.valor)||0),0);
+}
+
+// Fração (0..1) do mês do plano já decorrida numa data
+function cpFracMes(plano, dataISO){
+  const off = cpOffsetDeData(plano, dataISO);
+  const ini = cpAddMeses(plano.dataBase, off), fim = cpAddMeses(plano.dataBase, off+1);
+  const d = new Date(dataISO+'T00:00:00');
+  return Math.max(0, Math.min(1, (d-ini)/(fim-ini)));
+}
+
+// Projeção pró-rata por dia: valor do mês m + rendimento proporcional aos dias corridos,
+// SEM antecipar os aportes de m+1 (senão o plano "ganha" aporte antes da hora).
+function cpProjNaData(curva, plano, dataISO){
+  const H = plano.horizonteMeses;
+  const off = cpOffsetDeData(plano, dataISO);
+  if(off<0) return curva[0].liquido;
+  if(off>=H) return curva[H].liquido;
+  const base = curva[off].liquido;
+  const semAporte = curva[off+1].liquido - cpAportesNoOffset(plano, off+1, true);
+  const fator = base>0 ? Math.max(semAporte/base, 0.0001) : 1;
+  return base * Math.pow(fator, cpFracMes(plano, dataISO));
+}
+
+function cpDias(aISO, bISO){ return Math.round((new Date(bISO+'T00:00:00') - new Date(aISO+'T00:00:00'))/86400000); }
+
+// Situação de cada parcela e resumo do recebível
+function cpRecebiveisResumo(recebiveis, hojeISO){
+  const itens = (recebiveis||[]).map(r=>{
+    let status, dias = null;
+    if(r.dataRecebida){
+      dias = cpDias(r.dataPrevista, r.dataRecebida);          // <0 antecipada, >0 atraso
+      status = dias>0 ? 'recebida_atraso' : (dias<0 ? 'recebida_antecipada' : 'recebida');
+    } else {
+      dias = cpDias(hojeISO, r.dataPrevista);                  // dias até vencer
+      status = dias<0 ? 'atrasada' : (dias<=7 ? 'vencendo' : 'prevista');
+    }
+    return { ...r, status, dias };
+  });
+  const recebidas = itens.filter(i=>i.dataRecebida);
+  const pendentes = itens.filter(i=>!i.dataRecebida);
+  return {
+    itens, recebidas, pendentes,
+    totalContrato: itens.reduce((a,i)=>a+i.valor,0),
+    totalRecebido: recebidas.reduce((a,i)=>a+(i.valorRecebido||0),0),
+    totalAReceber: pendentes.reduce((a,i)=>a+i.valor,0),
+    atrasadas: pendentes.filter(i=>i.status==='atrasada'),
+    proxima: pendentes[0]||null,
+    divergValor: recebidas.filter(i=>Math.abs((i.valorRecebido||0)-i.valor)>0.5)
+  };
+}
+
+function cpEhParcelaPlano(a){ return String(a.label||'').toUpperCase().includes('PARCELA'); }
+
+function cpAnalise(plano, revisaoAtual, curvaCons, curvaOtim, saldos, fgtsSaldos, recebiveis){
+  const H = plano.horizonteMeses;
+  const hojeISO = new Date().toISOString().slice(0,10);
+  const taxaConsBruta = plano.pctCdiContratado * revisaoAtual.taxaCdiConservadorAa;
+  const taxaOtimBruta = plano.pctCdiContratado * revisaoAtual.taxaCdiOtimistaAa;
+  const iMesLiq = cpTaxaMensal(taxaConsBruta) * (1-0.175); // aprox. líquida (IR médio 17,5%)
+
+  // Necessário = entrada + ITBI/cartório + colchão (o colchão não pode ser consumido)
+  const temAlvo = revisaoAtual.entradaEstimada>0;
+  const necessario = temAlvo ? revisaoAtual.entradaEstimada + revisaoAtual.itbiCartorio + plano.colchaoEmergenciaAlvo : null;
+
+  // Histórico com métricas por período
+  const rows = saldos.map((sd,i)=>{
+    const prev = i===0 ? { data: plano.dataBase, saldoReal: plano.saldoBase } : saldos[i-1];
+    const dias = cpDias(prev.data, sd.data);
+    const delta = sd.saldoReal - prev.saldoReal;
+    const aporte = sd.aporte||0;
+    const rend = delta - aporte;
+    const rendPct = prev.saldoReal>0 ? rend/prev.saldoReal : 0;
+    const aa = dias>0 ? Math.pow(1+rendPct, 365/dias)-1 : null;
+    const projCons = cpProjNaData(curvaCons, plano, sd.data);
+    const projOtim = cpProjNaData(curvaOtim, plano, sd.data);
+    const ruido = dias<15;
+    const anomalia = aa!=null && (aa<0 || aa>taxaOtimBruta*1.5);
+    const obsCitaAporte = !aporte && /receb|aporte|parcela|dep[oó]sit/i.test(sd.observacao||'');
+    return { ...sd, prevData: prev.data, dias, delta, aporte, rend, rendPct, aa, projCons, projOtim,
+      desvCons: sd.saldoReal-projCons, desvOtim: sd.saldoReal-projOtim, ruido, anomalia, obsCitaAporte };
+  });
+  const ult = rows.length ? rows[rows.length-1] : null;
+
+  // Acumulado desde a base
+  const aportesReal = rows.reduce((a,r)=>a+r.aporte,0);
+  let aportesPlano = 0, antecipado = 0, rendAcum = null, rendAcumAA = null, diasAcum = 0;
+  if(ult){
+    const offU = cpOffsetDeData(plano, ult.data);
+    for(let k=1;k<=Math.min(offU,H);k++) aportesPlano += cpAportesNoOffset(plano,k,false);
+    antecipado = aportesReal - aportesPlano;
+    diasAcum = cpDias(plano.dataBase, ult.data);
+    rendAcum = ult.saldoReal - plano.saldoBase - aportesReal;
+    rendAcumAA = diasAcum>0 ? Math.pow(1+rendAcum/plano.saldoBase, 365/diasAcum)-1 : null;
+  }
+
+  // Tendência: parte do último saldo real e segue o fator líquido do cenário conservador
+  // mês a mês + aportes. Com recebíveis cadastrados, as parcelas do plano são trocadas pelo
+  // cronograma REAL (pendentes na sua data prevista; atrasadas empurradas p/ o próximo mês).
+  // Aporte antecipado é abatido dos próximos aportes, não somado de novo.
+  const hojeISO2 = new Date().toISOString().slice(0,10);
+  const rec = cpRecebiveisResumo(recebiveis, hojeISO2);
+  const usaRec = rec.itens.length>0;
+  const trend = new Array(H+1).fill(null);
+  let offUlt = null;
+  if(ult){
+    offUlt = Math.max(0, Math.min(H, cpOffsetDeData(plano, ult.data)));
+    const frac = cpFracMes(plano, ult.data);
+    const aportesPlanoK = k => (plano.aportesProgramados||[]).filter(a=>a.mesOffset===k && !(usaRec && cpEhParcelaPlano(a))).reduce((acc,a)=>acc+(parseFloat(a.valor)||0),0);
+    const recPendK = k => !usaRec ? 0 : rec.pendentes.filter(i=>Math.max(offUlt+1, cpOffsetDeData(plano,i.dataPrevista))===k).reduce((a,i)=>a+i.valor,0);
+    // Crédito = aporte FIXO realizado acima do previsto (ex.: aporte do mês seguinte feito antes).
+    // Com recebíveis, parcelas recebidas saem do cálculo (já foram retiradas do cronograma futuro).
+    const offU = cpOffsetDeData(plano, ult.data);
+    const fixoPlanoAte = (plano.aportesProgramados||[]).filter(a=>a.mesOffset>=1 && a.mesOffset<=offU && !String(a.label||'').toUpperCase().includes('FGTS') && !(usaRec && cpEhParcelaPlano(a))).reduce((x,a)=>x+(parseFloat(a.valor)||0),0);
+    const fixoReal = usaRec ? aportesReal - rec.totalRecebido : aportesReal;
+    let credito = Math.max(0, fixoReal - fixoPlanoAte);
+    let sv = ult.saldoReal;
+    trend[offUlt] = sv;
+    for(let k=offUlt+1;k<=H;k++){
+      const apPlanoOrig = cpAportesNoOffset(plano,k,true);
+      const f = (curvaCons[k].liquido - apPlanoOrig) / curvaCons[k-1].liquido;
+      const fixoK = (plano.aportesProgramados||[]).filter(a=>a.mesOffset===k && !String(a.label||'').toUpperCase().includes('FGTS') && !(usaRec && cpEhParcelaPlano(a))).reduce((x,a)=>x+(parseFloat(a.valor)||0),0);
+      let apK = aportesPlanoK(k) + recPendK(k);
+      if(credito>0){ const abate = Math.min(credito, fixoK); apK -= abate; credito -= abate; }
+      sv = sv * Math.pow(f, k===offUlt+1 ? (1-frac) : 1) + apK;
+      trend[k] = sv;
+    }
+  }
+
+  const primeiroAtinge = arr => { if(necessario==null) return null; for(let k=0;k<arr.length;k++){ const v = arr[k]; if(v!=null && v>=necessario) return k; } return null; };
+  const mesMetaCons = primeiroAtinge(curvaCons.map(p=>p.liquido));
+  const mesMetaOtim = primeiroAtinge(curvaOtim.map(p=>p.liquido));
+  const mesMetaTend = primeiroAtinge(trend);
+  const finalTend = trend[H]!=null ? trend[H] : curvaCons[H].liquido;
+  const margemCons = necessario!=null ? curvaCons[H].liquido - necessario : null;
+  const margemTend = necessario!=null ? finalTend - necessario : null;
+
+  // Capacidade de compra no horizonte, mantendo a proporção entrada+ITBI / valor do imóvel
+  const pctEntradaItbi = (temAlvo && revisaoAtual.valorImovelAlvo>0) ? (revisaoAtual.entradaEstimada+revisaoAtual.itbiCartorio)/revisaoAtual.valorImovelAlvo : null;
+  const imovelMaxCons = pctEntradaItbi ? (curvaCons[H].liquido - plano.colchaoEmergenciaAlvo)/pctEntradaItbi : null;
+  const imovelMaxTend = pctEntradaItbi ? (finalTend - plano.colchaoEmergenciaAlvo)/pctEntradaItbi : null;
+
+  // Aporte mensal equivalente à margem (PMT de valor futuro)
+  const offHoje = Math.max(0, Math.min(H, cpOffsetDeData(plano, hojeISO)));
+  const nRest = Math.max(1, H - offHoje);
+  const pmtFV = fv => fv * iMesLiq / (Math.pow(1+iMesLiq, nRest) - 1);
+  const aporteEquivMargem = margemTend!=null ? pmtFV(Math.abs(margemTend)) : null;
+
+  // FGTS: premissa do plano vs. ritmo observado
+  const tranchesFgts = cpTranches(plano).filter(t=>t.label && t.label.toUpperCase().includes('FGTS'));
+  const fgtsPlano = tranchesFgts.reduce((a,t)=>a+t.valor,0);
+  const fgtsOff = tranchesFgts.length ? Math.max(...tranchesFgts.map(t=>t.mesOffset)) : null;
+  let fgts = null;
+  if(fgtsPlano>0){
+    const atual = fgtsSaldos.length ? fgtsSaldos[fgtsSaldos.length-1].saldoReal : 0;
+    const mesesAte = Math.max(1, fgtsOff - offHoje);
+    const necessarioMes = (fgtsPlano - atual)/mesesAte;
+    let ritmoMes = null, spanDias = 0;
+    if(fgtsSaldos.length>=2){
+      spanDias = cpDias(fgtsSaldos[0].data, fgtsSaldos[fgtsSaldos.length-1].data);
+      if(spanDias>=25) ritmoMes = (atual - fgtsSaldos[0].saldoReal)/spanDias*30.44;
+    }
+    fgts = { plano: fgtsPlano, atual, mesesAte, necessarioMes, ritmoMes, spanDias,
+      projetadoRitmo: ritmoMes!=null ? atual + ritmoMes*mesesAte : null };
+  }
+
+  const diasSemLancar = ult ? cpDias(ult.data, hojeISO) : null;
+
+  return { rec, H, necessario, rows, ult, aportesReal, aportesPlano, antecipado, rendAcum, rendAcumAA, diasAcum,
+    trend, offUlt, mesMetaCons, mesMetaOtim, mesMetaTend, finalTend, margemCons, margemTend,
+    imovelMaxCons, imovelMaxTend, aporteEquivMargem, nRest, offHoje, fgts, diasSemLancar,
+    taxaConsBruta, taxaOtimBruta, spreadCenarios: curvaOtim[H].liquido - curvaCons[H].liquido };
+}
+
+function cpInsights(plano, revisaoAtual, curvaCons, an){
+  const out = [];
+  const sR = v => (v>=0?'+':'-')+R(Math.abs(v));
+  const pct = v => (v*100).toFixed(2).replace('.',',')+'%';
+  const lblMes = k => k==null ? '—' : `${cpMesLabel(curvaCons[k].data)} (mês ${k}/${an.H})`;
+  const u = an.ult;
+
+  if(!u){
+    out.push({t:'info', h:'Sem saldo lançado', b:'Lance o primeiro saldo real para habilitar desvio, rendimento e tendência.'});
+    return out;
+  }
+
+  // 1. Posição vs. plano (pró-rata)
+  const desempenho = u.desvCons - an.antecipado;
+  out.push({ t: u.desvCons>=0?'ok':'danger', h:`Posição vs. conservador: ${sR(u.desvCons)}`,
+    b:`Comparado à projeção pró-rata de ${u.data.split('-').reverse().join('/')} (${R(u.projCons)}), não ao valor do início do mês. `+
+      (Math.abs(an.antecipado)>0.5
+        ? `Desse desvio, ${sR(an.antecipado)} é <b>timing de aporte</b> (realizado ${R(an.aportesReal)} vs. ${R(an.aportesPlano)} previsto até a data) e ${sR(desempenho)} é <b>desempenho</b> (rendimento acima/abaixo do plano).`
+        : `Nenhum aporte informado no período — o desvio inteiro está sendo tratado como rendimento.`) });
+
+  // 2. Rendimento acumulado
+  if(an.rendAcum!=null){
+    const curto = an.diasAcum<30;
+    out.push({ t: curto?'info':(an.rendAcumAA>=an.taxaConsBruta?'ok':'warn'),
+      h:`Rendimento acumulado: ${sR(an.rendAcum)} em ${an.diasAcum} dias`,
+      b:`Equivale a ${an.rendAcumAA!=null?pct(an.rendAcumAA):'—'} a.a. (bruto), contra ${pct(an.taxaConsBruta)} (cons.) e ${pct(an.taxaOtimBruta)} (otim.) contratados. `+
+        (curto?'Janela < 30 dias: leitura ainda estatisticamente fraca (dias úteis, crédito D+1 e base arredondada distorcem).':'') });
+  }
+
+  // 3. Qualidade do dado
+  const semAporte = an.rows.filter(r=>r.obsCitaAporte);
+  if(semAporte.length){
+    out.push({ t:'warn', h:'Aporte citado na observação, mas campo "aporte" vazio',
+      b:`Lançamento(s) ${semAporte.map(r=>r.data.split('-').reverse().join('/')).join(', ')}: a observação menciona recebimento/aporte, então esse dinheiro está sendo contado como <b>rendimento</b>. Preencha o aporte para o cálculo ficar correto.` });
+  }
+  const anom = an.rows.filter(r=>r.anomalia && !r.obsCitaAporte);
+  if(anom.length){
+    out.push({ t:'warn', h:'Rendimento fora da faixa esperada',
+      b:anom.map(r=>`${r.prevData.split('-').reverse().join('/')}→${r.data.split('-').reverse().join('/')}: ${pct(r.aa)} a.a. em ${r.dias} dias`).join(' · ')+
+        '. Causas típicas: aporte não informado, janela curta (juros creditados em bloco) ou saldo-base arredondado.' });
+  }
+
+  // 4. Objetivo
+  if(an.necessario!=null){
+    out.push({ t: an.margemTend>=0?'ok':'danger', h:`Objetivo: ${R(an.necessario)} (entrada ${R(revisaoAtual.entradaEstimada)} + ITBI ${R(revisaoAtual.itbiCartorio)} + colchão ${R(plano.colchaoEmergenciaAlvo)})`,
+      b:`Atingido em: conservador ${lblMes(an.mesMetaCons)} · otimista ${lblMes(an.mesMetaOtim)} · tendência real ${lblMes(an.mesMetaTend)}. `+
+        `No horizonte a tendência fecha em ${R(an.finalTend)} → ${an.margemTend>=0?'sobra':'falta'} ${R(Math.abs(an.margemTend))}.` });
+
+    // 5. Recomendação de aporte / capacidade
+    if(an.margemTend<0){
+      out.push({ t:'danger', h:`Recomendação: aporte extra de ~${R(an.aporteEquivMargem)}/mês`,
+        b:`Cobre a falta nos ${an.nRest} meses restantes (taxa líquida aprox. do cenário conservador). Alternativas: alongar o horizonte ou revisar o imóvel-alvo.` });
+    } else {
+      out.push({ t:'info', h:'Recomendação: manter o aporte e decidir o destino da folga',
+        b:`A sobra projetada equivale a ~${R(an.aporteEquivMargem)}/mês de aporte. Mantendo a mesma proporção entrada+ITBI, o horizonte comporta um imóvel de até ~${R(an.imovelMaxTend)} (conservador puro: ${R(an.imovelMaxCons)}). `+
+          `Opções: (a) antecipar a compra para ${lblMes(an.mesMetaTend)}, (b) subir o alvo, (c) manter como buffer — a diferença entre cenários é ${R(an.spreadCenarios)}, então parte da folga depende do CDI.` });
+    }
+  }
+
+  // 5b. Recebíveis
+  const rc = an.rec;
+  if(rc && rc.itens.length){
+    if(rc.atrasadas.length){
+      out.push({ t:'danger', h:`${rc.atrasadas.length} parcela(s) atrasada(s) — ${R(rc.atrasadas.reduce((a,i)=>a+i.valor,0))}`,
+        b: rc.atrasadas.map(i=>`${i.parcelaN}/${i.totalParcelas} venceu em ${i.dataPrevista.split('-').reverse().join('/')} (${-i.dias} dias)`).join(' · ')+'. Cobre o comprador e registre a data real quando entrar — a tendência já está considerando o atraso.' });
+    }
+    const naoConciliado = rc.totalRecebido - an.aportesReal;
+    if(naoConciliado>0.5){
+      out.push({ t:'warn', h:`${R(naoConciliado)} de parcelas recebidas sem aporte correspondente nos saldos`,
+        b:'Recebido no controle de parcelas > soma dos aportes lançados. Ou o dinheiro ainda não foi aplicado no CDB, ou o saldo foi lançado sem preencher o campo "Aporte".' });
+    }
+    if(rc.divergValor.length){
+      out.push({ t:'warn', h:'Parcela recebida com valor diferente do contratado',
+        b: rc.divergValor.map(i=>`${i.parcelaN}/${i.totalParcelas}: ${R(i.valorRecebido)} vs ${R(i.valor)}`).join(' · ') });
+    }
+    if(an.margemTend!=null && rc.totalAReceber>0){
+      const cobre = an.margemTend >= rc.totalAReceber;
+      out.push({ t: cobre?'ok':'warn', h:`Risco do recebível: ${R(rc.totalAReceber)} ainda a receber`,
+        b: cobre
+          ? `Mesmo se nenhuma parcela restante for paga, a folga projetada (${R(an.margemTend)}) cobre a perda — a meta não depende do comprador.`
+          : `A folga projetada (${R(an.margemTend)}) NÃO cobre um calote das parcelas restantes: a meta depende do comprador. Vale reforçar garantias do contrato.` });
+    }
+  }
+
+  // 6. FGTS
+  if(an.fgts){
+    const f = an.fgts;
+    const gap = f.projetadoRitmo!=null ? f.projetadoRitmo - f.plano : null;
+    out.push({ t: gap==null?'warn':(gap>=0?'ok':'danger'), h:`FGTS: plano assume ${R(f.plano)}, hoje ${R(f.atual)}`,
+      b:`Para chegar lá em ${f.mesesAte} meses o FGTS precisa crescer ~${R(f.necessarioMes)}/mês. `+
+        (f.ritmoMes!=null
+          ? `Ritmo observado: ${R(f.ritmoMes)}/mês → projeta ${R(f.projetadoRitmo)} (${gap>=0?'sobra':'falta'} ${R(Math.abs(gap))}).`
+          : `Ainda não há ≥25 dias de histórico FGTS (${f.spanDias} dias) para medir o ritmo — é a premissa de maior risco do plano; valide com o extrato.`) });
+  }
+
+  // 7. Cadência
+  if(an.diasSemLancar!=null && an.diasSemLancar>35){
+    out.push({ t:'warn', h:`Último saldo há ${an.diasSemLancar} dias`, b:'Lance ao menos 1 saldo por mês (mesmo dia, após o crédito do aporte) para a tendência não ficar cega.' });
+  } else {
+    out.push({ t:'info', h:'Cadência sugerida', b:'1 lançamento por mês, sempre no mesmo dia e após o crédito do aporte, informando o valor aportado. Janelas regulares tornam o rendimento a.a. comparável entre períodos.' });
+  }
+  return out;
+}
+
 function renderCasaPropria(){
   showBody('cprop');
   const plano = DB.casaPropriaPlano;
@@ -5741,6 +6075,9 @@ function renderCasaPropria(){
   if(!plano){
     wrap.innerHTML = `<div class="card" style="grid-column:1/-1"><div style="text-align:center;padding:24px;color:var(--tx2)">Plano ainda não cadastrado (tabela casa_propria_plano vazia).</div></div>`;
     document.getElementById('cprop-saldos-tabela').innerHTML='';
+    document.getElementById('cprop-mensal-tabela').innerHTML='';
+    document.getElementById('cprop-insights').innerHTML='';
+    document.getElementById('cprop-recebiveis').innerHTML='';
     document.getElementById('cprop-fgts-tabela').innerHTML='';
     document.getElementById('cprop-revisoes-tabela').innerHTML='';
     return;
@@ -5757,12 +6094,8 @@ function renderCasaPropria(){
   const saldos = DB.casaPropriaSaldos;
   const ultimoSaldo = saldos.length ? saldos[saldos.length-1] : null;
 
-  let desvioCons=null, desvioOtim=null;
-  if(ultimoSaldo){
-    const offset = Math.max(0, Math.min(plano.horizonteMeses, cpOffsetDeData(plano, ultimoSaldo.data)));
-    desvioCons = ultimoSaldo.saldoReal - curvaCons[offset].liquido;
-    desvioOtim = ultimoSaldo.saldoReal - curvaOtim[offset].liquido;
-  }
+  const an = cpAnalise(plano, revisaoAtual, curvaCons, curvaOtim, saldos, DB.casaPropriaFgtsSaldos||[], DB.casaPropriaRecebiveis||[]);
+  const desvioCons = an.ult ? an.ult.desvCons : null;
   const saldoAtualExibicao = ultimoSaldo ? ultimoSaldo.saldoReal : plano.saldoBase;
   const entradaDisponivel = saldoAtualExibicao - plano.colchaoEmergenciaAlvo;
   const fgtsSaldosArr = DB.casaPropriaFgtsSaldos||[];
@@ -5774,15 +6107,18 @@ function renderCasaPropria(){
   wrap.innerHTML =
     kpi('Saldo atual', R(saldoAtualExibicao), ultimoSaldo?`lançado em ${ultimoSaldo.data.split('-').reverse().join('/')}`:'saldo inicial do plano') +
     kpi('Disponível p/ entrada', R(Math.max(0,entradaDisponivel)), `após colchão de ${R(plano.colchaoEmergenciaAlvo)}`) +
-    kpi('Desvio vs. conservador', desvioCons!=null?`${desvioCons>=0?'+':'-'}${R(Math.abs(desvioCons))}`:'—', desvioCons!=null?(desvioCons>=0?'adiantado':'atrasado'):'sem saldo lançado ainda', desvioCons!=null?(desvioCons>=0?'ok':'danger'):null) +
+    kpi('Desvio vs. conservador', desvioCons!=null?`${desvioCons>=0?'+':'-'}${R(Math.abs(desvioCons))}`:'—', desvioCons!=null?`${desvioCons>=0?'adiantado':'atrasado'} · pró-rata do dia${Math.abs(an.antecipado)>0.5?` · ${an.antecipado>=0?'+':'-'}${R(Math.abs(an.antecipado))} é aporte antecipado`:''}`:'sem saldo lançado ainda', desvioCons!=null?(desvioCons>=0?'ok':'danger'):null) +
     kpi('Taxa vigente', `${(revisaoAtual.taxaCdiConservadorAa*100).toFixed(2)}% / ${(revisaoAtual.taxaCdiOtimistaAa*100).toFixed(2)}%`, 'CDI conservador / otimista a.a.') +
     kpi('Total consolidado (CDB + FGTS)', R(totalConsolidado), fgtsSaldosArr.length?`CDB ${R(saldoAtualExibicao)} + FGTS ${R(fgtsAtual)}`:'FGTS ainda não lançado — somando só o CDB', null, true);
 
   const labels = curvaCons.map(p=>cpMesLabel(p.data));
+  // Último saldo lançado de cada mês (find() pegava o primeiro e escondia leituras mais recentes)
   const dadosReal = curvaCons.map(p=>{
-    const s = saldos.find(sd=>cpOffsetDeData(plano, sd.data)===p.mesOffset);
-    return s ? s.saldoReal : null;
+    const doMes = saldos.filter(sd=>cpOffsetDeData(plano, sd.data)===p.mesOffset);
+    return doMes.length ? doMes[doMes.length-1].saldoReal : null;
   });
+  const dadosTend = an.trend.map((v,i)=>v!=null && i>=(an.offUlt||0) ? Math.round(v) : null);
+  const dadosNec = an.necessario!=null ? curvaCons.map(()=>an.necessario) : [];
   // Tranches com label contendo "FGTS" — isolar seu valor acumulado em cada mês de corte,
   // pra explicar visualmente saltos como o do aporte único de FGTS previsto no plano.
   const tranchesFgts = cpTranches(plano).filter(t=>t.label && t.label.toUpperCase().includes('FGTS'));
@@ -5812,36 +6148,147 @@ function renderCasaPropria(){
       { label:'FGTS (projeção)', data:dadosFgts, borderColor:'#a892d4', backgroundColor:'transparent', tension:0, spanGaps:false, pointRadius:5, pointBackgroundColor:'#a892d4', borderWidth:2,
         datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#a892d4', align:'bottom', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?'+'+R(v):'' } },
       { label:'FGTS (real)', data:dadosFgtsReal, borderColor:'#e0935f', backgroundColor:'transparent', tension:.25, spanGaps:true, pointRadius:4, pointBackgroundColor:'#e0935f',
-        datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#e0935f', align:'bottom', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?R(v):'' } }
+        datalabels:{ display:ctx=>ctx.dataset.data[ctx.dataIndex]!=null, color:'#e0935f', align:'bottom', offset:10, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?R(v):'' } },
+      { label:'Tendência (real)', data:dadosTend, borderColor:'#5fd99a', backgroundColor:'transparent', borderDash:[2,4], borderWidth:2, tension:.25, spanGaps:false, pointRadius:0,
+        datalabels:{ display:ctx=>ctx.dataIndex===ctx.dataset.data.length-1 && ctx.dataset.data[ctx.dataIndex]!=null, color:'#5fd99a', align:'left', offset:8, font:{size:10,family:CC.font,weight:'700'}, formatter:v=>v!=null?'R$'+(v/1000).toFixed(0)+'k':'' } },
+      { label:'Necessário', data:dadosNec, borderColor:'#d97a7a', backgroundColor:'transparent', borderDash:[8,5], borderWidth:1.5, tension:0, pointRadius:0,
+        datalabels:{ display:ctx=>ctx.dataIndex===3, color:'#d97a7a', align:'top', offset:2, font:{size:9,family:CC.font,weight:'700'}, formatter:v=>v!=null?'Necessário R$'+(v/1000).toFixed(0)+'k':'' } }
     ]},
     options:{ responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{top:22,bottom:14} },
-      plugins:{ legend:{display:false}, tooltip:{ mode:'index', intersect:false, callbacks:{ label:ctx=>`${ctx.dataset.label}: ${ctx.raw!=null?R(ctx.raw):'—'}` } } },
+      layout:{ padding:{top:22,bottom:14,right:12} },
+      plugins:{ legend:{display:false}, tooltip:{ mode:'index', intersect:false, filter:it=>it.raw!=null, callbacks:{ label:ctx=>`${ctx.dataset.label}: ${ctx.raw!=null?R(ctx.raw):'—'}` } } },
       scales:{ x:{ grid:{display:false}, ticks:{color:CC.tick,font:{size:11,family:CC.font}} }, y:{ grid:{color:CC.grid}, ticks:{color:CC.tick,font:{size:11,family:CC.font}, callback:v=>'R$'+(v/1000).toFixed(0)+'k'} } }
     },
     plugins:[typeof ChartDataLabels!=='undefined'?ChartDataLabels:{}]
   });
+
+  const sR = v => (v>=0?'+':'-')+R(Math.abs(v));
+  const chip = v => `<span style="color:${v>=0?'var(--green)':'var(--red)'};font-weight:600">${sR(v)}</span>`;
+  const pctAA = r => r.aa==null ? '—' : `<span title="${r.ruido?'janela curta (<15 dias) — leitura ruidosa':''}" style="color:${r.anomalia?'var(--amber)':'var(--tx)'}">${r.ruido?'~':''}${(r.aa*100).toFixed(1).replace('.',',')}%</span>`;
+  const th = (t,al) => `<th style="padding:6px 8px;${al?'text-align:right;':''}white-space:nowrap">${t}</th>`;
+  const td = (v,al,extra) => `<td style="padding:6px 8px;${al?'text-align:right;':''}white-space:nowrap;${extra||''}">${v}</td>`;
 
   const tabSaldos = document.getElementById('cprop-saldos-tabela');
   tabSaldos.innerHTML = !saldos.length
     ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhum saldo lançado ainda. Clique em "+ Novo saldo".</div>`
     : `<table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
-          <th style="padding:6px 8px">Data</th><th style="padding:6px 8px;text-align:right">Saldo real</th>
-          <th style="padding:6px 8px;text-align:right">Cons.</th><th style="padding:6px 8px;text-align:right">Otim.</th>
-          <th style="padding:6px 8px">Observação</th>
+          ${th('Data')}${th('Saldo real',1)}${th('Δ período',1)}${th('Aporte',1)}${th('Rendimento',1)}${th('Rend. a.a.',1)}${th('Proj. cons. (dia)',1)}${th('Desvio cons.',1)}${th('Desvio otim.',1)}${th('Observação')}
         </tr></thead><tbody>
-        ${[...saldos].reverse().map(s=>{
-          const offset = Math.max(0,Math.min(plano.horizonteMeses,cpOffsetDeData(plano,s.data)));
-          return `<tr style="border-bottom:1px solid var(--bd)">
-            <td style="padding:6px 8px;color:var(--tx2)">${s.data.split('-').reverse().join('/')}</td>
-            <td style="padding:6px 8px;text-align:right;font-weight:700">${R(s.saldoReal)}</td>
-            <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${R(curvaCons[offset].liquido)}</td>
-            <td style="padding:6px 8px;text-align:right;color:var(--tx2)">${R(curvaOtim[offset].liquido)}</td>
-            <td style="padding:6px 8px;color:var(--tx2)">${s.observacao||'—'}</td>
+        ${[...an.rows].reverse().map(r=>`<tr style="border-bottom:1px solid var(--bd)">
+            ${td(r.data.split('-').reverse().join('/'),0,'color:var(--tx2)')}
+            ${td(R(r.saldoReal),1,'font-weight:700')}
+            ${td(sR(r.delta),1,'color:var(--tx2)')}
+            ${td(r.aporte?R(r.aporte):(r.obsCitaAporte?'<span style="color:var(--amber)" title="observação cita aporte — preencha o campo">⚠ 0</span>':'—'),1)}
+            ${td(chip(r.rend),1)}
+            ${td(pctAA(r),1)}
+            ${td(R(r.projCons),1,'color:var(--tx2)')}
+            ${td(chip(r.desvCons),1)}
+            ${td(chip(r.desvOtim),1)}
+            ${td(r.observacao||'—',0,'color:var(--tx2);white-space:normal')}
+          </tr>`).join('')}
+        <tr style="border-top:2px solid var(--bd2);background:rgba(255,255,255,.02)">
+          ${td(`Acumulado desde ${plano.dataBase.split('-').reverse().join('/')} (${an.diasAcum}d)`,0,'color:var(--tx2);font-weight:600')}
+          ${td(R(an.ult.saldoReal),1,'font-weight:700')}
+          ${td(sR(an.ult.saldoReal-plano.saldoBase),1,'color:var(--tx2)')}
+          ${td(an.aportesReal?R(an.aportesReal):'—',1)}
+          ${td(chip(an.rendAcum),1)}
+          ${td(an.rendAcumAA!=null?(an.rendAcumAA*100).toFixed(1).replace('.',',')+'%':'—',1,'font-weight:600')}
+          ${td(R(an.ult.projCons),1,'color:var(--tx2)')}
+          ${td(chip(an.ult.desvCons),1)}
+          ${td(chip(an.ult.desvOtim),1)}
+          ${td(`CDI contratado: ${(an.taxaConsBruta*100).toFixed(2).replace('.',',')}% / ${(an.taxaOtimBruta*100).toFixed(2).replace('.',',')}% a.a. bruto`,0,'color:var(--tx3);white-space:normal')}
+        </tr>
+        </tbody></table>
+        <div class="tip" style="margin-top:8px">Rendimento = Δ saldo − aporte do período. Projeção "do dia" = valor do mês + rendimento pró-rata aos dias corridos, sem antecipar o aporte do mês seguinte. <b>~</b> = janela &lt; 15 dias (ruidosa); âmbar = fora da faixa esperada.</div>`;
+
+  const tabMensal = document.getElementById('cprop-mensal-tabela');
+  const mesAtualOff = an.offHoje;
+  tabMensal.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead style="position:sticky;top:0;background:var(--bg2,#1a1e23);z-index:1"><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+      ${th('Mês')}${th('Aporte plano',1)}${th('Conservador',1)}${th('Otimista',1)}${th('Real',1)}${th('Tendência',1)}${th('Real/Tend. vs cons.',1)}${th('% do necessário',1)}
+    </tr></thead><tbody>
+    ${curvaCons.map((p,k)=>{
+      const real = dadosReal[k];
+      const tend = an.trend[k];
+      const ref = real!=null ? real : tend;
+      // Mês com saldo real: compara com a projeção pró-rata do dia do último lançamento do mês
+      const rowReal = real!=null ? [...an.rows].reverse().find(r=>cpOffsetDeData(plano,r.data)===k) : null;
+      const dv = rowReal ? rowReal.desvCons : (ref!=null ? ref - p.liquido : null);
+      const pctNec = an.necessario ? (ref!=null?ref:p.liquido)/an.necessario : null;
+      const atingiu = an.mesMetaTend===k || (an.mesMetaTend==null && an.mesMetaCons===k);
+      const bg = k===mesAtualOff ? 'background:rgba(111,184,201,.08);' : (atingiu ? 'background:rgba(95,217,154,.08);' : '');
+      const ap = cpAportesNoOffset(plano,k,true);
+      return `<tr style="border-bottom:1px solid var(--bd);${bg}">
+        ${td(`${cpMesLabel(p.data)}${k===mesAtualOff?' <span style="color:#6fb8c9;font-size:10px">● atual</span>':''}${atingiu?' <span style="color:var(--green);font-size:10px">✓ meta</span>':''}`,0,'color:var(--tx2)')}
+        ${td(ap?R(ap):'—',1,'color:var(--tx2)')}
+        ${td(R(p.liquido),1)}
+        ${td(R(curvaOtim[k].liquido),1,'color:var(--tx2)')}
+        ${td(real!=null?R(real):'—',1,'font-weight:700')}
+        ${td(tend!=null&&real==null?R(tend):'—',1,'color:var(--green)')}
+        ${td(dv!=null?chip(dv):'—',1)}
+        ${td(pctNec!=null?`<span style="color:${pctNec>=1?'var(--green)':'var(--tx2)'}">${(pctNec*100).toFixed(0)}%</span>`:'—',1)}
+      </tr>`;
+    }).join('')}
+    </tbody></table>
+    <div class="tip" style="margin-top:8px">Tendência = último saldo real levado adiante pela taxa líquida do cenário conservador + aportes do plano (aporte já antecipado é abatido dos meses seguintes). % do necessário usa Real/Tendência quando existe, senão o conservador.</div>`;
+
+  // Recebíveis
+  const recEl = document.getElementById('cprop-recebiveis');
+  const rc = an.rec;
+  if(!rc.itens.length){
+    recEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhum recebível cadastrado (tabela casa_propria_recebiveis vazia ou ainda não criada).</div>`;
+  } else {
+    const stMap = {
+      recebida:{c:'var(--green)',t:'✓ Recebida no dia'},
+      recebida_antecipada:{c:'var(--green)',t:'✓ Antecipada'},
+      recebida_atraso:{c:'var(--amber)',t:'✓ Recebida c/ atraso'},
+      atrasada:{c:'var(--red)',t:'✗ Atrasada'},
+      vencendo:{c:'var(--amber)',t:'● Vence em breve'},
+      prevista:{c:'var(--tx2)',t:'○ Prevista'}
+    };
+    const pctRec = rc.totalContrato ? rc.totalRecebido/rc.totalContrato : 0;
+    const box = (l,v,c) => `<div style="flex:1;min-width:130px"><div style="font-size:10.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em">${l}</div><div style="font-size:16px;font-weight:700;color:${c||'var(--tx)'}">${v}</div></div>`;
+    recEl.innerHTML = `
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+        ${box('Recebidas', `${rc.recebidas.length}/${rc.itens.length}`)}
+        ${box('Recebido', R(rc.totalRecebido), 'var(--green)')}
+        ${box('A receber', R(rc.totalAReceber))}
+        ${box('Próxima', rc.proxima?`${rc.proxima.parcelaN}/${rc.proxima.totalParcelas} · ${rc.proxima.dataPrevista.split('-').reverse().join('/')}`:'quitado')}
+        ${box('Atrasadas', rc.atrasadas.length, rc.atrasadas.length?'var(--red)':'var(--tx2)')}
+      </div>
+      <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:12px">
+        <div style="height:100%;width:${(pctRec*100).toFixed(1)}%;background:var(--green)"></div>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+          ${th('Parcela')}${th('Descrição')}${th('Vencimento')}${th('Recebida em')}${th('Valor',1)}${th('Status')}${th('Δ dias',1)}${th('')}
+        </tr></thead><tbody>
+        ${rc.itens.map(i=>{
+          const st = stMap[i.status];
+          const dd = i.dataRecebida ? (i.dias===0?'0':(i.dias<0?`${i.dias}`:`+${i.dias}`)) : (i.status==='atrasada'?`+${-i.dias}`:`em ${i.dias}d`);
+          return `<tr style="border-bottom:1px solid var(--bd);${i.dataRecebida?'':'opacity:.9'}">
+            ${td(`${i.parcelaN}/${i.totalParcelas}`,0,'font-weight:600')}
+            ${td(i.descricao,0,'color:var(--tx2)')}
+            ${td(i.dataPrevista.split('-').reverse().join('/'),0,'color:var(--tx2)')}
+            ${td(i.dataRecebida?i.dataRecebida.split('-').reverse().join('/'):'—')}
+            ${td(R(i.dataRecebida?i.valorRecebido:i.valor),1,i.dataRecebida?'font-weight:700':'color:var(--tx2)')}
+            ${td(`<span style="color:${st.c}">${st.t}</span>`)}
+            ${td(dd,1,'color:var(--tx2)')}
+            ${td(i.dataRecebida?'':`<button class="btn-icon" style="padding:3px 10px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:11px" onclick="abrirCpRecebimento('${i.id}')">💰 Recebi</button>`)}
           </tr>`;
         }).join('')}
-        </tbody></table>`;
+        </tbody></table></div>
+      <div class="tip" style="margin-top:8px">A tendência do gráfico usa este cronograma real (no lugar das parcelas do plano): pendentes entram no mês do vencimento; atrasadas são empurradas para o mês seguinte. Δ dias: negativo = antecipada.</div>`;
+  }
+
+  const cores = { ok:'var(--green)', danger:'var(--red)', warn:'var(--amber)', info:'#6fb8c9' };
+  const icones = { ok:'✓', danger:'✗', warn:'⚠', info:'ℹ' };
+  document.getElementById('cprop-insights').innerHTML = cpInsights(plano, revisaoAtual, curvaCons, an).map(it=>
+    `<div style="border-left:3px solid ${cores[it.t]};padding:8px 12px;margin-bottom:8px;background:rgba(255,255,255,.02);border-radius:0 var(--rs) var(--rs) 0">
+      <div style="font-size:12.5px;font-weight:700;color:${cores[it.t]};margin-bottom:3px">${icones[it.t]} ${it.h}</div>
+      <div style="font-size:12px;color:var(--tx2);line-height:1.5">${it.b}</div>
+    </div>`).join('');
 
   const tabFgts = document.getElementById('cprop-fgts-tabela');
   tabFgts.innerHTML = !fgtsSaldos.length
@@ -5881,9 +6328,54 @@ function renderCasaPropria(){
     </tbody></table>`;
 }
 
+function abrirCpRecebimento(id){
+  const r = (DB.casaPropriaRecebiveis||[]).find(x=>x.id===id);
+  if(!r) return;
+  document.getElementById('cprec-id').value = r.id;
+  document.getElementById('cprec-title').textContent = `💰 ${r.descricao} — parcela ${r.parcelaN}/${r.totalParcelas}`;
+  document.getElementById('cprec-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cprec-valor').value = r.valor.toFixed(2);
+  document.getElementById('cprec-obs').value = `Recebido ${r.parcelaN}/${r.totalParcelas}`;
+  const fb=document.getElementById('cprec-feedback'); if(fb) fb.style.display='none';
+  abrirModal('cprec');
+}
+
+async function salvarCpRecebimento(){
+  const id = document.getElementById('cprec-id').value;
+  const data = document.getElementById('cprec-data').value;
+  const valor = parseFloat(document.getElementById('cprec-valor').value);
+  const obs = document.getElementById('cprec-obs').value.trim();
+  const fb = document.getElementById('cprec-feedback');
+  const btn = document.getElementById('btn-cprec-save');
+  function feedback(msg,ok){
+    fb.style.display='block';
+    fb.style.background = ok?'var(--gd)':'var(--rd)';
+    fb.style.color = ok?'var(--green)':'var(--red)';
+    fb.style.border = ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+  if(!id || !data || !valor || isNaN(valor) || valor<=0){ feedback('⚠ Preencha data e valor (> 0).', false); return; }
+  if(!usuarioAtual){ feedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    const payload = { data_recebida: data, valor_recebido: Math.round(valor*100)/100, observacao: obs||null };
+    const {error} = await getSB().from('casa_propria_recebiveis').update(payload).eq('id', id).eq('usuario_id', usuarioAtual.id);
+    if(error) throw new Error(error.message);
+    const r = DB.casaPropriaRecebiveis.find(x=>x.id===id);
+    if(r){ r.dataRecebida = data; r.valorRecebido = valor; r.observacao = obs||null; }
+    feedback('✓ Recebimento registrado!', true);
+    setTimeout(()=>{ fecharModal('cprec'); renderCasaPropria(); }, 900);
+  } catch(e){
+    feedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Registrar';
+  }
+}
+
 function abrirCpSaldoForm(){
   document.getElementById('cpsaldo-data').value = new Date().toISOString().slice(0,10);
   document.getElementById('cpsaldo-valor').value = '';
+  document.getElementById('cpsaldo-aporte').value = '';
   document.getElementById('cpsaldo-obs').value = '';
   const fb=document.getElementById('cpsaldo-feedback'); if(fb) fb.style.display='none';
   abrirModal('cpsaldo');
@@ -5892,6 +6384,7 @@ function abrirCpSaldoForm(){
 async function salvarCpSaldo(){
   const data = document.getElementById('cpsaldo-data').value;
   const valor = parseFloat(document.getElementById('cpsaldo-valor').value);
+  const aporte = parseFloat(document.getElementById('cpsaldo-aporte').value)||0;
   const obs = document.getElementById('cpsaldo-obs').value.trim();
   const fb = document.getElementById('cpsaldo-feedback');
   const btn = document.getElementById('btn-cpsaldo-save');
@@ -5910,10 +6403,11 @@ async function salvarCpSaldo(){
   btn.disabled=true; btn.textContent='⏳ Salvando...';
   try{
     const payload = { usuario_id: usuarioAtual.id, data, saldo_real: Math.round(valor*100)/100, observacao: obs||null };
+    if(aporte>0) payload.aporte_periodo = Math.round(aporte*100)/100;
     const {data:res, error} = await getSB().from('casa_propria_saldos').insert(payload).select();
     if(error) throw new Error(error.message);
     const novo = res[0];
-    DB.casaPropriaSaldos.push({ id:novo.id, data, saldoReal: valor, observacao: obs||null });
+    DB.casaPropriaSaldos.push({ id:novo.id, data, saldoReal: valor, aporte: aporte, observacao: obs||null });
     DB.casaPropriaSaldos.sort((a,b)=>a.data.localeCompare(b.data));
     feedback('✓ Saldo salvo com sucesso!', true);
     setTimeout(()=>{ fecharModal('cpsaldo'); renderCasaPropria(); }, 900);
@@ -8105,7 +8599,7 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [lans, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+    const [lans, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
       fetchTodosLancamentos(sb, usuarioAtual.id),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
@@ -8113,7 +8607,8 @@ async function carregarDoSupabase(){
       sb.from('casa_propria_plano').select('*').eq('usuario_id', usuarioAtual.id).limit(1),
       sb.from('casa_propria_revisoes').select('*').eq('usuario_id', usuarioAtual.id).order('data_vigencia_inicio',{ascending:true}),
       sb.from('casa_propria_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
-      sb.from('casa_propria_fgts_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true})
+      sb.from('casa_propria_fgts_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
+      sb.from('casa_propria_recebiveis').select('*').eq('usuario_id', usuarioAtual.id).order('data_prevista',{ascending:true})
     ]);
 
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
@@ -8131,6 +8626,8 @@ async function carregarDoSupabase(){
     const cpRevisoesRows = r6.data || [];
     const cpSaldosRows = r7.data || [];
     const cpFgtsSaldosRows = r8.data || [];
+    if(r9.error) console.warn('Casa Própria (recebíveis) indisponível:', r9.error.message);
+    const cpRecebiveisRows = r9.error ? [] : (r9.data || []);
 
     if(lans.length === 0){
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
@@ -8179,7 +8676,12 @@ async function carregarDoSupabase(){
       motivoReavaliacao: r.motivo_reavaliacao||null
     }));
     DB.casaPropriaSaldos = cpSaldosRows.map(s=>({
-      id: s.id, data: s.data, saldoReal: parseFloat(s.saldo_real)||0, observacao: s.observacao||null
+      id: s.id, data: s.data, saldoReal: parseFloat(s.saldo_real)||0, aporte: parseFloat(s.aporte_periodo)||0, observacao: s.observacao||null
+    }));
+    DB.casaPropriaRecebiveis = cpRecebiveisRows.map(r=>({
+      id: r.id, descricao: r.descricao, parcelaN: r.parcela_n, totalParcelas: r.total_parcelas,
+      valor: parseFloat(r.valor)||0, dataPrevista: r.data_prevista, dataRecebida: r.data_recebida||null,
+      valorRecebido: r.valor_recebido!=null ? parseFloat(r.valor_recebido) : null, observacao: r.observacao||null
     }));
     DB.casaPropriaFgtsSaldos = cpFgtsSaldosRows.map(s=>({
       id: s.id, data: s.data, saldoReal: parseFloat(s.saldo_real)||0, observacao: s.observacao||null
