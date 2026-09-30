@@ -1790,8 +1790,8 @@ html.is-mobile .sidebar.open{
           <input type="number" id="cpsaldo-valor" class="modal-input" step="0.01" min="0"></div>
       </div>
       <div class="modal-group">
-        <label class="modal-label">Aporte desde o último lançamento (R$)</label>
-        <input type="number" id="cpsaldo-aporte" class="modal-input" step="0.01" min="0" placeholder="0 — dinheiro novo que entrou (não conta rendimento)">
+        <label class="modal-label">Aporte (+) / resgate (−) desde o último lançamento (R$)</label>
+        <input type="number" id="cpsaldo-aporte" class="modal-input" step="0.01" placeholder="0 — positivo = dinheiro novo; negativo = resgate (não conta rendimento)">
       </div>
       <div class="tip" style="margin:-4px 0 10px">Separar o aporte do saldo é o que permite calcular quanto o dinheiro <b>rendeu</b> em cada período.</div>
       <div class="modal-group">
@@ -5875,14 +5875,15 @@ function cpAnalise(plano, revisaoAtual, curvaCons, curvaOtim, saldos, fgtsSaldos
   const ult = rows.length ? rows[rows.length-1] : null;
 
   // Acumulado desde a base
-  const aportesReal = rows.reduce((a,r)=>a+r.aporte,0);
+  const aportesReal = rows.reduce((a,r)=>a+Math.max(0,r.aporte),0);
+  const resgatesReal = rows.reduce((a,r)=>a+Math.max(0,-r.aporte),0); // saídas (magnitude)
   let aportesPlano = 0, antecipado = 0, rendAcum = null, rendAcumAA = null, diasAcum = 0;
   if(ult){
     const offU = cpOffsetDeData(plano, ult.data);
     for(let k=1;k<=Math.min(offU,H);k++) aportesPlano += cpAportesNoOffset(plano,k,false);
     antecipado = aportesReal - aportesPlano;
     diasAcum = cpDias(plano.dataBase, ult.data);
-    rendAcum = ult.saldoReal - plano.saldoBase - aportesReal;
+    rendAcum = ult.saldoReal - plano.saldoBase - aportesReal + resgatesReal;
     rendAcumAA = diasAcum>0 ? Math.pow(1+rendAcum/plano.saldoBase, 365/diasAcum)-1 : null;
   }
 
@@ -5958,7 +5959,7 @@ function cpAnalise(plano, revisaoAtual, curvaCons, curvaOtim, saldos, fgtsSaldos
 
   const diasSemLancar = ult ? cpDias(ult.data, hojeISO) : null;
 
-  return { rec, H, necessario, rows, ult, aportesReal, aportesPlano, antecipado, rendAcum, rendAcumAA, diasAcum,
+  return { rec, H, necessario, rows, ult, aportesReal, resgatesReal, aportesPlano, antecipado, rendAcum, rendAcumAA, diasAcum,
     trend, offUlt, mesMetaCons, mesMetaOtim, mesMetaTend, finalTend, margemCons, margemTend,
     imovelMaxCons, imovelMaxTend, aporteEquivMargem, nRest, offHoje, fgts, diasSemLancar,
     taxaConsBruta, taxaOtimBruta, spreadCenarios: curvaOtim[H].liquido - curvaCons[H].liquido };
@@ -5977,12 +5978,14 @@ function cpInsights(plano, revisaoAtual, curvaCons, an){
   }
 
   // 1. Posição vs. plano (pró-rata)
-  const desempenho = u.desvCons - an.antecipado;
+  const desempenho = u.desvCons - an.antecipado + (an.resgatesReal||0);
   out.push({ t: u.desvCons>=0?'ok':'danger', h:`Posição vs. conservador: ${sR(u.desvCons)}`,
     b:`Comparado à projeção pró-rata de ${u.data.split('-').reverse().join('/')} (${R(u.projCons)}), não ao valor do início do mês. `+
       (Math.abs(an.antecipado)>0.5
-        ? `Desse desvio, ${sR(an.antecipado)} é <b>timing de aporte</b> (realizado ${R(an.aportesReal)} vs. ${R(an.aportesPlano)} previsto até a data) e ${sR(desempenho)} é <b>desempenho</b> (rendimento acima/abaixo do plano).`
-        : `Nenhum aporte informado no período — o desvio inteiro está sendo tratado como rendimento.`) });
+        ? `Desse desvio, ${sR(an.antecipado)} é <b>timing de aporte</b> (realizado ${R(an.aportesReal)} vs. ${R(an.aportesPlano)} previsto até a data)${an.resgatesReal>0.5?`, ${sR(-an.resgatesReal)} é <b>resgate</b> (saída definitiva, não recuperável pelo plano)`:''} e ${sR(desempenho)} é <b>desempenho</b> (rendimento acima/abaixo do plano).`
+        : (an.resgatesReal>0.5
+          ? `Desse desvio, ${sR(-an.resgatesReal)} é <b>resgate</b> (saída definitiva, não recuperável pelo plano) e ${sR(desempenho)} é <b>desempenho</b>.`
+          : `Nenhum aporte informado no período — o desvio inteiro está sendo tratado como rendimento.`)) });
 
   // 2. Rendimento acumulado
   if(an.rendAcum!=null){
@@ -6179,7 +6182,7 @@ function renderCasaPropria(){
             ${td(r.data.split('-').reverse().join('/'),0,'color:var(--tx2)')}
             ${td(R(r.saldoReal),1,'font-weight:700')}
             ${td(sR(r.delta),1,'color:var(--tx2)')}
-            ${td(r.aporte?R(r.aporte):(r.obsCitaAporte?'<span style="color:var(--amber)" title="observação cita aporte — preencha o campo">⚠ 0</span>':'—'),1)}
+            ${td(r.aporte<0?`<span style="color:var(--red)" title="resgate">${sR(r.aporte)}</span>`:r.aporte?R(r.aporte):(r.obsCitaAporte?'<span style="color:var(--amber)" title="observação cita aporte — preencha o campo">⚠ 0</span>':'—'),1)}
             ${td(chip(r.rend),1)}
             ${td(pctAA(r),1)}
             ${td(R(r.projCons),1,'color:var(--tx2)')}
@@ -6191,7 +6194,7 @@ function renderCasaPropria(){
           ${td(`Acumulado desde ${plano.dataBase.split('-').reverse().join('/')} (${an.diasAcum}d)`,0,'color:var(--tx2);font-weight:600')}
           ${td(R(an.ult.saldoReal),1,'font-weight:700')}
           ${td(sR(an.ult.saldoReal-plano.saldoBase),1,'color:var(--tx2)')}
-          ${td(an.aportesReal?R(an.aportesReal):'—',1)}
+          ${td((an.aportesReal?R(an.aportesReal):'—')+(an.resgatesReal?`<br><span style="color:var(--red)" title="resgates">${sR(-an.resgatesReal)}</span>`:''),1)}
           ${td(chip(an.rendAcum),1)}
           ${td(an.rendAcumAA!=null?(an.rendAcumAA*100).toFixed(1).replace('.',',')+'%':'—',1,'font-weight:600')}
           ${td(R(an.ult.projCons),1,'color:var(--tx2)')}
@@ -6403,7 +6406,7 @@ async function salvarCpSaldo(){
   btn.disabled=true; btn.textContent='⏳ Salvando...';
   try{
     const payload = { usuario_id: usuarioAtual.id, data, saldo_real: Math.round(valor*100)/100, observacao: obs||null };
-    if(aporte>0) payload.aporte_periodo = Math.round(aporte*100)/100;
+    if(aporte!==0) payload.aporte_periodo = Math.round(aporte*100)/100;
     const {data:res, error} = await getSB().from('casa_propria_saldos').insert(payload).select();
     if(error) throw new Error(error.message);
     const novo = res[0];
