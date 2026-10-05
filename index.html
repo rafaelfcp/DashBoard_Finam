@@ -4329,7 +4329,19 @@ function renderVisao(){
     if(!mesRef) return;
 
     const saldoAtual = mesRef.saldo_atu;
-    const saldoPrev  = mesRef.saldo_pre;
+    // Saldo previsto: fim do ÚLTIMO mês do período selecionado (mf), não fixo no mês corrente.
+    // Mês alvo <= mês corrente → saldo_pre do próprio mês.
+    // Mês alvo futuro → previsto do mês corrente + resultado_total dos meses seguintes até o alvo
+    // (getSaldosPorMes encadeia só efetivados, o que ignoraria pendências do mês corrente).
+    const iRef   = saldos.indexOf(mesRef);
+    const idxSel = mf.map(m => saldos.findIndex(s => s.mes === m)).filter(i => i >= 0);
+    const iAlvo  = idxSel.length ? Math.max(...idxSel) : iRef;
+    const mesAlvo = saldos[iAlvo];
+    let saldoPrev = mesAlvo.saldo_pre;
+    if(iAlvo > iRef){
+      saldoPrev = mesRef.saldo_pre;
+      for(let i = iRef+1; i <= iAlvo; i++) saldoPrev += saldos[i].resultado_total;
+    }
     const tendencia  = saldos[saldos.length-1].saldo_atu - saldos[0].saldo_ini;
     const isPos      = saldoAtual >= 0;
     const isPrevPos  = saldoPrev >= 0;
@@ -4367,8 +4379,8 @@ function renderVisao(){
     const elPrevSub = document.getElementById('vg-conta-prev-sub');
     const diffPrevAtual = saldoPrev - saldoAtual;
     if(elPrevSub) elPrevSub.textContent = diffPrevAtual >= 0
-      ? `+${R(diffPrevAtual)} a receber/pagar até fim do mês`
-      : `${R(Math.abs(diffPrevAtual))} em pendências`;
+      ? `+${R(diffPrevAtual)} a receber/pagar até fim de ${mkLabel(mesAlvo.mes)}`
+      : `${R(Math.abs(diffPrevAtual))} em pendências até fim de ${mkLabel(mesAlvo.mes)}`;
 
     // Tendência
     const elTend = document.getElementById('vg-tendencia');
@@ -8205,20 +8217,25 @@ function renderExtrato(lanComIdx){
     return da.localeCompare(db)||(a.l.desc||'').localeCompare(b.l.desc||'');
   });
 
-  let saldoAcum = 0;
+  // Saldo da CONTA por dia: independe dos filtros (mês de competência, categoria etc.).
+  // saldo_ini da 1ª competência + TODOS os lançamentos pagos com data <= fim do dia.
+  // Filtros controlam só quais linhas aparecem, nunca o saldo exibido.
+  const diaKey = l => l.data || `${l.ano||2026}-${String(MESES_ORD.indexOf(l.mes)+1).padStart(2,'0')}-01`;
   const saldosObj = getSaldosPorMes();
-  if(saldosObj.length > 0) saldoAcum = saldosObj[0].saldo_ini || 0;
-  if(sorted.length > 0){
-    const pData = sorted[0].l.data || '';
-    DB.lancamentos
-      .filter(l => l.pago==='Sim' && (l.data||'') < pData)
-      .sort((a,b) => (a.data||'').localeCompare(b.data||''))
-      .forEach(l => { saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor; });
-  }
+  const saldoBase = saldosObj.length > 0 ? (saldosObj[0].saldo_ini || 0) : 0;
+  const pagosOrd = DB.lancamentos
+    .filter(l => l.pago==='Sim')
+    .map(l => ({ k: diaKey(l), v: l.cat==='Receitas' ? l.valor : -l.valor }))
+    .sort((a,b) => a.k.localeCompare(b.k));
+  const saldoFimDia = dia => {
+    let s = saldoBase;
+    for(const p of pagosOrd){ if(p.k > dia) break; s += p.v; }
+    return s;
+  };
 
   const porDia = {};
   sorted.forEach(item => {
-    const dia = item.l.data || `${item.l.mes}/2026`;
+    const dia = diaKey(item.l);
     if(!porDia[dia]) porDia[dia] = [];
     porDia[dia].push(item);
   });
@@ -8234,12 +8251,8 @@ function renderExtrato(lanComIdx){
     let out = '';
     Object.keys(porDia).sort().forEach(dia => {
       const items = porDia[dia];
-      // Saldo do dia: somar apenas lançamentos EFETIVADOS (pago==='Sim')
-      items.forEach(({l}) => {
-        if(l.pago !== 'Sim') return;
-        saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor;
-      });
-      const sf = saldoAcum;
+      // Saldo real da conta ao fim do dia (efetivados, todos os filtros ignorados)
+      const sf = saldoFimDia(dia);
       const cs = sf >= 0 ? 'var(--green)' : 'var(--red)';
       const temPendente = items.some(({l}) => l.pago !== 'Sim' && l.cat !== 'Receitas');
 
@@ -8336,12 +8349,8 @@ function renderExtrato(lanComIdx){
   let rows = '';
   Object.keys(porDia).sort().forEach(dia => {
     const items = porDia[dia];
-    // Saldo do dia: somar apenas lançamentos EFETIVADOS (pago==='Sim')
-    items.forEach(({l}) => {
-      if(l.pago !== 'Sim') return;
-      saldoAcum += l.cat==='Receitas' ? l.valor : -l.valor;
-    });
-    const sf = saldoAcum, cs = sf>=0 ? 'var(--green)' : 'var(--red)';
+    // Saldo real da conta ao fim do dia (efetivados, todos os filtros ignorados)
+    const sf = saldoFimDia(dia), cs = sf>=0 ? 'var(--green)' : 'var(--red)';
     // Verifica se há pendentes no dia para exibir indicador
     const temPendente = items.some(({l}) => l.pago !== 'Sim' && l.cat !== 'Receitas');
     rows += `<tr style="background:var(--bg3)">
