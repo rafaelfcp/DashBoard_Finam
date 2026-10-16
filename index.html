@@ -1760,6 +1760,18 @@ html.is-mobile .sidebar.open{
         <div><label class="modal-label">Aporte mensal sugerido (R$)</label>
           <input type="number" id="meta-aporte-sugerido" class="modal-input" step="0.01" min="0" placeholder="opcional"></div>
       </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Rentabilidade contratada (% do CDI)</label>
+          <input type="number" id="meta-pct-cdi" class="modal-input" step="0.1" min="0" max="300" placeholder="ex: 101.5 — opcional"></div>
+        <div><label class="modal-label">CDI de referência (% a.a.)</label>
+          <input type="number" id="meta-cdi-ref" class="modal-input" step="0.01" min="0" max="99" placeholder="ex: 14.90 — opcional"></div>
+      </div>
+      <div class="tip" style="margin:-4px 0 10px">Com os dois preenchidos, a meta compara o saldo informado (📈) com o rendimento esperado pelo contrato. Atualize o CDI quando o Copom mudar a Selic.</div>
+      <div class="modal-group">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="meta-conta-reserva"> Conta como reserva disponível (entra na Projeção de Reserva do Diagnóstico)
+        </label>
+      </div>
       <div class="modal-group">
         <label class="modal-label">Status</label>
         <select id="meta-status" class="modal-input">
@@ -1771,6 +1783,35 @@ html.is-mobile .sidebar.open{
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="fecharModal('meta')">Cancelar</button>
       <button class="btn-modal-save" id="btn-meta-save" onclick="salvarMeta()">💾 Salvar meta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL META: LEITURA DE SALDO (rendimento) -->
+<div class="modal-overlay" id="modal-metasaldo" style="display:none" onclick="if(event.target===this)fecharModal('metasaldo')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="metasaldo-title">📈 Atualizar saldo</div>
+      <button class="modal-close" onclick="fecharModal('metasaldo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="metasaldo-meta-id">
+      <div class="modal-g2">
+        <div><label class="modal-label">Data da leitura</label>
+          <input type="date" id="metasaldo-data" class="modal-input"></div>
+        <div><label class="modal-label">Saldo bruto no banco (R$)</label>
+          <input type="number" id="metasaldo-valor" class="modal-input" step="0.01" min="0"></div>
+      </div>
+      <div class="tip" style="margin:-4px 0 10px">Informe o saldo <b>bruto</b> (antes de IR), como aparece no app do banco. Os aportes já vêm dos lançamentos vinculados à meta — não precisa separar aqui.</div>
+      <div class="modal-group">
+        <label class="modal-label">Observação</label>
+        <input type="text" id="metasaldo-obs" class="modal-input" placeholder="opcional — ex: app C6 16/10" maxlength="120">
+      </div>
+      <div id="metasaldo-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('metasaldo')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-metasaldo-save" onclick="salvarMetaSaldo()">💾 Salvar saldo</button>
     </div>
   </div>
 </div>
@@ -3035,7 +3076,7 @@ html.is-mobile .sidebar.open{
 
 <script>
 // ══ DADOS ══
-let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], casaPropriaRecebiveis: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
+let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], metasSaldos: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], casaPropriaRecebiveis: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
 const CHARTS = {};
 const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
 const CORES = { Transporte:'#e0935f',Moradia:'#6fb8c9',Educação:'#a892d4',Alimentação:'#5fd99a',Compras:'#8a9a8c',Lazer:'#e0b35f',Giovanna:'#d9a86f','Saúde & Beleza':'#7fcf9e','Serviços Financeiros':'#c9a85f','Outras Despesas':'#56655a',Vestuário:'#8fc4cf','Doações & Presentes':'#d97a9a' };
@@ -5419,6 +5460,88 @@ function renderSim(){
 // pct_concluido trava em 100 (overshoot não estoura a barra); status é sempre
 // recalculado (nunca lido direto de m.status quando o total já bateu o orçado),
 // mesma lógica do CASE da query de referência.
+// ── Rendimento por meta (saldo real informado × esperado pelo contrato) ──
+// Data ISO local (evita o deslocamento de toISOString() em UTC após 21h BRT).
+function hojeLocalISO(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Normaliza a data do lançamento: ISO, dd/mm/aaaa ou, sem data, dia 1 do mês de competência.
+function dataAporteISO(l){
+  const d=(l.data||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10);
+  const br=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d);
+  if(br) return `${br[3]}-${br[2]}-${br[1]}`;
+  const mk=mkOf(l.mes,l.ano);
+  return mk?mk+'-01':null;
+}
+// Feriados nacionais (calendário ANBIMA — base da contagem de dias úteis do CDI).
+// Fixos + móveis derivados da Páscoa (algoritmo de Meeus/Butcher): Carnaval seg/ter (−48/−47),
+// Sexta-feira Santa (−2) e Corpus Christi (+60). Cache por ano.
+const _feriadosCache={};
+function feriadosNacionais(ano){
+  if(_feriadosCache[ano]) return _feriadosCache[ano];
+  const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+  const pascoa=new Date(ano,mes-1,dia,12);
+  const iso=dt=>dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  const desloc=n=>{const x=new Date(pascoa);x.setDate(x.getDate()+n);return iso(x);};
+  const set=new Set(['01-01','04-21','05-01','09-07','10-12','11-02','11-15','11-20','12-25'].map(md=>ano+'-'+md));
+  [-48,-47,-2,60].forEach(n=>set.add(desloc(n)));
+  _feriadosCache[ano]=set;
+  return set;
+}
+// Dias úteis no intervalo (ini, fim] — seg a sex, descontando feriados nacionais.
+// Feriados estaduais/municipais não afetam o CDI (B3 segue o calendário nacional).
+function diasUteisEntre(iniISO, fimISO){
+  if(!iniISO||!fimISO||fimISO<=iniISO) return 0;
+  const d=new Date(iniISO+'T12:00:00'), fim=new Date(fimISO+'T12:00:00');
+  let n=0;
+  for(d.setDate(d.getDate()+1); d<=fim; d.setDate(d.getDate()+1)){
+    const w=d.getDay(); if(w===0||w===6) continue;
+    const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(!feriadosNacionais(d.getFullYear()).has(iso)) n++;
+  }
+  return n;
+}
+// Calcula saldo atual, rendimento real e rendimento esperado de uma meta.
+// · Saldo atual = última leitura (metas_saldos) + aportes pagos DEPOIS da leitura;
+//   sem leitura, = total aportado (rendimento ainda não medido).
+// · Esperado = Σ aporte × (1 + CDI_diário × %CDI)^dias_úteis, até a data da última leitura
+//   (CDI_diário = (1+CDI_aa)^(1/252) − 1 — convenção de capitalização dos CDBs pós-fixados).
+// · Eficiência = rendimento real ÷ esperado; %CDI efetivo ≈ %CDI contratado × eficiência.
+function calcRendimentoMeta(m, aportesPagos){
+  const leituras=(DB.metasSaldos||[]).filter(s=>s.metaId===m.id).sort((a,b)=>a.data.localeCompare(b.data));
+  const ult=leituras.length?leituras[leituras.length-1]:null;
+  const comData=aportesPagos.map(l=>({valor:l.valor,data:dataAporteISO(l)}));
+  const totalAportado=SM(comData.map(a=>a.valor));
+  if(!ult) return {leituras, ultimaLeitura:null, saldoAtual:totalAportado, temLeitura:false};
+
+  const ateLeitura=comData.filter(a=>a.data&&a.data<=ult.data);
+  const aposLeitura=comData.filter(a=>!a.data||a.data>ult.data);
+  const aportadoAteLeitura=SM(ateLeitura.map(a=>a.valor));
+  const saldoAtual=ult.saldo+SM(aposLeitura.map(a=>a.valor));
+  const rendReal=ult.saldo-aportadoAteLeitura;
+  const rendRealPct=aportadoAteLeitura>0?rendReal/aportadoAteLeitura*100:0;
+
+  const out={leituras, ultimaLeitura:ult, saldoAtual, temLeitura:true, aportadoAteLeitura, rendReal, rendRealPct,
+    temBenchmark:false, rendEsperado:null, eficiencia:null, pctCdiEfetivo:null, veredito:null};
+  if(!(m.pctCdiContratado>0) || !(m.cdiAaReferencia>0)) return out;
+
+  const taxaDia=(Math.pow(1+m.cdiAaReferencia,1/252)-1)*m.pctCdiContratado;
+  const esperadoFinal=SM(ateLeitura.map(a=>a.valor*Math.pow(1+taxaDia,diasUteisEntre(a.data,ult.data))));
+  const rendEsperado=esperadoFinal-aportadoAteLeitura;
+  out.temBenchmark=true;
+  out.rendEsperado=rendEsperado;
+  out.diasUteisMax=Math.max(0,...ateLeitura.map(a=>diasUteisEntre(a.data,ult.data)));
+  if(rendEsperado<1){ out.veredito='aguardando'; return out; }  // < R$1 esperado: cedo demais pra avaliar
+  out.eficiencia=rendReal/rendEsperado;
+  out.pctCdiEfetivo=m.pctCdiContratado*out.eficiencia;
+  out.veredito=out.eficiencia>=0.97?'ok':out.eficiencia>=0.85?'atencao':'abaixo';
+  return out;
+}
+
 function getMetasComProgresso(){
   return DB.metas.map(m=>{
     const aportes = DB.lancamentos.filter(l=>l.meta_id===m.id);
@@ -5437,9 +5560,10 @@ function getMetasComProgresso(){
     const ritmoReal = mesesComAporte.size>0 ? totalAportado/mesesComAporte.size : 0;
     const mesesRestantesRitmoReal = (ritmoReal>0 && saldoRestante>0) ? Math.ceil(saldoRestante/ritmoReal) : (saldoRestante<=0?0:null);
     const aportesOrdenados = [...aportes].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+    const rendimento = calcRendimentoMeta(m, aportesPagos);
     return {...m, totalAportado, saldoRestante, pctConcluido, pctConcluidoReal, statusCalculado, mesesRestantesProjetado,
       ritmoReal, mesesRestantesRitmoReal, qtdMesesComAporte: mesesComAporte.size,
-      qtdAportes: aportesPagos.length, qtdPendentes: aportes.length-aportesPagos.length, aportesOrdenados};
+      qtdAportes: aportesPagos.length, qtdPendentes: aportes.length-aportesPagos.length, aportesOrdenados, rendimento};
   });
 }
 
@@ -5473,6 +5597,7 @@ function renderMetas(){
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span class="badge ${STATUS_TAG[m.statusCalculado]||'tag-info'}">${STATUS_LABEL[m.statusCalculado]||m.statusCalculado}</span>
+          ${m.categoria==='Investimentos' && m.status!=='cancelada' ? `<button class="btn-icon" title="Atualizar saldo / rendimento" onclick="abrirMetaSaldoForm('${m.id}')">📈</button>` : ''}
           <button class="btn-icon" title="Editar" onclick="abrirMetaForm('${m.id}')">✏</button>
           ${m.status==='ativa' ? `<button class="btn-icon" title="Pausar" onclick="pausarMeta('${m.id}')">⏸</button>` : ''}
           ${m.status==='pausada' ? `<button class="btn-icon" title="Reativar" onclick="reativarMeta('${m.id}')">▶</button>` : ''}
@@ -5492,6 +5617,7 @@ function renderMetas(){
       ${m.aporteMensalSugerido ? `<div class="trow"><span class="tl">Aporte mensal sugerido</span><span class="tv">${R(m.aporteMensalSugerido)}</span></div>` : ''}
       ${m.ritmoReal>0 ? `<div class="trow"><span class="tl">Ritmo real de aporte</span><span class="tv">${R(Math.round(m.ritmoReal))}/mês (${m.qtdMesesComAporte} meses)</span></div>` : ''}
       ${m.mesesRestantesRitmoReal!=null ? `<div class="trow"><span class="tl">Projeção no ritmo real</span><span class="tv warn">${m.mesesRestantesRitmoReal} meses</span></div>` : ''}
+      ${renderMetaRendimentoBloco(m)}
       <div class="trow"><span class="tl">Histórico</span><span class="tv" style="color:var(--tx2)">${m.qtdAportes} aporte(s) pago(s)${m.qtdPendentes?` · ${m.qtdPendentes} pendente(s)`:''}</span></div>
       ${m.aportesOrdenados.length>0 ? `
       <div style="margin-top:8px">
@@ -5515,6 +5641,42 @@ function renderMetas(){
       </div>` : ''}
     </div>`;
   }).join('');
+}
+
+// Bloco "Saldo & rendimento" do card — só para metas de Investimentos.
+const VEREDITO_REND = {
+  ok:        {tag:'tag-ok',     txt:'🟢 Rendendo conforme o contratado'},
+  atencao:   {tag:'tag-warn',   txt:'🟡 Abaixo do esperado'},
+  abaixo:    {tag:'tag-danger', txt:'🔴 Muito abaixo do contratado'},
+  aguardando:{tag:'tag-info',   txt:'⏳ Cedo para avaliar (< R$ 1 esperado)'}
+};
+function renderMetaRendimentoBloco(m){
+  if(m.categoria!=='Investimentos') return '';
+  const r=m.rendimento||{};
+  const sinal=v=>(v>=0?'+':'-')+R(Math.abs(v));
+  const fmtData=iso=>iso?iso.split('-').reverse().join('/'):'—';
+  const reservaTag=m.contaComoReserva?` <span class="badge tag-info" style="font-size:10px">conta na reserva</span>`:'';
+  let h=`<div class="div"></div>
+    <div class="trow"><span class="tl">Saldo atual${reservaTag}</span><span class="tv" style="color:var(--green)">${R(r.saldoAtual||0)}</span></div>`;
+  if(!r.temLeitura){
+    return h+`<div class="trow"><span class="tl">Rendimento</span><span class="tv" style="color:var(--tx3)">sem leitura de saldo — use 📈 para informar o saldo do banco</span></div>`;
+  }
+  h+=`<div class="trow"><span class="tl">Última leitura</span><span class="tv" style="color:var(--tx2)">${fmtData(r.ultimaLeitura.data)} · ${R(r.ultimaLeitura.saldo)}</span></div>
+    <div class="trow"><span class="tl">Rendimento real</span><span class="tv" style="color:${r.rendReal>=0?'var(--green)':'var(--red)'}">${sinal(r.rendReal)} (${r.rendRealPct>=0?'+':''}${r.rendRealPct.toFixed(2)}%)</span></div>`;
+  if(!r.temBenchmark){
+    return h+`<div class="trow"><span class="tl">Esperado pelo contrato</span><span class="tv" style="color:var(--tx3)">informe % do CDI e CDI de referência na meta (✏)</span></div>`;
+  }
+  h+=`<div class="trow"><span class="tl">Esperado pelo contrato</span><span class="tv">${sinal(r.rendEsperado)} <span style="color:var(--tx3);font-size:11px">(${(m.pctCdiContratado*100).toFixed(1)}% × CDI ${(m.cdiAaReferencia*100).toFixed(2)}% a.a. · ${r.diasUteisMax} d.u.)</span></span></div>`;
+  if(r.pctCdiEfetivo!=null){
+    const dif=r.rendReal-r.rendEsperado;
+    h+=`<div class="trow"><span class="tl">Real − esperado</span><span class="tv" style="color:${dif>=0?'var(--green)':'var(--red)'}">${sinal(dif)} · ≈ ${(r.pctCdiEfetivo*100).toFixed(1)}% do CDI efetivo</span></div>`;
+  }
+  const v=VEREDITO_REND[r.veredito];
+  if(v) h+=`<div class="trow"><span class="tl">Avaliação</span><span class="tv"><span class="badge ${v.tag}">${v.txt}</span></span></div>`;
+  if(r.leituras.length>1){
+    h+=`<div style="font-size:11px;color:var(--tx3);margin-top:4px">Leituras: ${r.leituras.slice(-6).map(s=>`${fmtData(s.data)} ${R(s.saldo)}`).join(' · ')}</div>`;
+  }
+  return h;
 }
 
 // ── Painéis analíticos ──
@@ -5592,6 +5754,59 @@ function toggleMetaHistorico(id){
   el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 
+// ── Leitura de saldo da meta (metas_saldos) ──
+function abrirMetaSaldoForm(metaId){
+  const m = DB.metas.find(x=>x.id===metaId);
+  if(!m) return;
+  document.getElementById('metasaldo-title').textContent = '📈 Atualizar saldo — '+m.nome;
+  document.getElementById('metasaldo-meta-id').value = metaId;
+  document.getElementById('metasaldo-data').value = hojeLocalISO();
+  document.getElementById('metasaldo-valor').value = '';
+  document.getElementById('metasaldo-obs').value = '';
+  const fb=document.getElementById('metasaldo-feedback'); if(fb) fb.style.display='none';
+  abrirModal('metasaldo');
+}
+
+async function salvarMetaSaldo(){
+  const metaId = document.getElementById('metasaldo-meta-id').value;
+  const data = document.getElementById('metasaldo-data').value;
+  const valor = parseFloat(document.getElementById('metasaldo-valor').value);
+  const obs = document.getElementById('metasaldo-obs').value.trim();
+  const fb = document.getElementById('metasaldo-feedback');
+  const btn = document.getElementById('btn-metasaldo-save');
+
+  function feedback(msg,ok){
+    fb.style.display='block';
+    fb.style.background = ok?'var(--gd)':'var(--rd)';
+    fb.style.color = ok?'var(--green)':'var(--red)';
+    fb.style.border = ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+    fb.textContent = msg;
+  }
+
+  if(!metaId || !data || isNaN(valor) || valor<0){ feedback('⚠ Preencha data e saldo (≥ 0).', false); return; }
+  if(data > hojeLocalISO()){ feedback('⚠ A data da leitura não pode ser futura.', false); return; }
+  if(!usuarioAtual){ feedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
+
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    // UNIQUE (meta_id, data): uma leitura por dia — salvar de novo no mesmo dia corrige a leitura.
+    const payload = { usuario_id: usuarioAtual.id, meta_id: metaId, data, saldo: Math.round(valor*100)/100, observacao: obs||null };
+    const {data:res, error} = await getSB().from('metas_saldos').upsert(payload,{onConflict:'meta_id,data'}).select();
+    if(error) throw new Error(error.message);
+    if(!res || !res.length) throw new Error('nenhuma linha retornada pelo Supabase');
+    const novo = res[0];
+    DB.metasSaldos = (DB.metasSaldos||[]).filter(s=>!(s.metaId===metaId && s.data===data));
+    DB.metasSaldos.push({ id:novo.id, metaId, data, saldo: parseFloat(novo.saldo), observacao: novo.observacao||null });
+    DB.metasSaldos.sort((a,b)=>a.data.localeCompare(b.data));
+    feedback('✓ Saldo salvo com sucesso!', true);
+    setTimeout(()=>{ fecharModal('metasaldo'); renderMetas(); }, 900);
+  } catch(e){
+    feedback('✗ Erro ao salvar: '+e.message, false);
+  } finally {
+    btn.disabled=false; btn.textContent='💾 Salvar saldo';
+  }
+}
+
 // ── CRUD de meta ──
 function abrirMetaForm(id){
   const ehEdicao = !!id;
@@ -5609,6 +5824,9 @@ function abrirMetaForm(id){
     document.getElementById('meta-prazo').value = m.prazo;
     document.getElementById('meta-valor-orcado').value = m.valorOrcado;
     document.getElementById('meta-aporte-sugerido').value = m.aporteMensalSugerido||'';
+    document.getElementById('meta-pct-cdi').value = m.pctCdiContratado!=null ? +(m.pctCdiContratado*100).toFixed(2) : '';
+    document.getElementById('meta-cdi-ref').value = m.cdiAaReferencia!=null ? +(m.cdiAaReferencia*100).toFixed(2) : '';
+    document.getElementById('meta-conta-reserva').checked = !!m.contaComoReserva;
     document.getElementById('meta-status').value = m.status==='concluida' ? 'ativa' : m.status;
   } else {
     document.getElementById('meta-id').value = '';
@@ -5619,8 +5837,15 @@ function abrirMetaForm(id){
     document.getElementById('meta-prazo').value = 'medio';
     document.getElementById('meta-valor-orcado').value = '';
     document.getElementById('meta-aporte-sugerido').value = '';
+    document.getElementById('meta-pct-cdi').value = '';
+    document.getElementById('meta-cdi-ref').value = '';
+    document.getElementById('meta-conta-reserva').checked = false;
     document.getElementById('meta-status').value = 'ativa';
   }
+  // Sugestão (só placeholder, nunca preenchido automaticamente): CDI otimista da última revisão da Casa Própria
+  const revs=DB.casaPropriaRevisoes||[], revUlt=revs.length?revs[revs.length-1]:null;
+  document.getElementById('meta-cdi-ref').placeholder = revUlt&&revUlt.taxaCdiOtimistaAa>0
+    ? `sugestão: ${(revUlt.taxaCdiOtimistaAa*100).toFixed(2)} (revisão Casa Própria)` : 'ex: 14.90 — opcional';
   abrirModal('meta');
 }
 
@@ -5635,6 +5860,11 @@ async function salvarMeta(){
   const aporteSugeridoRaw = document.getElementById('meta-aporte-sugerido').value;
   const aporteSugerido = aporteSugeridoRaw ? parseFloat(aporteSugeridoRaw) : null;
   const status = document.getElementById('meta-status').value;
+  const pctCdiRaw = document.getElementById('meta-pct-cdi').value;
+  const cdiRefRaw = document.getElementById('meta-cdi-ref').value;
+  const pctCdiContratado = pctCdiRaw!=='' ? Math.round(parseFloat(pctCdiRaw)*100)/10000 : null;   // 101.5 → 1.015
+  const cdiAaReferencia  = cdiRefRaw!=='' ? Math.round(parseFloat(cdiRefRaw)*100)/10000 : null;   // 14.90 → 0.149
+  const contaComoReserva = document.getElementById('meta-conta-reserva').checked;
   const fb = document.getElementById('meta-feedback');
   const btn = document.getElementById('btn-meta-save');
 
@@ -5650,6 +5880,11 @@ async function salvarMeta(){
     mostrarFeedback('⚠ Preencha nome, categoria e valor orçado (> 0).', false);
     return;
   }
+  if((pctCdiContratado!=null && (isNaN(pctCdiContratado)||pctCdiContratado<=0||pctCdiContratado>3)) ||
+     (cdiAaReferencia!=null && (isNaN(cdiAaReferencia)||cdiAaReferencia<=0||cdiAaReferencia>=1))){
+    mostrarFeedback('⚠ % do CDI deve estar entre 0 e 300; CDI de referência entre 0 e 99% a.a.', false);
+    return;
+  }
   if(!usuarioAtual){ mostrarFeedback('⚠ Sessão não encontrada — faça login novamente.', false); return; }
 
   btn.disabled=true; btn.textContent='⏳ Salvando...';
@@ -5658,7 +5893,8 @@ async function salvarMeta(){
     subcategoria_vinculo: subVinculo||null,
     prioridade, prazo, valor_orcado: Math.round(valorOrcado*100)/100,
     aporte_mensal_sugerido: aporteSugerido!=null ? Math.round(aporteSugerido*100)/100 : null,
-    status
+    status,
+    pct_cdi_contratado: pctCdiContratado, cdi_aa_referencia: cdiAaReferencia, conta_como_reserva: contaComoReserva
   };
 
   try {
@@ -5666,7 +5902,7 @@ async function salvarMeta(){
       const {error} = await getSB().from('metas').update(payload).eq('id',id).eq('usuario_id',usuarioAtual.id);
       if(error) throw new Error(error.message);
       const idx = DB.metas.findIndex(m=>m.id===id);
-      if(idx>=0) DB.metas[idx] = {...DB.metas[idx], nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status};
+      if(idx>=0) DB.metas[idx] = {...DB.metas[idx], nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status, pctCdiContratado, cdiAaReferencia, contaComoReserva};
     } else {
       // ano_apuracao é NOT NULL sem default no banco — enviado só no INSERT (no UPDATE
       // o ano original da meta é preservado). Usa o exercício selecionado no app.
@@ -5674,7 +5910,7 @@ async function salvarMeta(){
       const {data,error} = await getSB().from('metas').insert({...payload, ano_apuracao: anoMeta}).select();
       if(error) throw new Error(error.message);
       const novo = data[0];
-      DB.metas.push({id:novo.id, nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status, anoApuracao:novo.ano_apuracao ?? anoMeta});
+      DB.metas.push({id:novo.id, nome, categoria, subcategoriaVinculo:subVinculo||null, prioridade, prazo, valorOrcado, aporteMensalSugerido:aporteSugerido, status, anoApuracao:novo.ano_apuracao ?? anoMeta, pctCdiContratado, cdiAaReferencia, contaComoReserva});
     }
     mostrarFeedback('✓ Meta salva com sucesso!', true);
     setTimeout(()=>{ fecharModal('meta'); renderMetas(); }, 900);
@@ -7369,6 +7605,16 @@ function isLancamentoParcela(l){
   return total>=2&&total<=24;
 }
 
+// Reserva investida = saldo atual (com rendimento, quando há leitura) das metas marcadas
+// "conta como reserva" e não canceladas. Investimento é transferência, não gasto:
+// getSaldosPorMes() desconta os aportes do saldo em conta, então eles voltam aqui.
+// Metas sem a flag (Casa Própria, Carro, Casa Nova, caução encerrada) ficam de fora — dinheiro já destinado.
+function getReservaInvestida(){
+  const metas=getMetasComProgresso().filter(m=>m.contaComoReserva&&m.status!=='cancelada');
+  const itens=metas.map(m=>({nome:m.nome,saldo:Math.round(m.rendimento?.saldoAtual||0)})).filter(x=>x.saldo>0);
+  return {total:SM(itens.map(x=>x.saldo)), itens};
+}
+
 const META_RESERVA_KEY='ctrl-diag-meta-reserva';
 
 function onDiagMetaChange(){
@@ -7387,8 +7633,9 @@ function onDiagMetaChange(){
 //   + comprometimento de parcelas JÁ ASSUMIDO, projetado mês a mês via buildComprometimento()
 //   (mesma função usada na página Cartão/Parcelas — mostra o comprometimento minguando conforme
 //   as parcelas ativas vão terminando, em vez de uma média fixa).
-// Ambos partem do mesmo saldo atual real (getSaldosPorMes), garantindo que os dois acumulados
-// sejam comparáveis ponto a ponto.
+// Ambos partem do mesmo saldo atual real (getSaldosPorMes) + reserva investida (getReservaInvestida),
+// garantindo que os dois acumulados sejam comparáveis ponto a ponto. Aportes futuros em
+// Investimentos não entram nas despesas (CATS não inclui Investimentos) — são neutros na projeção.
 function renderProjecaoReserva(){
   const ano=getAnoApuracao();
   const mesesAno=getMesesAno(ano);
@@ -7418,7 +7665,9 @@ function renderProjecaoReserva(){
   const despesaRecorrenteMedia=Math.round(SM(lanBase.filter(l=>l.cat!=='Receitas'&&l.cat!=='Investimentos'&&!isLancamentoParcela(l)).map(l=>l.valor))/nBase);
 
   const {comprometimento}=buildComprometimento();
-  const saldoBase=mesAtualObj.saldo_atu;
+  const saldoConta=mesAtualObj.saldo_atu;
+  const reservaInv=getReservaInvestida();
+  const saldoBase=saldoConta+reservaInv.total;
 
   let acumIdeal=saldoBase,acumReal=saldoBase;
   const linhas=[];
@@ -7435,7 +7684,9 @@ function renderProjecaoReserva(){
   const gap=acumIdeal-acumReal;
   const ultimoMes=mesesFuturos[mesesFuturos.length-1];
   tweenText(document.getElementById('diag-proj-ideal'), acumIdeal, v=>(v>=0?'':'-')+R(v));
-  document.getElementById('diag-proj-ideal-sub').textContent=`até ${mkLabel(ultimoMes)} · partindo de ${saldoBase>=0?'':'-'}${R(Math.abs(saldoBase))}`;
+  document.getElementById('diag-proj-ideal-sub').textContent=reservaInv.total>0
+    ? `até ${mkLabel(ultimoMes)} · partindo de ${saldoConta>=0?'':'-'}${R(Math.abs(saldoConta))} em conta + ${R(reservaInv.total)} investidos`
+    : `até ${mkLabel(ultimoMes)} · partindo de ${saldoBase>=0?'':'-'}${R(Math.abs(saldoBase))}`;
   const realEl=document.getElementById('diag-proj-real');
   tweenText(realEl, acumReal, v=>(v>=0?'':'-')+R(v));
   realEl.className='kpi-val '+(acumReal>=0?'ok':'danger');
@@ -7477,6 +7728,7 @@ function renderProjecaoReserva(){
   msg+=`No ritmo atual, a projeção cai para <strong style="color:${acumReal>=0?'var(--green)':'var(--red)'}">${R(Math.abs(acumReal))}</strong> — uma diferença de <strong style="color:var(--amber)">${R(Math.abs(gap))}</strong>`;
   if(totalParcelasFuturas>0) msg+=`, dos quais <strong>${R(totalParcelasFuturas)}</strong> só em parcelas de cartão já comprometidas`;
   msg+='.';
+  if(reservaInv.total>0) msg+=` Os dois cenários já incluem <strong style="color:var(--blue)">${R(reservaInv.total)}</strong> de reserva investida (${reservaInv.itens.map(x=>x.nome).join(', ')}) — dinheiro aplicado, mas disponível em emergência.`;
   if(metaVal>0){
     if(acumReal>=metaVal) msg+=` No ritmo atual você já <strong style="color:var(--green)">atinge a meta de ${R(metaVal)}</strong>.`;
     else if(acumIdeal>=metaVal) msg+=` A meta de <strong>${R(metaVal)}</strong> só é alcançada <strong>cortando despesas e parcelas</strong> — no ritmo atual falta <strong style="color:var(--red)">${R(metaVal-acumReal)}</strong>.`;
@@ -8611,7 +8863,7 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [lans, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
+    const [lans, r2, r3, r4, r5, r6, r7, r8, r9, r10] = await Promise.all([
       fetchTodosLancamentos(sb, usuarioAtual.id),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
@@ -8620,7 +8872,8 @@ async function carregarDoSupabase(){
       sb.from('casa_propria_revisoes').select('*').eq('usuario_id', usuarioAtual.id).order('data_vigencia_inicio',{ascending:true}),
       sb.from('casa_propria_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
       sb.from('casa_propria_fgts_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true}),
-      sb.from('casa_propria_recebiveis').select('*').eq('usuario_id', usuarioAtual.id).order('data_prevista',{ascending:true})
+      sb.from('casa_propria_recebiveis').select('*').eq('usuario_id', usuarioAtual.id).order('data_prevista',{ascending:true}),
+      sb.from('metas_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true})
     ]);
 
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
@@ -8640,6 +8893,8 @@ async function carregarDoSupabase(){
     const cpFgtsSaldosRows = r8.data || [];
     if(r9.error) console.warn('Casa Própria (recebíveis) indisponível:', r9.error.message);
     const cpRecebiveisRows = r9.error ? [] : (r9.data || []);
+    if(r10.error) console.warn('Metas (saldos) indisponível:', r10.error.message);
+    const metasSaldosRows = r10.error ? [] : (r10.data || []);
 
     if(lans.length === 0){
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
@@ -8666,7 +8921,14 @@ async function carregarDoSupabase(){
       prioridade: m.prioridade, prazo: m.prazo,
       valorOrcado: parseFloat(m.valor_orcado)||0,
       aporteMensalSugerido: m.aporte_mensal_sugerido!=null?parseFloat(m.aporte_mensal_sugerido):null,
-      status: m.status, anoApuracao: m.ano_apuracao
+      status: m.status, anoApuracao: m.ano_apuracao,
+      contaComoReserva: m.conta_como_reserva===true,
+      pctCdiContratado: m.pct_cdi_contratado!=null?parseFloat(m.pct_cdi_contratado):null,
+      cdiAaReferencia: m.cdi_aa_referencia!=null?parseFloat(m.cdi_aa_referencia):null
+    }));
+    DB.metasSaldos = metasSaldosRows.map(s=>({
+      id: s.id, metaId: s.meta_id, data: s.data,
+      saldo: parseFloat(s.saldo)||0, observacao: s.observacao||null
     }));
 
     const cpPlanoRow = cpPlanoRows[0] || null;
