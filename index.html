@@ -1675,8 +1675,7 @@ html.is-mobile .sidebar.open{
       <div class="section-header-left"><div class="page-title" id="cpc-titulo">Casa Própria — Lote Villagio Tunis e Construção</div><div class="page-sub" style="margin:0">Aquisição do lote · reserva para construção · financiamento Caixa — real vs. cenários conservador, base e otimista</div></div>
       <div class="section-header-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--tx3)">Horizonte</span>
-        <button class="chip cpc-hbtn" data-h="24" onclick="cpcSetH(24)">24 meses</button>
-        <button class="chip cpc-hbtn" data-h="36" onclick="cpcSetH(36)">36 meses</button>
+        <span id="cpc-hchips" style="display:flex;gap:6px;flex-wrap:wrap"></span>
         <button class="btn-icon" style="padding:8px 14px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:12px" onclick="abrirCpcParam()">⚙ Premissas</button>
         <button class="btn-modal-save" onclick="abrirCpSaldoForm()">+ Novo saldo CDB</button>
       </div>
@@ -1697,6 +1696,15 @@ html.is-mobile .sidebar.open{
     <div class="cpc-pane" id="cpc-pane-visao">
       <div class="card" style="margin-bottom:14px"><div id="cpc-resumo"></div></div>
       <div class="g4" id="cpc-kpis"></div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div class="card-title" style="margin:0">Início da obra por data-alvo — o caixa fecha em cada cenário?</div>
+          <button class="btn-icon" style="padding:6px 12px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:12px" onclick="abrirCpcParam()">⚙ Editar datas</button>
+        </div>
+        <div id="cpc-alvos"></div>
+        <div class="chart-wrap" style="height:230px;margin-top:14px"><canvas id="chart-cpc-alvos" role="img" aria-label="Sobra ou falta de capital para iniciar a obra em cada data-alvo, por cenário"></canvas></div>
+        <div class="tip">Para cada data, o motor projeta o CDB até aquele mês (lote já descontado) e compara o <b>livre p/ obra</b> (disponível − reserva de segurança) com o <b>necessário p/ iniciar</b> (entrada mínima Caixa + custos acessórios + margem de imprevistos do cenário). <b>Segurança máx.</b> = maior reserva de segurança que ainda permite começar naquela data. Clique numa data no topo para ver toda a página nesse horizonte.</div>
+      </div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-title">Saldo real do CDB vs. projeções (líquido de IR, já descontando o lote)</div>
         <div class="chart-wrap" style="height:290px"><canvas id="chart-cpc-evolucao" role="img" aria-label="Evolução do saldo real versus projeções conservadora, base e otimista"></canvas></div>
@@ -2282,6 +2290,13 @@ html.is-mobile .sidebar.open{
       <div class="modal-g2">
         <div><label class="modal-label">Aportes realizados no</label><select id="cpcparam-momento" class="modal-input"><option value="fim">Fim do mês (rende a partir do mês seguinte)</option><option value="inicio">Início do mês (rende o mês inteiro)</option></select></div>
         <div><label class="modal-label">Reserva de segurança alvo (R$)</label><input type="number" id="cpcparam-seg" class="modal-input" step="0.01" min="0"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Datas-alvo para início da obra (até 4)</label>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+          <input type="month" id="cpcparam-alvo-1" class="modal-input"><input type="month" id="cpcparam-alvo-2" class="modal-input">
+          <input type="month" id="cpcparam-alvo-3" class="modal-input"><input type="month" id="cpcparam-alvo-4" class="modal-input">
+        </div>
       </div>
       <div class="modal-g2">
         <div><label class="modal-label">Renda familiar (R$/mês)</label><input type="number" id="cpcparam-renda" class="modal-input" step="0.01" min="0"></div>
@@ -7355,7 +7370,45 @@ function cpcResumoCenario(ctx, proj, H, sim){
 
 
 // ── Contexto, UI state e helpers ─────────────────────────────────────────────
-const CPC_UI = { tab:'visao', H:24, cenMensal:'base', filtroLan:'todos' };
+const CPC_UI = { tab:'visao', H:null, alvo:null, cenMensal:'base', filtroLan:'todos' };
+
+// Datas-alvo de início da obra (plano.datas_alvo_obra) → mês do plano (offset) + rótulo
+function cpcDatasAlvo(ctx){
+  const vistos = new Set();
+  return (ctx.plano.datasAlvoObra||[]).map(d=>({ data:d, k:cpOffsetDeData(ctx.plano,d), lbl:cpMesLabel(new Date(d+'T00:00:00')) }))
+    .filter(x=>x.k>=1 && x.k<=36 && !vistos.has(x.k) && vistos.add(x.k)).sort((a,b)=>a.k-b.k);
+}
+function cpcHLbl(){ return CPC_UI.alvo ? CPC_UI.alvo : `${CPC_UI.H}m`; }
+function cpcHTexto(){ return CPC_UI.alvo ? `até ${CPC_UI.alvo}` : `em ${CPC_UI.H} meses`; }
+// Horizonte inicial: data-alvo mais próxima de 6 meses à frente; sem datas, 24 meses
+function cpcHInicial(ctx){
+  const datas = cpcDatasAlvo(ctx); if(!datas.length) return { H:24, alvo:null };
+  const meta = Math.max(0, cpOffsetDeData(ctx.plano, ctx.hojeISO)) + 6;
+  const x = datas.reduce((a,b)=>Math.abs(b.k-meta)<Math.abs(a.k-meta)?b:a);
+  return { H:x.k, alvo:x.lbl };
+}
+function cpcRenderHChips(ctx){
+  const el = document.getElementById('cpc-hchips'); if(!el) return;
+  const datas = cpcDatasAlvo(ctx);
+  el.innerHTML = datas.map(x=>`<button class="chip cpc-hbtn${CPC_UI.alvo===x.lbl?' active':''}" title="Início da obra em ${x.lbl} — mês ${x.k} do plano" onclick="cpcSetH(${x.k},'${x.lbl}')">🏗 ${x.lbl}</button>`).join('')+
+    [24,36].map(n=>`<button class="chip cpc-hbtn${!CPC_UI.alvo&&CPC_UI.H===n?' active':''}" onclick="cpcSetH(${n})">${n} meses</button>`).join('');
+}
+// Viabilidade de cada data-alvo × cenário (projeção recortada no mês da data)
+function cpcAvaliarAlvos(ctx){
+  const offHoje = Math.max(0, cpOffsetDeData(ctx.plano, ctx.hojeISO));
+  return cpcDatasAlvo(ctx).map(x=>{
+    const porCen = {};
+    CPC_CEN_KEYS.forEach(key=>{
+      const pr = cpcProjetar(ctx, key, x.k);
+      const r = cpcResumoCenario(ctx, pr, x.k, cpcSimDoCenario(ctx,key));
+      const folga = r.fim.livreObra - r.necessarioInicio;
+      porCen[key] = { r, folga, viavel: folga>=0,
+        segMax: r.fim.disponivel - r.necessarioInicio,
+        extraMes: folga<0 ? -folga/Math.max(1, x.k-offHoje) : 0 };
+    });
+    return { ...x, mesesAte: x.k-offHoje, porCen };
+  });
+}
 const CPC_TIPO_LBL = { lote:'Lote', comissao:'Comissão', cartorio:'Cartório', itbi:'ITBI', projeto:'Projeto', outros:'Outros' };
 const CPC_FONTE_LBL = { estimativa:'Estimativa', arquiteta:'Orçamento da arquiteta', projeto_executivo:'Projeto executivo', orcamento_obra:'Orçamento de obra' };
 const CPC_FGTS_ST = { previsto:{c:'var(--tx2)',t:'○ Previsto'}, solicitado:{c:'var(--blue)',t:'◐ Solicitado'}, liberado:{c:'var(--green)',t:'● Liberado'}, utilizado:{c:'var(--purple)',t:'✓ Utilizado'} };
@@ -7454,10 +7507,13 @@ function renderCasaPropria(){
   if(vazio) vazio.style.display='none';
   const titulo = document.getElementById('cpc-titulo');
   if(titulo) titulo.textContent = ctx.plano.nomeProjeto || 'Casa Própria — Lote Villagio Tunis e Construção';
-  document.querySelectorAll('.cpc-hbtn').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.h,10)===CPC_UI.H));
+  if(CPC_UI.H==null){ const h0 = cpcHInicial(ctx); CPC_UI.H = h0.H; CPC_UI.alvo = h0.alvo; }
+  cpcRenderHChips(ctx);
   const calc = cpcCalcular(ctx, CPC_UI.H);
   const atual = cpcSituacaoAtual(ctx);
-  window._cpcCache = { ctx, calc, atual };
+  const alvos = cpcAvaliarAlvos(ctx);
+  window._cpcCache = { ctx, calc, atual, alvos };
+  cpcRenderAlvos(ctx, alvos);
   cpcRenderVisao(ctx, calc, atual);
   cpcRenderLote(ctx);
   cpcRenderReserva(ctx, calc, atual);
@@ -7478,7 +7534,7 @@ function cpcTab(t){
   if(t==='financiamento') cpcChartEntrada(c.ctx, c.calc);
 }
 
-function cpcSetH(h){ CPC_UI.H = h; renderCasaPropria(); }
+function cpcSetH(h, alvo){ CPC_UI.H = h; CPC_UI.alvo = alvo||null; renderCasaPropria(); }
 
 const cpcKpi = (lbl,val,sub,accent)=>`<div class="kpi${accent?' kpi-accent-'+accent:''}"><div class="kpi-lbl">${lbl}</div><div class="kpi-val${accent?' '+accent:''}" style="font-size:20px">${val}</div><div class="kpi-sub">${sub||''}</div></div>`;
 const cpcTh = (t,al) => `<th style="padding:6px 8px;${al?'text-align:right;':''}white-space:nowrap">${t}</th>`;
@@ -7503,7 +7559,7 @@ function cpcRenderVisao(ctx, calc, atual){
     const V = ctx.obra ? ctx.obra.valorObra + (ctx.obra.custosAcessorios||0) : 0;
     resumo.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap">
       ${bx('Quanto tenho hoje', R(atual.patrimonio), `CDB ${R(atual.cdb)}${atual.ult?` (${cpcDt(atual.ult.data)})`:''} + FGTS ${R(atual.fgts)}`, 'var(--green)')}
-      ${bx(`Quanto terei em ${H} meses`, R(r.base.fim.total), `base · conservador ${R(r.conservador.fim.total)} · otimista ${R(r.otimista.fim.total)} (já líquido do lote)`, '#a892d4')}
+      ${bx(`Quanto terei ${cpcHTexto()}`, R(r.base.fim.total), `base · conservador ${R(r.conservador.fim.total)} · otimista ${R(r.otimista.fim.total)} (já líquido do lote)`, '#a892d4')}
       ${bx('Gasto com o lote', `${cpcR2(L.pago)} <span style="font-size:12px;color:var(--tx2)">de ${cpcR2(L.total)}</span>`, `${cpcPct(L.pct,0)} pago · falta ${cpcR2(L.saldo)}`, 'var(--amber)')}
       ${bx('Ainda necessário p/ construir', R(finAtv?finAtv.fin.financiado:0), ctx.obra?`obra + acessórios ${R(V)} − capital próprio ${R(finAtv?finAtv.fin.entrada:0)} → financiamento Caixa`:'cadastre o orçamento da obra', 'var(--red)')}
     </div>`;
@@ -7511,7 +7567,7 @@ function cpcRenderVisao(ctx, calc, atual){
 
   const k = document.getElementById('cpc-kpis');
   if(k){
-    const proj = key => { const f = r[key].fim; return cpcKpi(`Projeção ${ctx.cenarios[key].nome.toLowerCase()} · ${H}m`, R(f.disponivel), `disponível após lote · livre p/ obra ${cpcSR(f.livreObra)}`); };
+    const proj = key => { const f = r[key].fim; return cpcKpi(`Projeção ${ctx.cenarios[key].nome.toLowerCase()} · ${cpcHLbl()}`, R(f.disponivel), `disponível após lote · livre p/ obra ${cpcSR(f.livreObra)}`); };
     const pctRes = metaRes>0 ? atual.destinadoObra/metaRes : 0;
     k.innerHTML =
       `<div class="cpc-kgrp">Fase 1 — Lote</div>`+
@@ -7524,12 +7580,12 @@ function cpcRenderVisao(ctx, calc, atual){
       cpcKpi('Conclusão da reserva p/ construção', cpcPct(pctRes,0), `meta ${R(metaRes)}${ctx.obra&&ctx.obra.metaReserva?'':' (20% entrada + acessórios + margem)'}`+cpcBar(pctRes,'var(--blue)')) +
       cpcKpi('Reserva de segurança', R(atual.seguranca), atual.faltaSeguranca>0?`<span class="danger">faltam ${R(atual.faltaSeguranca)} p/ o alvo de ${R(ctx.reservaSegurancaAlvo)}</span>`:`alvo ${R(ctx.reservaSegurancaAlvo)} coberto`, atual.faltaSeguranca>0?'warn':'ok') +
       cpcKpi('Rendimento real acumulado', cpcSR(atual.rendimento), `desde ${cpcDt(ctx.plano.dataBase)} · aportes ${R(atual.aportes)} · resgates ${R(atual.resgates)}`) +
-      `<div class="cpc-kgrp">Projeções em ${H} meses (CDB ${(ctx.plano.pctCdiContratado*100).toFixed(1).replace('.',',')}% do CDI + FGTS − lote)</div>`+
+      `<div class="cpc-kgrp">Projeções ${cpcHTexto()} (CDB ${(ctx.plano.pctCdiContratado*100).toFixed(1).replace('.',',')}% do CDI + FGTS − lote)</div>`+
       proj('conservador') + proj('base') + proj('otimista') +
       cpcKpi('Início da obra (base)', r.base.mesInicio!=null?cpMesLabel(cpAddMeses(ctx.plano.dataBase,r.base.mesInicio)):'—', `capital mínimo ${R(r.base.necessarioInicio)} · cons. ${r.conservador.mesInicio!=null?cpMesLabel(cpAddMeses(ctx.plano.dataBase,r.conservador.mesInicio)):'—'} · otim. ${r.otimista.mesInicio!=null?cpMesLabel(cpAddMeses(ctx.plano.dataBase,r.otimista.mesInicio)):'—'}`) +
       `<div class="cpc-kgrp">Fase 3 — Financiamento Caixa ${sim?`<span style="text-transform:none;letter-spacing:0;font-weight:500">· ${cpcEsc(sim.nome)}</span>`:''}</div>`+
       (finAtv
-        ? cpcKpi('Entrada estimada', R(finAtv.fin.entrada), sim.entrada!=null?'informada na simulação':`automática: livre p/ obra do cenário ${ctx.cenarios[finAtv.cenKey].nome.toLowerCase()} em ${H}m`) +
+        ? cpcKpi('Entrada estimada', R(finAtv.fin.entrada), sim.entrada!=null?'informada na simulação':`automática: livre p/ obra do cenário ${ctx.cenarios[finAtv.cenKey].nome.toLowerCase()} em ${cpcHLbl()}`) +
           cpcKpi('Valor estimado a financiar', R(finAtv.fin.financiado), `teto da cota ${cpcPct(finAtv.fin.cota,0)}: ${R(finAtv.fin.tetoFin)}`, finAtv.fin.excedeCota?'danger':null) +
           cpcKpi('Parcela estimada (1ª)', R(finAtv.fin.p1), `${sim.sistema} · ${sim.prazoMeses}m · ${cpcPct(sim.taxaAa,2)} a.a.${sim.sistema==='SAC'?` · última ${R(finAtv.fin.parc.pN)}`:''}`) +
           cpcKpi('Renda comprometida', cpcPct(finAtv.fin.comprometimento), `limite ${cpcPct(ctx.pctRendaMax,0)} = ${R(finAtv.fin.parcelaMax)} de ${R(ctx.renda)}`, finAtv.fin.excedeParcela?'danger':'ok')
@@ -7595,11 +7651,50 @@ function cpcInsights(ctx, calc, atual){
     const piores = CPC_CEN_KEYS.filter(k=>r[k].fin.excedeParcela);
     if(piores.length) out.push({ t:'danger', h:`Parcela acima de ${cpcPct(ctx.pctRendaMax,0)} da renda: ${piores.map(k=>ctx.cenarios[k].nome).join(', ')}`, b:'Aumente a entrada, alongue o prazo ou reduza o escopo da obra.' });
   }
+  const alvos = cpcAvaliarAlvos(ctx);
+  if(alvos.length){
+    const okBase = alvos.find(x=>x.porCen.base.viavel);
+    const prim = alvos[0];
+    out.push({ t: okBase?(okBase===prim?'ok':'warn'):'danger',
+      h: okBase ? `Início da obra: ${okBase.lbl} é a 1ª data-alvo viável no cenário base` : 'Nenhuma data-alvo é viável no cenário base com a reserva de segurança atual',
+      b: alvos.map(x=>`<b>${x.lbl}</b>: ${x.porCen.base.viavel?'sobra':'falta'} ${R(Math.abs(x.porCen.base.folga))} (segurança máx. ${R(Math.max(0,x.porCen.base.segMax))})`).join(' · ')+
+        `. A alavanca é a reserva de segurança (alvo atual ${R(ctx.reservaSegurancaAlvo)}): aporte extra para ${prim.lbl} exigiria ${R(prim.porCen.base.extraMes)}/mês.` });
+  }
   out.push({ t:'info', h:'CDI base em 13,65% a.a. (Selic 13,75%)', b:'O cenário base mantém a taxa atual por todo o horizonte. A cada decisão do Copom, registre uma 📋 Nova reavaliação na aba Reserva — meses anteriores continuam com a taxa da época, sem reescrever o histórico.' });
   return out;
 }
 
+function cpcRenderAlvos(ctx, alvos){
+  const el = document.getElementById('cpc-alvos'); if(!el) return;
+  if(!alvos.length){ el.innerHTML = `<div style="text-align:center;padding:14px;color:var(--tx2)">Nenhuma data-alvo cadastrada. Use ⚙ Editar datas.</div>`; return; }
+  const cell = a => {
+    const r = a.r, f = r.fin;
+    return `<div style="font-weight:700;color:${a.viavel?'var(--green)':'var(--red)'}">${a.viavel?'✓ sobra':'✗ falta'} ${R(Math.abs(a.folga))}</div>`+
+      `<div style="font-size:11px;color:var(--tx2);line-height:1.5">livre ${cpcSR(r.fim.livreObra)} · precisa ${cpcK(r.necessarioInicio)}<br>`+
+      `segurança máx. <b style="color:${a.segMax>=ctx.reservaSegurancaAlvo?'var(--tx2)':'var(--amber)'}">${a.segMax>0?R(a.segMax):'R$ 0'}</b>`+
+      (a.viavel?'':` · ou +${R(a.extraMes)}/mês`)+`<br>financia ${cpcK(f.financiado)} · 1ª parc. ${R(f.p1)} (${cpcPct(f.comprometimento,0)})</div>`;
+  };
+  el.innerHTML = cpcTable(cpcTh('Início da obra')+CPC_CEN_KEYS.map(k=>cpcTh(`<span style="color:${ctx.cenarios[k].cor}">${ctx.cenarios[k].nome}</span>`)).join(''),
+    alvos.map(x=>cpcTr(
+      cpcTd(`<a href="javascript:void(0)" onclick="cpcSetH(${x.k},'${x.lbl}')" style="color:var(--tx);font-weight:700;font-size:14px;text-decoration:none">${x.lbl}</a><div style="font-size:11px;color:var(--tx3)">mês ${x.k} · em ${x.mesesAte} meses</div>`,0,CPC_UI.alvo===x.lbl?'border-left:3px solid var(--amber)':'')+
+      CPC_CEN_KEYS.map(k=>cpcTd(cell(x.porCen[k]),0,'white-space:normal;min-width:190px;vertical-align:top')).join(''),
+      CPC_UI.alvo===x.lbl?'background:rgba(224,179,95,.05)':'')).join(''));
+}
+
+function cpcChartAlvos(ctx, alvos){
+  if(!alvos || !alvos.length) return;
+  mkChart('chart-cpc-alvos',{ type:'bar', data:{ labels:alvos.map(x=>x.lbl),
+      datasets:CPC_CEN_KEYS.map(k=>({ label:ctx.cenarios[k].nome, data:alvos.map(x=>Math.round(x.porCen[k].folga)),
+        backgroundColor:alvos.map(x=>x.porCen[k].viavel?ctx.cenarios[k].cor:'rgba(217,122,122,.75)'), borderColor:ctx.cenarios[k].cor, borderWidth:1.5, borderRadius:4,
+        datalabels:{ display:true, color:c=>c.dataset.data[c.dataIndex]>=0?'#e6ece6':'#d97a7a', anchor:c=>c.dataset.data[c.dataIndex]>=0?'end':'start', align:c=>c.dataset.data[c.dataIndex]>=0?'top':'bottom', font:{size:10,family:CC.font,weight:'700'}, formatter:v=>(v>=0?'+':'−')+cpcK(Math.abs(v)) } }))},
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:20,bottom:18}},
+      plugins:{ legend:{display:true,labels:{color:CC.tick,boxWidth:12,font:{size:11,family:CC.font}}}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw>=0?'sobra':'falta'} ${R(Math.abs(c.raw))}`}} },
+      scales:{ x:{grid:{display:false},ticks:{color:CC.tick,font:{size:12,family:CC.font,weight:'600'}}}, y:{grid:{color:c=>c.tick.value===0?'rgba(230,236,230,.35)':CC.grid},ticks:{color:CC.tick,font:{size:11,family:CC.font},callback:v=>cpcK(v)},title:{display:true,text:'Sobra (+) / falta (−) p/ iniciar',color:CC.tick,font:{size:11}}} } },
+    plugins:[typeof ChartDataLabels!=='undefined'?ChartDataLabels:{}] });
+}
+
 function cpcChartsVisao(ctx, calc){
+  if(window._cpcCache) cpcChartAlvos(ctx, window._cpcCache.alvos);
   const H = CPC_UI.H, pts = calc.proj.base.pts;
   const labels = pts.map(p=>cpMesLabel(p.data));
   const saldos = DB.casaPropriaSaldos||[];
@@ -7637,7 +7732,7 @@ function cpcChartsVisao(ctx, calc){
   const metaRes = cpcMetaReserva(ctx.obra, ctx.cenarios.base.margemImprevistosPct);
   mkChart('chart-cpc-disp-nec',{ type:'bar', data:{ labels:CPC_CEN_KEYS.map(k=>ctx.cenarios[k].nome),
       datasets:[
-        { label:`Livre p/ obra em ${H}m`, data:CPC_CEN_KEYS.map(k=>Math.round(r[k].fim.livreObra)), backgroundColor:CPC_CEN_KEYS.map(k=>ctx.cenarios[k].cor), borderRadius:4,
+        { label:`Livre p/ obra · ${cpcHLbl()}`, data:CPC_CEN_KEYS.map(k=>Math.round(r[k].fim.livreObra)), backgroundColor:CPC_CEN_KEYS.map(k=>ctx.cenarios[k].cor), borderRadius:4,
           datalabels:{ display:true, color:'#e6ece6', anchor:'end', align:'top', font:{size:10,family:CC.font,weight:'700'}, formatter:v=>cpcK(v) } },
         { label:'Necessário p/ iniciar a obra', data:CPC_CEN_KEYS.map(k=>Math.round(r[k].necessarioInicio)), backgroundColor:'rgba(217,122,122,.55)', borderRadius:4,
           datalabels:{ display:true, color:'#d97a7a', anchor:'end', align:'top', font:{size:10,family:CC.font,weight:'700'}, formatter:v=>cpcK(v) } },
@@ -7717,7 +7812,7 @@ function cpcRenderReserva(ctx, calc, atual){
     kp.innerHTML =
       cpcKpi('Saldo atual da reserva p/ obra', R(atual.destinadoObra), 'após lote e segurança', atual.destinadoObra>0?'ok':'danger') +
       cpcKpi('Total aportado (real)', R(atual.aportes), `+ parcelas da venda · resgates ${R(atual.resgates)}`) +
-      cpcKpi('Rendimento acumulado (real)', cpcSR(atual.rendimento), `projeção base ${CPC_UI.H}m: ${R(fim.rendLiq)} líquido de IR`) +
+      cpcKpi('Rendimento acumulado (real)', cpcSR(atual.rendimento), `projeção base ${cpcHLbl()}: ${R(fim.rendLiq)} líquido de IR`) +
       cpcKpi('Restante p/ a meta', R(Math.max(0, metaRes-atual.destinadoObra)), `base atinge a meta em ${cpcMesLbl(ctx, (calc.proj.base.pts.find(p=>p.livreObra>=metaRes)||{}).k)}`);
   }
   const ob = document.getElementById('cpc-obra');
@@ -7801,7 +7896,7 @@ function cpcRenderFinanciamento(ctx, calc){
         row('Teto pela cota', R(f.tetoCota), `${cpcPct(f.cota,0)} × (terreno + obra) — terreno quitado é contrapartida`) +
         row('Teto efetivo do financiamento', R(f.tetoFin), 'menor entre teto da cota e valor da obra') +
         row('Entrada mínima em dinheiro', R(f.entradaMin), 'o que a Caixa exige além do terreno', f.entradaMin>0?'var(--amber)':'var(--green)') +
-        row('Entrada considerada', R(f.entrada), sim.entrada!=null?'informada':`automática — livre p/ obra do cenário ${ctx.cenarios[r.cenKey].nome.toLowerCase()} em ${CPC_UI.H}m − acessórios − margem`) +
+        row('Entrada considerada', R(f.entrada), sim.entrada!=null?'informada':`automática — livre p/ obra do cenário ${ctx.cenarios[r.cenKey].nome.toLowerCase()} em ${cpcHLbl()} − acessórios − margem`) +
         row('Valor a financiar', R(f.financiado), sim.valorFinanciadoInformado?'informado (simulador Caixa)':'obra − entrada', f.excedeCota?'var(--red)':null) +
         row(`1ª parcela (${sim.sistema})`, R(f.p1), sim.primeiraParcelaInformada?'informada (simulador Caixa)':`juros ${cpcPct(f.parc.i,3)} a.m. + amortização + seguros/taxas ${R(sim.segurosMes||0)}`) +
         (sim.sistema==='SAC'?row('Última parcela', R(f.parc.pN), 'SAC decresce linearmente'):'') +
@@ -8172,7 +8267,7 @@ async function salvarCpcSim(){
   try{
     // Snapshot do cálculo na data — mudanças futuras de premissa não reescrevem o que foi simulado
     const resultado = r ? { calculadoEm: cpcHojeISO(), entrada: Math.round(r.fin.entrada), financiado: Math.round(r.fin.financiado), p1: Math.round(r.fin.p1), pN: Math.round(r.fin.parc.pN),
-      juros: Math.round(r.fin.parc.juros), comprometimento: r.fin.comprometimento, entradaMin: Math.round(r.fin.entradaMin), cenarioHorizonte: CPC_UI.H } : null;
+      juros: Math.round(r.fin.parc.juros), comprometimento: r.fin.comprometimento, entradaMin: Math.round(r.fin.entradaMin), cenarioHorizonte: cpcHLbl() } : null;
     const payload = { nome: s.nome, cenario: s.cenario, data_simulacao: s.dataSimulacao, valor_obra: s.valorObra, custos_acessorios: s.custosAcessorios,
       valor_terreno: s.valorTerreno, entrada: s.entrada, valor_financiado_informado: s.valorFinanciadoInformado>0?s.valorFinanciadoInformado:null,
       prazo_meses: s.prazoMeses, taxa_juros_aa: Math.round(s.taxaAa*100000)/100000, sistema: s.sistema, cota: s.cota, seguros_mes: s.segurosMes,
@@ -8223,7 +8318,8 @@ function abrirCpcParam(){
   const p = DB.casaPropriaPlano; if(!p) return;
   const cen = cpcCenarios(p);
   cpcSet('cpcparam-nome', p.nomeProjeto||''); cpcSet('cpcparam-momento', p.momentoAporte||'fim');
-  cpcSet('cpcparam-renda', p.rendaFamiliar||''); cpcSet('cpcparam-pctrenda', ((p.pctRendaMax||0.30)*100).toFixed(0)); cpcSet('cpcparam-seg', p.colchaoEmergenciaAlvo||0);
+  cpcSet('cpcparam-renda', p.rendaFamiliar||'');
+  for(let i=1;i<=4;i++) cpcSet('cpcparam-alvo-'+i, (p.datasAlvoObra||[])[i-1] ? p.datasAlvoObra[i-1].slice(0,7) : ''); cpcSet('cpcparam-pctrenda', ((p.pctRendaMax||0.30)*100).toFixed(0)); cpcSet('cpcparam-seg', p.colchaoEmergenciaAlvo||0);
   CPC_CEN_KEYS.forEach(k=>{ const c=cen[k];
     cpcSet(`cpcparam-${k}-aporte`, c.aporteMensal); cpcSet(`cpcparam-${k}-alt`, c.aporteAlt); cpcSet(`cpcparam-${k}-altde`, c.altDe); cpcSet(`cpcparam-${k}-altate`, c.altAte);
     cpcSet(`cpcparam-${k}-fgts`, (c.fgtsFator*100).toFixed(0)); cpcSet(`cpcparam-${k}-atraso`, c.fgtsAtrasoMeses||0); cpcSet(`cpcparam-${k}-margem`, (c.margemImprevistosPct*100).toFixed(0));
@@ -8245,12 +8341,14 @@ async function salvarCpcParam(){
   if(!(pct>0 && pct<=100)){ cpcFeedback('cpcparam','⚠ % máximo da renda deve estar entre 1 e 100.',false); return; }
   const btn = document.getElementById('btn-cpcparam-save'); btn.disabled=true; btn.textContent='⏳ Salvando...';
   try{
-    const payload = { nome_projeto: cpcVal('cpcparam-nome')||null, momento_aporte: cpcVal('cpcparam-momento')||'fim',
+    const datasAlvo = [...new Set([1,2,3,4].map(i=>cpcVal('cpcparam-alvo-'+i)).filter(v=>/^\d{4}-\d{2}$/.test(v)).map(v=>v+'-01'))].sort();
+    const payload = { datas_alvo_obra: datasAlvo.length?datasAlvo:null, nome_projeto: cpcVal('cpcparam-nome')||null, momento_aporte: cpcVal('cpcparam-momento')||'fim',
       renda_familiar: cpcNum('cpcparam-renda'), pct_renda_max: pct/100, colchao_emergencia_alvo: Math.max(0, cpcNum('cpcparam-seg')||0), cenarios };
     const {error} = await getSB().from('casa_propria_plano').update(payload).eq('id',p.id).eq('usuario_id',usuarioAtual.id);
     if(error) throw new Error(error.message);
     Object.assign(p, { nomeProjeto: payload.nome_projeto, momentoAporte: payload.momento_aporte, rendaFamiliar: payload.renda_familiar||0,
-      pctRendaMax: payload.pct_renda_max, colchaoEmergenciaAlvo: payload.colchao_emergencia_alvo, cenarios });
+      pctRendaMax: payload.pct_renda_max, colchaoEmergenciaAlvo: payload.colchao_emergencia_alvo, cenarios, datasAlvoObra: datasAlvo });
+    if(CPC_UI.alvo && !cpcDatasAlvo({plano:p}).some(x=>x.lbl===CPC_UI.alvo)){ CPC_UI.H = null; CPC_UI.alvo = null; }
     cpcFeedback('cpcparam','✓ Premissas salvas — projeções recalculadas.',true);
     setTimeout(()=>{ fecharModal('cpcparam'); renderCasaPropria(); }, 700);
   } catch(e){ cpcFeedback('cpcparam','✗ Erro ao salvar: '+e.message,false); }
@@ -10468,7 +10566,8 @@ async function carregarDoSupabase(){
       aportesProgramados: (cpPlanoRow.aportes_programados||[]).map(a=>({mesOffset:a.mes_offset, valor:a.valor, label:a.label})),
       nomeProjeto: cpPlanoRow.nome_projeto||null, momentoAporte: cpPlanoRow.momento_aporte||'fim',
       rendaFamiliar: parseFloat(cpPlanoRow.renda_familiar)||0, pctRendaMax: parseFloat(cpPlanoRow.pct_renda_max)||0.30,
-      cenarios: cpPlanoRow.cenarios||null
+      cenarios: cpPlanoRow.cenarios||null,
+      datasAlvoObra: cpPlanoRow.datas_alvo_obra||[]
     } : null;
     DB.casaPropriaRevisoes = cpRevisoesRows.map(r=>({
       id: r.id, dataVigenciaInicio: r.data_vigencia_inicio,
