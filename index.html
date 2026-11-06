@@ -1703,7 +1703,7 @@ html.is-mobile .sidebar.open{
         </div>
         <div id="cpc-alvos"></div>
         <div class="chart-wrap" style="height:230px;margin-top:14px"><canvas id="chart-cpc-alvos" role="img" aria-label="Sobra ou falta de capital para iniciar a obra em cada data-alvo, por cenário"></canvas></div>
-        <div class="tip">Para cada data, o motor projeta o CDB até aquele mês (lote já descontado) e compara o <b>livre p/ obra</b> (disponível − reserva de segurança) com o <b>necessário p/ iniciar</b> (entrada mínima Caixa + custos acessórios + margem de imprevistos do cenário). <b>Segurança máx.</b> = maior reserva de segurança que ainda permite começar naquela data. Clique numa data no topo para ver toda a página nesse horizonte.</div>
+        <div class="tip"><b>Terá</b> = CDB projetado na data (último saldo real lançado + parcelas do apto + FGTS + rendimento − lote; aporte mensal só quando registrado). <b>Meta</b> = caixa para iniciar a obra sem tocar na segurança: reserva de segurança + custos acessórios + margem de imprevistos do cenário (15% · 10% · 5% da obra) + entrada mínima Caixa (R$ 0 com o lote como contrapartida). <b>Falta</b> = meta − terá. <b>Segurança máx.</b> = maior reserva que ainda permite iniciar na data. Meses já decorridos rendem pelo CDI efetivo em todos os cenários; os futuros, pelo CDI de cada cenário.</div>
       </div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-title">Saldo real do CDB vs. projeções (líquido de IR, já descontando o lote)</div>
@@ -7310,6 +7310,9 @@ function cpcProjetar(ctx, cenKey, H){
   lotePosterior[H+1] = fl.loteForaHorizonte||0;
   for(let k=H;k>=0;k--) lotePosterior[k] = lotePosterior[k+1] + (k+1<=H ? fl[k+1].loteCdb : 0);
   const saldosReais = ctx.saldosReais||[];
+  const hojeD = new Date(ctx.hojeISO+'T00:00:00');
+  // Mês já decorrido = rendimento que já aconteceu: usa o CDI efetivo (taxa base da revisão), igual em todos os cenários
+  const chaveCdi = d => d <= hojeD ? 'base' : cen.cdi;
   const pts = [];
   for(let k=0;k<=H;k++){
     const d1 = dataK(k);
@@ -7330,7 +7333,7 @@ function cpcProjetar(ctx, cenKey, H){
       aplicarEventos(k, dAnc);
     } else {
       const rev = cpRevisaoVigente(ctx.revisoes, d1);
-      const i = cpTaxaMensal(plano.pctCdiContratado*cpcCdiAa(rev, cen.cdi));
+      const i = cpTaxaMensal(plano.pctCdiContratado*cpcCdiAa(rev, chaveCdi(d1)));
       // 1º mês após a âncora: só a fração entre a data do saldo e o fim do mês
       const fr = k===kA+1 ? Math.max(0, Math.min(1, (d1 - dAnc)/86400000/30.4375)) : 1;
       if(inicio) aplicarAportes(k, dataK(k-1));
@@ -7348,7 +7351,7 @@ function cpcProjetar(ctx, cenKey, H){
     pts.push({ k, data:d1, historico:false, ancora:k===kA, cdbBruto, cdbLiq, principal, aportadoAcum, parcelasAcum, capitalInvestido: anc.principal+aportadoAcum+parcelasAcum,
       rendLiq, irPago, loteCdbAcum, loteOutrosAcum, lotePendente: lotePosterior[k], fgtsAcum, deficit, total, disponivel,
       seguranca:seg, livreObra: disponivel - ctx.reservaSegurancaAlvo,
-      cdiAa: k>kA ? cpcCdiAa(cpRevisaoVigente(ctx.revisoes,d1),cen.cdi) : null });
+      cdiAa: k>kA ? cpcCdiAa(cpRevisaoVigente(ctx.revisoes,d1),chaveCdi(d1)) : null, cdiRealizado: k>kA && d1<=hojeD });
   }
   return { cenKey, cen, pts, fluxos:fl, loteForaHorizonte: fl.loteForaHorizonte, ancora:anc };
 }
@@ -7443,7 +7446,9 @@ function cpcAvaliarAlvos(ctx){
       const pr = cpcProjetar(ctx, key, x.k);
       const r = cpcResumoCenario(ctx, pr, x.k, cpcSimDoCenario(ctx,key));
       const folga = r.fim.livreObra - r.necessarioInicio;
-      porCen[key] = { r, folga, viavel: folga>=0,
+      const acess = ctx.obra ? (ctx.obra.custosAcessorios||0) : 0;
+      porCen[key] = { r, folga, viavel: folga>=0, tera: r.fim.disponivel, meta: ctx.reservaSegurancaAlvo + r.necessarioInicio,
+        comp: { seguranca: ctx.reservaSegurancaAlvo, acessorios: acess, imprevistos: r.margem, entrada: r.fin.entradaMin },
         segMax: r.fim.disponivel - r.necessarioInicio,
         extraMes: folga<0 ? -folga/Math.max(1, x.k-offHoje) : 0 };
     });
@@ -7724,8 +7729,10 @@ function cpcRenderAlvos(ctx, alvos){
   if(!alvos.length){ el.innerHTML = `<div style="text-align:center;padding:14px;color:var(--tx2)">Nenhuma data-alvo cadastrada. Use ⚙ Editar datas.</div>`; return; }
   const cell = a => {
     const r = a.r, f = r.fin;
+    const c = a.comp;
     return `<div style="font-weight:700;color:${a.viavel?'var(--green)':'var(--red)'}">${a.viavel?'✓ sobra':'✗ falta'} ${R(Math.abs(a.folga))}</div>`+
-      `<div style="font-size:11px;color:var(--tx2);line-height:1.5">livre ${cpcSR(r.fim.livreObra)} · precisa ${cpcK(r.necessarioInicio)}<br>`+
+      `<div style="font-size:11px;color:var(--tx2);line-height:1.5">terá <b style="color:var(--tx)">${R(a.tera)}</b> · meta <b style="color:var(--tx)">${R(a.meta)}</b><br>`+
+      `<span style="color:var(--tx3)">meta = segurança ${cpcK(c.seguranca)} + acessórios ${cpcK(c.acessorios)} + imprevistos ${cpcK(c.imprevistos)}${c.entrada>0.5?` + entrada ${cpcK(c.entrada)}`:''}</span><br>`+
       `segurança máx. <b style="color:${a.segMax>=ctx.reservaSegurancaAlvo?'var(--tx2)':'var(--amber)'}">${a.segMax>0?R(a.segMax):'R$ 0'}</b>`+
       (a.viavel?'':` · ou +${R(a.extraMes)}/mês`)+`<br>financia ${cpcK(f.financiado)} · 1ª parc. ${R(f.p1)} (${cpcPct(f.comprometimento,0)})</div>`;
   };
@@ -7738,13 +7745,24 @@ function cpcRenderAlvos(ctx, alvos){
 
 function cpcChartAlvos(ctx, alvos){
   if(!alvos || !alvos.length) return;
-  mkChart('chart-cpc-alvos',{ type:'bar', data:{ labels:alvos.map(x=>x.lbl),
-      datasets:CPC_CEN_KEYS.map(k=>({ label:ctx.cenarios[k].nome, data:alvos.map(x=>Math.round(x.porCen[k].folga)),
-        backgroundColor:alvos.map(x=>x.porCen[k].viavel?ctx.cenarios[k].cor:'rgba(217,122,122,.75)'), borderColor:ctx.cenarios[k].cor, borderWidth:1.5, borderRadius:4,
-        datalabels:{ display:true, color:c=>c.dataset.data[c.dataIndex]>=0?'#e6ece6':'#d97a7a', anchor:c=>c.dataset.data[c.dataIndex]>=0?'end':'start', align:c=>c.dataset.data[c.dataIndex]>=0?'top':'bottom', font:{size:10,family:CC.font,weight:'700'}, formatter:v=>(v>=0?'+':'−')+cpcK(Math.abs(v)) } }))},
-    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:20,bottom:18}},
-      plugins:{ legend:{display:true,labels:{color:CC.tick,boxWidth:12,font:{size:11,family:CC.font}}}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw>=0?'sobra':'falta'} ${R(Math.abs(c.raw))}`}} },
-      scales:{ x:{grid:{display:false},ticks:{color:CC.tick,font:{size:12,family:CC.font,weight:'600'}}}, y:{grid:{color:c=>c.tick.value===0?'rgba(230,236,230,.35)':CC.grid},ticks:{color:CC.tick,font:{size:11,family:CC.font},callback:v=>cpcK(v)},title:{display:true,text:'Sobra (+) / falta (−) p/ iniciar',color:CC.tick,font:{size:11}}} } },
+  const ds = [];
+  CPC_CEN_KEYS.forEach(k=>{
+    const cor = ctx.cenarios[k].cor;
+    ds.push({ label:ctx.cenarios[k].nome+' · terá', stack:k, data:alvos.map(x=>Math.round(Math.max(0,x.porCen[k].tera))),
+      backgroundColor:cor, borderColor:cor, borderWidth:1, borderRadius:{topLeft:0,topRight:0,bottomLeft:4,bottomRight:4},
+      datalabels:{ display:true, color:'#13161a', anchor:'center', align:'center', font:{size:10,family:CC.font,weight:'700'}, formatter:v=>cpcK(v) } });
+    ds.push({ label:ctx.cenarios[k].nome+' · falta', stack:k, data:alvos.map(x=>Math.round(Math.max(0,-x.porCen[k].folga))),
+      backgroundColor:'rgba(217,122,122,.22)', borderColor:'#d97a7a', borderWidth:1.5, borderDash:[4,3], borderRadius:{topLeft:4,topRight:4,bottomLeft:0,bottomRight:0},
+      datalabels:{ display:c=>c.dataset.data[c.dataIndex]>0, color:'#d97a7a', anchor:'end', align:'top', font:{size:10,family:CC.font,weight:'700'},
+        formatter:(v,c)=>`meta ${cpcK(alvos[c.dataIndex].porCen[k].meta)}` } });
+  });
+  mkChart('chart-cpc-alvos',{ type:'bar', data:{ labels:alvos.map(x=>x.lbl), datasets:ds },
+    options:{ responsive:true, maintainAspectRatio:false, layout:{padding:{top:22}},
+      plugins:{ legend:{display:true,labels:{color:CC.tick,boxWidth:12,font:{size:11,family:CC.font},filter:i=>/terá/.test(i.text)}},
+        tooltip:{callbacks:{label:c=>{ const k=c.dataset.stack, x=alvos[c.dataIndex].porCen[k];
+          return /terá/.test(c.dataset.label) ? `${ctx.cenarios[k].nome}: terá ${R(x.tera)}` : `${ctx.cenarios[k].nome}: falta ${R(Math.max(0,-x.folga))} p/ meta ${R(x.meta)}`; }}} },
+      scales:{ x:{stacked:true,grid:{display:false},ticks:{color:CC.tick,font:{size:12,family:CC.font,weight:'600'}}},
+        y:{stacked:true,beginAtZero:true,grid:{color:CC.grid},ticks:{color:CC.tick,font:{size:11,family:CC.font},callback:v=>cpcK(v)},title:{display:true,text:'Caixa projetado + falta = meta',color:CC.tick,font:{size:11}}} } },
     plugins:[typeof ChartDataLabels!=='undefined'?ChartDataLabels:{}] });
 }
 
@@ -8045,7 +8063,7 @@ function cpcRenderCenarios(ctx, calc){
         const bg = i===offHoje ? 'background:rgba(111,184,201,.08)' : (i===mesIni ? 'background:rgba(95,217,154,.08)' : '');
         return cpcTr(
           cpcTd(`${cpMesLabel(x.data)} <span style="color:var(--tx3)">${i}</span>${i===offHoje?' <span style="color:#6fb8c9;font-size:10px">● atual</span>':''}${i===mesIni?' <span style="color:var(--green);font-size:10px">✓ obra</span>':''}`,0,'color:var(--tx2)')+
-          cpcTd(x.cdiAa!=null?cpcPct(x.cdiAa,2):'—',1,'color:var(--tx3)')+
+          cpcTd(x.cdiAa!=null?cpcPct(x.cdiAa,2)+(x.cdiRealizado?' <span title="mês já decorrido — CDI efetivo" style="color:var(--green)">●</span>':''):'—',1,'color:var(--tx3)')+
           cpcTd(f.aporte?R(f.aporte):'—',1)+cpcTd(f.parcela?R(f.parcela):'—',1,'color:var(--tx2)')+
           cpcTd(f.loteCdb?'<span class="danger">−'+R(f.loteCdb)+'</span>':'—',1)+cpcTd(f.fgts?'<span style="color:var(--purple)">+'+R(f.fgts)+'</span>':'—',1)+
           cpcTd(i?R(rm):'—',1,'color:var(--green)')+cpcTd(R(x.cdbLiq),1,'font-weight:700')+
