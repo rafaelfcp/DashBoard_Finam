@@ -1857,7 +1857,7 @@ html.is-mobile .sidebar.open{
           </div>
         </div>
         <div id="cpc-cen-mensal" style="overflow:auto;max-height:460px"></div>
-        <div class="tip">Rendimento composto mês a mês a 101,5% do CDI vigente em cada mês, líquido de IR regressivo por aporte. Pagamentos do lote saem do CDB pelas aplicações mais antigas (menor IR). FGTS entra como capital disponível no mês previsto, sem render CDI. "Livre p/ obra" = disponível após todo o lote − reserva de segurança.</div>
+        <div class="tip">Parte do último saldo real lançado (linhas anteriores = histórico real); aporte mensal só entra quando registrado. Rendimento composto mês a mês a 101,5% do CDI vigente em cada mês, líquido de IR regressivo por aporte. Pagamentos do lote saem do CDB pelas aplicações mais antigas (menor IR). FGTS entra como capital disponível no mês previsto, sem render CDI. "Livre p/ obra" = disponível após todo o lote − reserva de segurança.</div>
       </div>
     </div>
 
@@ -2306,7 +2306,7 @@ html.is-mobile .sidebar.open{
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px" class="cpc-param-tab">
         <thead><tr style="color:var(--tx2);text-align:left"><th style="padding:4px 6px"></th><th style="padding:4px 6px;color:#6fb8c9">Conservador</th><th style="padding:4px 6px;color:#a892d4">Base</th><th style="padding:4px 6px;color:#e0b35f">Otimista</th></tr></thead>
         <tbody>
-          <tr><td style="padding:4px 6px;color:var(--tx2)">Aporte mensal (R$)</td><td><input type="number" id="cpcparam-conservador-aporte" class="modal-input" step="100"></td><td><input type="number" id="cpcparam-base-aporte" class="modal-input" step="100"></td><td><input type="number" id="cpcparam-otimista-aporte" class="modal-input" step="100"></td></tr>
+          <tr><td style="padding:4px 6px;color:var(--tx2)">Aporte mensal hipotético (R$) — 0 = só registrados</td><td><input type="number" id="cpcparam-conservador-aporte" class="modal-input" step="100"></td><td><input type="number" id="cpcparam-base-aporte" class="modal-input" step="100"></td><td><input type="number" id="cpcparam-otimista-aporte" class="modal-input" step="100"></td></tr>
           <tr><td style="padding:4px 6px;color:var(--tx2)">Aporte alternativo (R$)</td><td><input type="number" id="cpcparam-conservador-alt" class="modal-input" step="100" placeholder="—"></td><td><input type="number" id="cpcparam-base-alt" class="modal-input" step="100" placeholder="—"></td><td><input type="number" id="cpcparam-otimista-alt" class="modal-input" step="100" placeholder="—"></td></tr>
           <tr><td style="padding:4px 6px;color:var(--tx2)">… do mês</td><td><input type="number" id="cpcparam-conservador-altde" class="modal-input" step="1" min="1"></td><td><input type="number" id="cpcparam-base-altde" class="modal-input" step="1" min="1"></td><td><input type="number" id="cpcparam-otimista-altde" class="modal-input" step="1" min="1"></td></tr>
           <tr><td style="padding:4px 6px;color:var(--tx2)">… até o mês</td><td><input type="number" id="cpcparam-conservador-altate" class="modal-input" step="1" min="1"></td><td><input type="number" id="cpcparam-base-altate" class="modal-input" step="1" min="1"></td><td><input type="number" id="cpcparam-otimista-altate" class="modal-input" step="1" min="1"></td></tr>
@@ -7161,9 +7161,9 @@ async function salvarCpRevisao(){
 // Aporte no início do mês rende o mês inteiro; no fim, só a partir do mês seguinte (parametrizável no plano).
 
 const CPC_CENARIOS_DEFAULT = {
-  conservador:{ nome:'Conservador', cor:'#6fb8c9', cdi:'conservador', aporteMensal:5000, aporteAlt:2500, altDe:13, altAte:18, parcelasVenda:true, fgtsFator:0.75, fgtsAtrasoMeses:0, margemImprevistosPct:0.15 },
-  base:       { nome:'Base',        cor:'#a892d4', cdi:'base',        aporteMensal:5000, aporteAlt:null, altDe:null, altAte:null, parcelasVenda:true, fgtsFator:1,    fgtsAtrasoMeses:0, margemImprevistosPct:0.10 },
-  otimista:   { nome:'Otimista',    cor:'#e0b35f', cdi:'otimista',    aporteMensal:6000, aporteAlt:null, altDe:null, altAte:null, parcelasVenda:true, fgtsFator:1,    fgtsAtrasoMeses:0, margemImprevistosPct:0.05 }
+  conservador:{ nome:'Conservador', cor:'#6fb8c9', cdi:'conservador', aporteMensal:0, aporteAlt:null, altDe:null, altAte:null, parcelasVenda:true, fgtsFator:0.75, fgtsAtrasoMeses:0, margemImprevistosPct:0.15 },
+  base:       { nome:'Base',        cor:'#a892d4', cdi:'base',        aporteMensal:0, aporteAlt:null, altDe:null, altAte:null, parcelasVenda:true, fgtsFator:1,    fgtsAtrasoMeses:0, margemImprevistosPct:0.10 },
+  otimista:   { nome:'Otimista',    cor:'#e0b35f', cdi:'otimista',    aporteMensal:0, aporteAlt:null, altDe:null, altAte:null, parcelasVenda:true, fgtsFator:1,    fgtsAtrasoMeses:0, margemImprevistosPct:0.05 }
 };
 const CPC_CEN_KEYS = ['conservador','base','otimista'];
 
@@ -7213,21 +7213,42 @@ function cpcMetaReserva(obra, margemPct){
   return obra.valorObra*0.20 + (obra.custosAcessorios||0) + obra.valorObra*margemPct;
 }
 
-// ── Fluxos de caixa mês a mês de um cenário ─────────────────────────────────
+// ── Âncora: a projeção parte do ÚLTIMO SALDO REAL lançado (não do saldo-base do plano) ──────
+// Regra: aporte mensal só conta quando registrado — e todo registro já está dentro do saldo real.
+// principal = saldo-base + aportes/resgates registrados (o resto do saldo é rendimento, sujeito a IR).
+function cpcAncora(ctx){
+  const plano = ctx.plano, a = ctx.ancora;
+  if(!a) return { kA:0, data:plano.dataBase, saldo:plano.saldoBase, principal:plano.saldoBase, real:false };
+  return { kA:Math.max(0, cpOffsetDeData(plano, a.data)), data:a.data, saldo:a.saldo, principal:a.principal, real:true };
+}
+
+// ── Fluxos de caixa FUTUROS (após a âncora) de um cenário ───────────────────
 function cpcFluxos(ctx, cen, H){
-  const plano = ctx.plano;
-  const offHoje = Math.max(0, cpOffsetDeData(plano, ctx.hojeISO));
+  const plano = ctx.plano, anc = cpcAncora(ctx), kA = anc.kA;
+  const offHoje = Math.max(kA, cpOffsetDeData(plano, ctx.hojeISO));
   const f = Array.from({length:H+1}, ()=>({ aporte:0, parcela:0, fgts:0, loteCdb:0, loteOutros:0 }));
-  const put = (k, campo, v) => { if(k<0) k=0; if(k>H) return false; f[k][campo]+=v; return true; };
-  for(let k=1;k<=H;k++){
+  const put = (k, campo, v) => { if(k<kA) k=kA; if(k>H) return false; f[k][campo]+=v; return true; };
+  // Aporte mensal HIPOTÉTICO (premissa do cenário; padrão 0): só meses futuros — o mês corrente
+  // e os passados só contam pelo que foi registrado no saldo.
+  for(let k=offHoje+1;k<=H;k++){
     const alt = cen.aporteAlt!=null && cen.altDe!=null && k>=cen.altDe && k<=(cen.altAte!=null?cen.altAte:H);
-    f[k].aporte = alt ? cen.aporteAlt : cen.aporteMensal;
+    f[k].aporte = Math.max(0, (alt ? cen.aporteAlt : cen.aporteMensal)||0);
   }
+  // Parcelas da venda (recebíveis contratados): recebidas até a âncora já estão no saldo;
+  // recebidas depois entram na data real; pendentes na data prevista (atrasadas: mês atual).
   if(cen.parcelasVenda){
-    (plano.aportesProgramados||[]).filter(a=>String(a.label||'').toUpperCase().includes('PARCELA'))
-      .forEach(a=>put(a.mesOffset,'parcela',parseFloat(a.valor)||0));
+    const rec = ctx.recebiveis||[];
+    if(rec.length){
+      rec.forEach(r=>{
+        if(r.dataRecebida){ if(r.dataRecebida > anc.data) put(cpOffsetDeData(plano, r.dataRecebida), 'parcela', r.valorRecebido||r.valor); }
+        else put(Math.max(cpOffsetDeData(plano, r.dataPrevista), offHoje), 'parcela', r.valor);
+      });
+    } else {
+      (plano.aportesProgramados||[]).filter(a=>String(a.label||'').toUpperCase().includes('PARCELA') && a.mesOffset>kA)
+        .forEach(a=>put(a.mesOffset,'parcela',parseFloat(a.valor)||0));
+    }
   }
-  // FGTS: eventos cadastrados têm precedência sobre a premissa jsonb do plano
+  // FGTS: fora do CDB (não rende CDI); eventos cadastrados têm precedência sobre a premissa do plano
   const ev = (ctx.fgtsEventos||[]);
   if(ev.length){
     ev.forEach(e=>put(cpOffsetDeData(plano, e.dataEfetiva||e.dataPrevista)+(e.dataEfetiva?0:(cen.fgtsAtrasoMeses||0)), 'fgts', e.valor*(e.dataEfetiva?1:cen.fgtsFator)));
@@ -7235,10 +7256,11 @@ function cpcFluxos(ctx, cen, H){
     (plano.aportesProgramados||[]).filter(a=>String(a.label||'').toUpperCase().includes('FGTS'))
       .forEach(a=>put(a.mesOffset+(cen.fgtsAtrasoMeses||0),'fgts',(parseFloat(a.valor)||0)*cen.fgtsFator));
   }
-  // Lote: pagos na data real (origem CDB sai do CDB); pendente na data prevista ou, sem data/atrasado, no mês atual
+  // Lote: pagamentos até a data da âncora já estão refletidos no saldo real; posteriores saem na data;
+  // pendentes na data prevista ou, sem data/atrasados, no mês atual
   let loteForaHorizonte = 0;
   (ctx.lote.itens||[]).forEach(it=>{
-    it.pags.forEach(p=>put(cpOffsetDeData(plano,p.data), (p.origem||'cdb')==='cdb'?'loteCdb':'loteOutros', p.valor));
+    it.pags.filter(p=>p.data > anc.data).forEach(p=>put(cpOffsetDeData(plano,p.data), (p.origem||'cdb')==='cdb'?'loteCdb':'loteOutros', p.valor));
     if(it.saldo>0.005){
       let k = it.dataPrevista ? cpOffsetDeData(plano, it.dataPrevista) : offHoje;
       if(k<offHoje) k = offHoje;
@@ -7246,14 +7268,18 @@ function cpcFluxos(ctx, cen, H){
     }
   });
   f.loteForaHorizonte = loteForaHorizonte;
+  f.kA = kA; f.offHoje = offHoje;
   return f;
 }
 
 // ── Projeção de um cenário ──────────────────────────────────────────────────
+// Meses antes da âncora = histórico (saldo real lançado). Na âncora nasce a tranche do saldo real;
+// dali em diante: juros compostos pelo CDI vigente em cada mês + fluxos futuros.
 function cpcProjetar(ctx, cenKey, H){
-  const cen = ctx.cenarios[cenKey], plano = ctx.plano;
+  const cen = ctx.cenarios[cenKey], plano = ctx.plano, anc = cpcAncora(ctx), kA = anc.kA;
   const inicio = ctx.momentoAporte==='inicio';
   const dataK = k => cpAddMeses(plano.dataBase, k);
+  const dAnc = new Date(anc.data+'T00:00:00');
   const fl = cpcFluxos(ctx, cen, H);
   const tr = [];
   let aportadoAcum=0, parcelasAcum=0, loteCdbAcum=0, loteOutrosAcum=0, fgtsAcum=0, rendRealizado=0, irPago=0, deficit=0;
@@ -7270,8 +7296,6 @@ function cpcProjetar(ctx, cenKey, H){
     }
     return W-Math.max(0,rest);
   };
-  // Aportes/parcelas seguem a convenção início/fim do mês do plano;
-  // eventos datados (lote, FGTS) entram no ponto do seu mês, independente da convenção.
   const aplicarAportes = (k,d)=>{
     const x = fl[k], ap = x.aporte + x.parcela;
     if(ap>0){ tr.push({ data:d, principal:ap, bruto:ap }); aportadoAcum += x.aporte; parcelasAcum += x.parcela; }
@@ -7282,35 +7306,51 @@ function cpcProjetar(ctx, cenKey, H){
     loteOutrosAcum += x.loteOutros;
     if(x.loteCdb>0){ const s = sacar(x.loteCdb, d); loteCdbAcum += s; deficit += x.loteCdb - s; }
   };
-  // Lote ainda a sair do CDB DEPOIS de cada ponto (para o "disponível" não contar dinheiro já comprometido)
   const lotePosterior = new Array(H+2).fill(0);
   lotePosterior[H+1] = fl.loteForaHorizonte||0;
   for(let k=H;k>=0;k--) lotePosterior[k] = lotePosterior[k+1] + (k+1<=H ? fl[k+1].loteCdb : 0);
-  tr.push({ data:dataK(0), principal:plano.saldoBase, bruto:plano.saldoBase });
+  const saldosReais = ctx.saldosReais||[];
   const pts = [];
   for(let k=0;k<=H;k++){
     const d1 = dataK(k);
-    if(k>0){
+    if(k<kA){
+      // Histórico: último saldo real até o fim do mês k
+      const fimMes = cpAddMeses(plano.dataBase, k+1);
+      const ate = saldosReais.filter(x=>new Date(x.data+'T00:00:00') < fimMes);
+      const v = ate.length ? ate[ate.length-1].saldoReal : plano.saldoBase;
+      pts.push({ k, data:d1, historico:true, cdbBruto:v, cdbLiq:v, principal:v, aportadoAcum:0, parcelasAcum:0, capitalInvestido:v, rendLiq:0, irPago:0,
+        loteCdbAcum:0, loteOutrosAcum:0, lotePendente:lotePosterior[k], fgtsAcum:0, deficit:0, total:v, disponivel:v-lotePosterior[k],
+        seguranca:Math.min(Math.max(v-lotePosterior[k],0), ctx.reservaSegurancaAlvo), livreObra:v-lotePosterior[k]-ctx.reservaSegurancaAlvo, cdiAa:null });
+      continue;
+    }
+    if(k===kA){
+      // Tranche do saldo real; idade p/ IR desde o início do plano
+      tr.push({ data:new Date(plano.dataBase+'T00:00:00'), principal:anc.principal, bruto:anc.saldo });
+      aplicarAportes(k, dAnc);
+      aplicarEventos(k, dAnc);
+    } else {
       const rev = cpRevisaoVigente(ctx.revisoes, d1);
       const i = cpTaxaMensal(plano.pctCdiContratado*cpcCdiAa(rev, cen.cdi));
+      // 1º mês após a âncora: só a fração entre a data do saldo e o fim do mês
+      const fr = k===kA+1 ? Math.max(0, Math.min(1, (d1 - dAnc)/86400000/30.4375)) : 1;
       if(inicio) aplicarAportes(k, dataK(k-1));
-      tr.forEach(t=>{ t.bruto *= (1+i); });
+      tr.forEach(t=>{ t.bruto *= Math.pow(1+i, fr); });
       if(!inicio) aplicarAportes(k, d1);
+      aplicarEventos(k, d1);
     }
-    aplicarEventos(k, d1);
     const cdbBruto = tr.reduce((a,t)=>a+t.bruto,0);
     const cdbLiq = tr.reduce((a,t)=>a+liqTr(t,d1),0);
     const principal = tr.reduce((a,t)=>a+t.principal,0);
     const rendLiq = (cdbLiq - principal) + rendRealizado;
-    const total = cdbLiq + fgtsAcum - deficit;            // patrimônio do projeto no ponto
-    const disponivel = total - lotePosterior[k];          // após TODO o custo do lote (pago + a pagar)
+    const total = cdbLiq + fgtsAcum - deficit;
+    const disponivel = total - lotePosterior[k];
     const seg = Math.min(Math.max(disponivel,0), ctx.reservaSegurancaAlvo);
-    pts.push({ k, data:d1, cdbBruto, cdbLiq, principal, aportadoAcum, parcelasAcum, capitalInvestido: plano.saldoBase+aportadoAcum+parcelasAcum,
+    pts.push({ k, data:d1, historico:false, ancora:k===kA, cdbBruto, cdbLiq, principal, aportadoAcum, parcelasAcum, capitalInvestido: anc.principal+aportadoAcum+parcelasAcum,
       rendLiq, irPago, loteCdbAcum, loteOutrosAcum, lotePendente: lotePosterior[k], fgtsAcum, deficit, total, disponivel,
       seguranca:seg, livreObra: disponivel - ctx.reservaSegurancaAlvo,
-      cdiAa: k? cpcCdiAa(cpRevisaoVigente(ctx.revisoes,d1),cen.cdi) : null });
+      cdiAa: k>kA ? cpcCdiAa(cpRevisaoVigente(ctx.revisoes,d1),cen.cdi) : null });
   }
-  return { cenKey, cen, pts, fluxos:fl, loteForaHorizonte: fl.loteForaHorizonte };
+  return { cenKey, cen, pts, fluxos:fl, loteForaHorizonte: fl.loteForaHorizonte, ancora:anc };
 }
 
 // ── Financiamento: parcelas SAC/Price (taxa EFETIVA a.a. → mensal equivalente) ───────
@@ -7359,7 +7399,8 @@ function cpcResumoCenario(ctx, proj, H, sim){
     taxaAa:s.taxaAa!=null?s.taxaAa:0.118, prazoMeses:s.prazoMeses||360, segurosMes:s.segurosMes||0, renda:ctx.renda, pctRendaMax:ctx.pctRendaMax, parcelaMaxima:s.parcelaMaxima });
   const necessarioInicio = finBase.entradaMin + A + margem;
   let mesInicio = null;
-  for(const p of pts){ if(p.livreObra >= necessarioInicio){ mesInicio = p.k; break; } }
+  const kMin = Math.max(proj.fluxos.offHoje||0, 0);
+  for(const p of pts){ if(p.k>=kMin && !p.historico && p.livreObra >= necessarioInicio){ mesInicio = p.k; break; } }
   const entradaPossivel = Math.min(V, Math.max(0, fim.livreObra - A - margem));
   const fin = cpcAvaliarFin({ valorObra:V, custosAcessorios:A, valorTerreno:ctx.lote.valorTerreno, sistema:s.sistema||'SAC', cota:s.cota,
     taxaAa:s.taxaAa!=null?s.taxaAa:0.118, prazoMeses:s.prazoMeses||360, segurosMes:s.segurosMes||0, renda:ctx.renda, pctRendaMax:ctx.pctRendaMax,
@@ -7446,8 +7487,15 @@ function cpcCtx(){
     sims: DB.cpcSims||[], fgtsEventos: DB.cpcFgtsEventos||[],
     momentoAporte: plano.momentoAporte||'fim', cenarios: cpcCenarios(plano),
     reservaSegurancaAlvo: plano.colchaoEmergenciaAlvo||0,
-    renda: plano.rendaFamiliar||0, pctRendaMax: plano.pctRendaMax||0.30
+    renda: plano.rendaFamiliar||0, pctRendaMax: plano.pctRendaMax||0.30,
+    ancora: cpcAncoraReal(plano), saldosReais: DB.casaPropriaSaldos||[], recebiveis: DB.casaPropriaRecebiveis||[]
   };
+}
+function cpcAncoraReal(plano){
+  const ss = DB.casaPropriaSaldos||[];
+  if(!ss.length) return null;
+  const u = ss[ss.length-1];
+  return { data:u.data, saldo:u.saldoReal, principal: plano.saldoBase + ss.reduce((a,x)=>a+(x.aporte||0),0) };
 }
 
 // Simulação de referência de um cenário: a mais recente daquele cenário; senão a ativa; senão nenhuma
@@ -7475,7 +7523,8 @@ function cpcSituacaoAtual(ctx){
   const aportes = saldos.reduce((a,s)=>a+Math.max(0,s.aporte||0),0);
   const resgates = saldos.reduce((a,s)=>a+Math.max(0,-(s.aporte||0)),0);
   const rendimento = ult ? cdbLancado - ctx.plano.saldoBase - aportes + resgates : 0;
-  return { ult, cdb, cdbLancado, pagCdbPosterior, fgts, reservaProjeto, seguranca, destinadoObra, aportes, resgates, rendimento,
+  const parcelasRecebidas = (DB.casaPropriaRecebiveis||[]).filter(r=>r.dataRecebida && (!ult || r.dataRecebida<=ult.data)).reduce((a,r)=>a+(r.valorRecebido||r.valor||0),0);
+  return { ult, cdb, cdbLancado, pagCdbPosterior, parcelasRecebidas, fgts, reservaProjeto, seguranca, destinadoObra, aportes, resgates, rendimento,
     patrimonio: cdb + fgts, faltaSeguranca: Math.max(0, ctx.reservaSegurancaAlvo - Math.max(reservaProjeto,0)) };
 }
 
@@ -7651,6 +7700,12 @@ function cpcInsights(ctx, calc, atual){
     const piores = CPC_CEN_KEYS.filter(k=>r[k].fin.excedeParcela);
     if(piores.length) out.push({ t:'danger', h:`Parcela acima de ${cpcPct(ctx.pctRendaMax,0)} da renda: ${piores.map(k=>ctx.cenarios[k].nome).join(', ')}`, b:'Aumente a entrada, alongue o prazo ou reduza o escopo da obra.' });
   }
+  const anc = cpcAncora(ctx);
+  if(anc.real){
+    const dias = cpDias(anc.data, ctx.hojeISO);
+    out.push({ t: dias>20?'warn':'info', h:`Projeção parte do saldo real de ${cpcDt(anc.data)}: ${R(anc.saldo)}${dias>20?` — há ${dias} dias`:''}`,
+      b:`Aportes mensais só entram quando registrados (via novo saldo do CDB). Parcelas do apto pendentes e FGTS previsto continuam projetados.${dias>20?' <b>Lance o saldo atual</b> para incluir o rendimento e os registros recentes.':''}` });
+  }
   const alvos = cpcAvaliarAlvos(ctx);
   if(alvos.length){
     const okBase = alvos.find(x=>x.porCen.base.viavel);
@@ -7811,7 +7866,7 @@ function cpcRenderReserva(ctx, calc, atual){
     const fim = rb.fim;
     kp.innerHTML =
       cpcKpi('Saldo atual da reserva p/ obra', R(atual.destinadoObra), 'após lote e segurança', atual.destinadoObra>0?'ok':'danger') +
-      cpcKpi('Total aportado (real)', R(atual.aportes), `+ parcelas da venda · resgates ${R(atual.resgates)}`) +
+      cpcKpi('Entradas registradas no CDB', R(atual.aportes), `parcelas do apto ${R(atual.parcelasRecebidas)} · aportes próprios ${R(Math.max(0,atual.aportes-atual.parcelasRecebidas))} · resgates −${R(atual.resgates)}`) +
       cpcKpi('Rendimento acumulado (real)', cpcSR(atual.rendimento), `projeção base ${cpcHLbl()}: ${R(fim.rendLiq)} líquido de IR`) +
       cpcKpi('Restante p/ a meta', R(Math.max(0, metaRes-atual.destinadoObra)), `base atinge a meta em ${cpcMesLbl(ctx, (calc.proj.base.pts.find(p=>p.livreObra>=metaRes)||{}).k)}`);
   }
@@ -7950,8 +8005,8 @@ function cpcRenderCenarios(ctx, calc){
     const rev = cpRevisaoVigente(ctx.revisoes, new Date());
     pr.innerHTML = cpcTable(cpcTh('Premissa')+CPC_CEN_KEYS.map(k=>cpcTh(`<span style="color:${ctx.cenarios[k].cor}">${ctx.cenarios[k].nome}</span>`,1)).join(''),
       [['CDI a.a. vigente (revisão de '+cpcDt(rev.dataVigenciaInicio)+')', k=>cpcPct(cpcCdiAa(rev,ctx.cenarios[k].cdi),2)+` → CDB ${cpcPct(cpcCdiAa(rev,ctx.cenarios[k].cdi)*ctx.plano.pctCdiContratado,2)}`],
-       ['Aporte mensal', k=>{ const c=ctx.cenarios[k]; return R(c.aporteMensal)+(c.aporteAlt!=null?`<div style="font-size:10.5px;color:var(--tx3)">${R(c.aporteAlt)} nos meses ${c.altDe}–${c.altAte}</div>`:''); }],
-       ['Parcelas da venda do apto', k=>ctx.cenarios[k].parcelasVenda?'R$ 4.000 × 10 (meses 1–10)':'desconsideradas'],
+       ['Aporte mensal futuro', k=>{ const c=ctx.cenarios[k]; return (c.aporteMensal>0?R(c.aporteMensal)+' <span style="color:var(--amber);font-size:10.5px">hipotético</span>':'só os registrados')+(c.aporteAlt!=null?`<div style="font-size:10.5px;color:var(--tx3)">${R(c.aporteAlt)} nos meses ${c.altDe}–${c.altAte}</div>`:''); }],
+       ['Parcelas da venda do apto', k=>{ if(!ctx.cenarios[k].parcelasVenda) return 'desconsideradas'; const pend=(ctx.recebiveis||[]).filter(r=>!r.dataRecebida); return pend.length?`${pend.length} pendentes · ${R(pend.reduce((a,r)=>a+r.valor,0))}`:'todas recebidas'; }],
        ['FGTS', k=>{ const c=ctx.cenarios[k]; return cpcPct(c.fgtsFator,0)+' do previsto'+(c.fgtsAtrasoMeses?` · +${c.fgtsAtrasoMeses}m de atraso`:''); }],
        ['Margem p/ imprevistos da obra', k=>cpcPct(ctx.cenarios[k].margemImprevistosPct,0)],
        ['Aporte no', ()=>ctx.momentoAporte==='inicio'?'início do mês':'fim do mês']]
@@ -7961,7 +8016,7 @@ function cpcRenderCenarios(ctx, calc){
   if(rs){
     const linhas = [
       ['Saldo CDB projetado (líquido de IR)', k=>R(r[k].fim.cdbLiq)],
-      ['Capital investido (base + aportes)', k=>R(r[k].fim.capitalInvestido)],
+      ['Capital (saldo real + entradas futuras)', k=>R(r[k].fim.capitalInvestido)],
       ['  · aportes mensais', k=>R(r[k].fim.aportadoAcum)],
       ['  · parcelas da venda', k=>R(r[k].fim.parcelasAcum)],
       ['Rendimento estimado (líquido)', k=>`<span class="ok">${R(r[k].fim.rendLiq)}</span><div style="font-size:10.5px;color:var(--tx3)">IR ${R(r[k].fim.irPago + (r[k].fim.cdbBruto-r[k].fim.cdbLiq))}</div>`],
