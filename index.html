@@ -785,18 +785,33 @@ html.is-mobile .sidebar.open{
 
 /* ── Fechamento do exercício: impressão / PDF — só o relatório vai para a página ── */
 #fx-print-root{display:none}
+/* PDF sempre claro: a paleta do tema claro (:root.light) aplicada só ao relatório exportado,
+   com fundo branco e bordas um pouco mais marcadas para leitura no papel */
+#fx-print-root{
+  --bg:#ffffff;--bg2:#ffffff;--bg3:#f3f5f1;--bg4:#dde2d6;
+  --bd:rgba(23,40,28,.14);--bd2:rgba(23,40,28,.22);
+  --tx:#171f19;--tx2:#4a5747;--tx3:#7d8c7f;
+  --green:#1f8f5e;--gd:rgba(31,143,94,.10);--green-tx:#15633f;
+  --red:#a8523a;--rd:rgba(168,82,58,.10);--red-tx:#7a3a28;
+  --amber:#92690f;--ad:rgba(146,105,15,.12);--amber-tx:#6b4d0a;
+  --blue:#2c7a8c;--bld:rgba(44,122,140,.10);--blue-tx:#1f5763;
+  --orange:#a8602f;--od:rgba(168,96,47,.10);--orange-tx:#7a4622;
+  --purple:#6b4fa8;
+}
 #btn-fx-pdf:disabled{opacity:.45;cursor:not-allowed}
 @media print{
   @page{size:A4;margin:12mm}
-  html,body{height:auto!important;overflow:visible!important;background:var(--bg)!important}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
   body>*:not(#fx-print-root){display:none!important}
   /* padding repetido em cada página (clone): sem isso só a 1ª página teria respiro */
-  #fx-print-root{display:block;color:var(--tx);background:var(--bg);padding:7mm 8mm;
+  #fx-print-root{display:block;color:var(--tx);background:#fff;padding:2mm 1mm;
     -webkit-box-decoration-break:clone;box-decoration-break:clone;
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
   #fx-print-root .fx-sec{break-inside:avoid;page-break-inside:avoid}
   #fx-print-root .g4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
   #fx-print-root table{font-size:10.5px!important}
+  #fx-print-root .kpi{background:var(--bg3)!important;box-shadow:none!important}
+  #fx-print-root .tip{background:var(--bg3)!important}
 }
 </style>
 <link rel="stylesheet" href="css/ctrl-v2.css?v=1">
@@ -9558,6 +9573,23 @@ function fxCalc(ano, idxFiltro){
   return { ano, meses, F, t, cats, receitas:Object.values(recSub).sort((a,b)=>b.total-a.total), mesAtual };
 }
 
+// Cores do gráfico do fechamento: a tela segue o tema escuro/claro do app; o PDF usa sempre a de papel.
+const FX_CORES_TELA ={linha:'#e0b35f',renda:'rgba(95,217,154,.75)',desp:'rgba(217,122,122,.7)',tick:null,grid:null};
+const FX_CORES_PAPEL={linha:'#92690f',renda:'rgba(31,143,94,.85)',desp:'rgba(168,82,58,.75)',tick:'#4a5747',grid:'rgba(23,40,28,.10)'};
+let _fxUltimo=null;   // último cálculo exibido — o export redesenha o gráfico a partir dele
+function fxChartCfg(X,c,estatico){
+  let ac=0; const acumS=X.F.map(m=>(ac+=m.resultadoOper,Math.round(ac)));
+  const tick=c.tick||CC.tick, grid=c.grid||CC.grid;
+  return {type:'bar',data:{labels:X.F.map(m=>mkLabel(m.mk)),datasets:[
+    {type:'line',label:'Resultado acumulado',data:acumS,borderColor:c.linha,backgroundColor:c.linha,borderWidth:2,pointRadius:3,tension:.25,order:0},
+    {label:'Renda do trabalho',data:X.F.map(m=>Math.round(m.renda)),backgroundColor:c.renda,borderRadius:3,order:1},
+    {label:'Despesas + aportes',data:X.F.map(m=>Math.round(m.desp+m.inv)),backgroundColor:c.desp,borderRadius:3,order:2}
+  ]},options:{responsive:!estatico,maintainAspectRatio:false,animation:false,devicePixelRatio:estatico?2:undefined,
+    plugins:{legend:{display:true,position:'bottom',labels:{color:tick,boxWidth:12}},datalabels:{display:false},
+      tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw<0?'-':''}${R(Math.abs(ctx.raw))}`}}},
+    scales:{x:{grid:{display:false},ticks:{color:tick}},y:{grid:{color:grid},ticks:{color:tick,callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(0)+'k'}}}}};
+}
+
 function fxPct(v,d=1){ return v==null||!isFinite(v)?'—':`${(v*100).toFixed(d).replace('.',',')}%`; }
 function fxSinal(v){ return `${v>=0?'+':'-'}${R(Math.abs(v))}`; }
 function fxDelta(cur,prev,menorMelhor){
@@ -9677,14 +9709,8 @@ function gerarFechamento(){
     ${heranca?sec(`Herança para ${ano+1}`,heranca):''}`;
 
   // Gráfico: renda e despesas+aportes por mês, resultado operacional acumulado
-  let ac=0; const acumS=X.F.map(m=>(ac+=m.resultadoOper,Math.round(ac)));
-  mkChart('chart-fx-mensal',{type:'bar',data:{labels:X.F.map(m=>mkLabel(m.mk)),datasets:[
-    {type:'line',label:'Resultado acumulado',data:acumS,borderColor:'#e0b35f',backgroundColor:'#e0b35f',borderWidth:2,pointRadius:3,tension:.25,order:0},
-    {label:'Renda do trabalho',data:X.F.map(m=>Math.round(m.renda)),backgroundColor:'rgba(95,217,154,.75)',borderRadius:3,order:1},
-    {label:'Despesas + aportes',data:X.F.map(m=>Math.round(m.desp+m.inv)),backgroundColor:'rgba(217,122,122,.7)',borderRadius:3,order:2}
-  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,position:'bottom',labels:{color:CC.tick,boxWidth:12}},
-    tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw<0?'-':''}${R(Math.abs(ctx.raw))}`}}},
-    scales:{x:{grid:{display:false},ticks:{color:CC.tick}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(0)+'k'}}}}});
+  _fxUltimo=X;
+  mkChart('chart-fx-mensal',fxChartCfg(X,FX_CORES_TELA));
   document.getElementById('btn-fx-pdf').disabled=false;
   document.getElementById('fx-sub').textContent=`Exercício ${ano} · ${periodo}${parcial?' (parcial)':''} — gerado em ${geradoEm}`;
 }
@@ -9698,8 +9724,18 @@ function exportarFechamentoPDF(){
   document.getElementById('fx-print-root')?.remove();
   const root=document.createElement('div'); root.id='fx-print-root';
   root.innerHTML=src.innerHTML;
-  const origem=[...src.querySelectorAll('canvas')], copias=[...root.querySelectorAll('canvas')];
-  origem.forEach((c,i)=>{ const img=new Image(); img.src=c.toDataURL('image/png'); img.alt=c.getAttribute('aria-label')||''; img.style.width='100%'; img.style.height='auto'; if(copias[i]) copias[i].replaceWith(img); });
+  root.querySelectorAll('canvas').forEach(alvo=>{
+    const img=new Image(); img.alt=alvo.getAttribute('aria-label')||''; img.style.width='100%'; img.style.height='auto';
+    if(alvo.id==='chart-fx-mensal' && _fxUltimo){
+      // desenha num canvas fora da tela com as cores de papel e converte em imagem
+      const cv=document.createElement('canvas'); cv.width=700; cv.height=230;   // tamanho lógico; devicePixelRatio:2 dobra a nitidez
+      const ch=new Chart(cv.getContext('2d'),fxChartCfg(_fxUltimo,FX_CORES_PAPEL,true));
+      img.src=ch.toBase64Image('image/png',1); ch.destroy();
+    } else {
+      const orig=document.getElementById(alvo.id); if(orig) img.src=orig.toDataURL('image/png');
+    }
+    alvo.replaceWith(img);
+  });
   root.querySelectorAll('.fx-chart').forEach(w=>{ w.style.height='auto'; });
   document.body.appendChild(root);
   const tituloAnt=document.title;
