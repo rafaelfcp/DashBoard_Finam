@@ -2327,17 +2327,32 @@ html.is-mobile .sidebar.open{
 <!-- INVESTIDOR -->
 <div class="page" id="pg-investidor">
   <div class="section-header">
-    <div class="section-header-left"><div class="page-title">Carteira de Investimentos</div><div class="page-sub" style="margin:0">Tranche Satélite (renda variável) — a Tranche Segurança é acompanhada em Casa Própria</div></div>
-    <div class="section-header-right">
-      <button class="btn-modal-save" onclick="abrirInvPosForm()">+ Novo aporte</button>
+    <div class="section-header-left"><div class="page-title">Carteira de Investimentos</div><div class="page-sub" style="margin:0">Renda fixa e renda variável — a Tranche Segurança é acompanhada em Casa Própria</div></div>
+    <div class="section-header-right" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-modal-save" onclick="abrirInvRFForm()">+ Renda fixa</button>
+      <button class="btn-ghost" onclick="abrirInvPosForm()">+ Renda variável</button>
     </div>
   </div>
 
   <div class="g4" id="inv-kpis">
-    <div class="kpi"><div class="kpi-lbl">Total investido (satélite)</div><div class="kpi-val" id="inv-kpi-total">—</div><div class="kpi-sub" id="inv-kpi-total-sub">—</div></div>
-    <div class="kpi"><div class="kpi-lbl">Valor atual</div><div class="kpi-val" id="inv-kpi-atual">—</div><div class="kpi-sub" id="inv-kpi-atual-sub">—</div></div>
+    <div class="kpi"><div class="kpi-lbl">Total investido</div><div class="kpi-val" id="inv-kpi-total">—</div><div class="kpi-sub" id="inv-kpi-total-sub">—</div></div>
+    <div class="kpi"><div class="kpi-lbl">Valor atual (líquido)</div><div class="kpi-val" id="inv-kpi-atual">—</div><div class="kpi-sub" id="inv-kpi-atual-sub">—</div></div>
     <div class="kpi" id="inv-kpi-rent-card"><div class="kpi-lbl">Rentabilidade</div><div class="kpi-val" id="inv-kpi-rent">—</div><div class="kpi-sub" id="inv-kpi-rent-sub">—</div></div>
-    <div class="kpi"><div class="kpi-lbl">Posições ativas</div><div class="kpi-val" id="inv-kpi-pos">—</div><div class="kpi-sub">tickers distintos</div></div>
+    <div class="kpi"><div class="kpi-lbl">Posições ativas</div><div class="kpi-val" id="inv-kpi-pos">—</div><div class="kpi-sub" id="inv-kpi-pos-sub">—</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Renda fixa — aplicações</div>
+    <div id="inv-rf-tabela" style="overflow-x:auto;margin-top:6px"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px" id="inv-acomp-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="card-title" style="margin:0">📈 Acompanhar rendimento</div>
+      <select id="inv-acomp-sel" class="modal-input" style="max-width:340px" onchange="renderInvAcomp()" aria-label="Aplicação acompanhada"></select>
+    </div>
+    <div id="inv-acomp-corpo" style="margin-top:12px"></div>
+    <div class="chart-wrap" id="inv-acomp-chart-wrap" style="height:260px;margin-top:12px"><canvas id="chart-inv-acomp" role="img" aria-label="Rendimento real versus contratado"></canvas></div>
   </div>
 
   <div class="card" style="margin-bottom:14px">
@@ -2351,7 +2366,7 @@ html.is-mobile .sidebar.open{
       <div class="chart-wrap" style="height:220px"><canvas id="chart-inv-comp" role="img" aria-label="Composição da carteira satélite"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title">Posições (agrupadas por ticker)</div>
+      <div class="card-title">Renda variável — posições por ticker</div>
       <div id="inv-posicoes-tabela" style="overflow-x:auto"></div>
     </div>
   </div>
@@ -2410,6 +2425,105 @@ html.is-mobile .sidebar.open{
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="fecharModal('invpos')">Cancelar</button>
       <button class="btn-modal-save" id="btn-invpos-save" onclick="salvarInvPos()">💾 Salvar aporte</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVA APLICAÇÃO RENDA FIXA (Investidor) -->
+<div class="modal-overlay" id="modal-invrf" style="display:none" onclick="if(event.target===this)fecharModal('invrf')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">🏦 Nova aplicação — Renda fixa</div>
+      <button class="modal-close" onclick="fecharModal('invrf')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-g2">
+        <div><label class="modal-label">Produto</label>
+          <select id="invrf-produto" class="modal-input" onchange="onInvRFProduto()">
+            <option value="CDB">CDB</option><option value="LCI">LCI</option><option value="LCA">LCA</option>
+            <option value="TESOURO">Tesouro Direto</option><option value="OUTRO">Outro</option>
+          </select></div>
+        <div><label class="modal-label">Emissor / banco</label>
+          <input type="text" id="invrf-emissor" class="modal-input" placeholder="ex: C6, Inter, BTG" maxlength="40"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Nome da aplicação</label>
+        <input type="text" id="invrf-nome" class="modal-input" placeholder="ex: CDB C6 Limite Garantido" maxlength="80">
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Indexador</label>
+          <select id="invrf-indexador" class="modal-input" onchange="onInvRFIndexador()">
+            <option value="CDI">Pós-fixado (% do CDI)</option><option value="PRE">Prefixado (% a.a.)</option>
+          </select></div>
+        <div><label class="modal-label" id="invrf-taxa-lbl">Taxa (% do CDI)</label>
+          <input type="number" id="invrf-taxa" class="modal-input" step="0.01" min="0.01" placeholder="ex: 101.5"></div>
+      </div>
+      <div class="modal-g2">
+        <div id="invrf-cdi-wrap"><label class="modal-label">CDI de referência (% a.a.)</label>
+          <input type="number" id="invrf-cdi" class="modal-input" step="0.01" min="0.01" max="99" placeholder="ex: 14.9"></div>
+        <div><label class="modal-label">Vencimento</label>
+          <input type="date" id="invrf-venc" class="modal-input" title="Vazio = liquidez diária / sem vencimento"></div>
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">Data da aplicação</label>
+          <input type="date" id="invrf-data" class="modal-input"></div>
+        <div><label class="modal-label">Valor aplicado (R$)</label>
+          <input type="number" id="invrf-valor" class="modal-input" step="0.01" min="0.01"></div>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Meta vinculada</label>
+        <select id="invrf-meta" class="modal-input"></select>
+      </div>
+      <div class="modal-group" style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--tx2)">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="invrf-acompanhar" checked> Acompanhar rendimento</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="invrf-isento"> Isento de IR/IOF</label>
+      </div>
+      <div class="modal-group">
+        <label class="modal-label">Observações</label>
+        <input type="text" id="invrf-obs" class="modal-input" placeholder="opcional — ex: liquidez diária" maxlength="120">
+      </div>
+      <div class="tip" style="margin-top:0">Os aportes são os lançamentos de <b>Novo Lançamento</b> (Investimentos) com esta aplicação selecionada. Enquanto não houver nenhum, vale o valor aplicado acima. Com meta vinculada, a meta passa a usar o saldo lido aqui — o valor não é contado duas vezes.</div>
+      <div id="invrf-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('invrf')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-invrf-save" onclick="salvarInvRF()">💾 Salvar aplicação</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SALDO RENDA FIXA (Investidor) -->
+<div class="modal-overlay" id="modal-invrfsaldo" style="display:none" onclick="if(event.target===this)fecharModal('invrfsaldo')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="invrfsaldo-title">📈 Lançar saldo</div>
+      <button class="modal-close" onclick="fecharModal('invrfsaldo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="invrfsaldo-inv-id">
+      <div class="modal-g2">
+        <div><label class="modal-label">Data da leitura</label>
+          <input type="date" id="invrfsaldo-data" class="modal-input" oninput="invRFAutoImpostos()"></div>
+        <div><label class="modal-label">Saldo bruto (R$)</label>
+          <input type="number" id="invrfsaldo-bruto" class="modal-input" step="0.01" min="0" oninput="invRFAutoImpostos()"></div>
+      </div>
+      <div class="modal-g2">
+        <div><label class="modal-label">IOF (R$)</label>
+          <input type="number" id="invrfsaldo-iof" class="modal-input" step="0.01" min="0" oninput="this.dataset.manual='1';invRFPreviewLiquido()"></div>
+        <div><label class="modal-label">IR (R$)</label>
+          <input type="number" id="invrfsaldo-ir" class="modal-input" step="0.01" min="0" oninput="this.dataset.manual='1';invRFPreviewLiquido()"></div>
+      </div>
+      <div id="invrfsaldo-preview" style="font-size:12px;color:var(--tx2);margin:-4px 0 12px"></div>
+      <div class="modal-group">
+        <label class="modal-label">Observações</label>
+        <input type="text" id="invrfsaldo-obs" class="modal-input" placeholder="opcional — ex: app C6" maxlength="120">
+      </div>
+      <div class="tip" style="margin-top:0">IOF e IR são pré-calculados pelas tabelas regressivas. Se o app do banco mostrar valores diferentes, sobrescreva — o informado pelo banco prevalece.</div>
+      <div id="invrfsaldo-feedback" style="display:none;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="fecharModal('invrfsaldo')">Cancelar</button>
+      <button class="btn-modal-save" id="btn-invrfsaldo-save" onclick="salvarInvRFSaldo()">💾 Salvar saldo</button>
     </div>
   </div>
 </div>
@@ -3076,6 +3190,13 @@ html.is-mobile .sidebar.open{
       </div>
 
       <!-- Objetivo (só para Investimentos) -->
+      <div id="nv-aplicacao-wrap" style="display:none;margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Aplicação (renda fixa)</label>
+        <select id="nv-aplicacao" onchange="onNvAplicacao()" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
+          <option value="">Nenhuma</option>
+        </select>
+        <div style="font-size:10px;color:var(--tx3);margin-top:4px">Aporte numa aplicação da Carteira (ex: CDB) — o objetivo é preenchido com a meta vinculada a ela.</div>
+      </div>
       <div id="nv-objetivo-wrap" style="display:none;margin-bottom:14px">
         <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);display:block;margin-bottom:6px">Objetivo</label>
         <select id="nv-objetivo" style="width:100%;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--rs);padding:9px 12px;font-size:13px;outline:none">
@@ -3454,7 +3575,7 @@ html.is-mobile .sidebar.open{
 
 <script>
 // ══ DADOS ══
-let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], metasSaldos: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], casaPropriaRecebiveis: [], cpcLoteCustos: [], cpcLotePagamentos: [], cpcLoteEtapas: [], cpcObraOrcamentos: [], cpcFgtsEventos: [], cpcSims: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
+let DB = { lancamentos: [], saldos_iniciais: {}, metas: [], metasSaldos: [], invRF: [], invRFSaldos: [], casaPropriaPlano: null, casaPropriaRevisoes: [], casaPropriaSaldos: [], casaPropriaFgtsSaldos: [], casaPropriaRecebiveis: [], cpcLoteCustos: [], cpcLotePagamentos: [], cpcLoteEtapas: [], cpcObraOrcamentos: [], cpcFgtsEventos: [], cpcSims: [], orcamento: { Moradia:5550,Alimentação:1050,Transporte:3675,Educação:1732,Lazer:250,'Saúde & Beleza':200,'Serviços Financeiros':100,Vestuário:0,Giovanna:660,Compras:0,'Outras Despesas':0,'Doações & Presentes':0 } };
 const CHARTS = {};
 const CATS = ['Transporte','Moradia','Educação','Alimentação','Compras','Lazer','Giovanna','Saúde & Beleza','Serviços Financeiros','Outras Despesas','Vestuário','Doações & Presentes'];
 const CORES = { Transporte:'#e0935f',Moradia:'#6fb8c9',Educação:'#a892d4',Alimentação:'#5fd99a',Compras:'#8a9a8c',Lazer:'#e0b35f',Giovanna:'#d9a86f','Saúde & Beleza':'#7fcf9e','Serviços Financeiros':'#c9a85f','Outras Despesas':'#56655a',Vestuário:'#8fc4cf','Doações & Presentes':'#d97a9a' };
@@ -5890,7 +6011,11 @@ function diasUteisEntre(iniISO, fimISO){
 //   (CDI_diário = (1+CDI_aa)^(1/252) − 1 — convenção de capitalização dos CDBs pós-fixados).
 // · Eficiência = rendimento real ÷ esperado; %CDI efetivo ≈ %CDI contratado × eficiência.
 function calcRendimentoMeta(m, aportesPagos){
-  const leituras=(DB.metasSaldos||[]).filter(s=>s.metaId===m.id).sort((a,b)=>a.data.localeCompare(b.data));
+  // Meta com aplicação de renda fixa vinculada (Carteira de Investimentos): a Carteira é a fonte da
+  // verdade — leituras vêm de investimentos_rf_saldos (saldo = bruto, comparável ao esperado bruto do
+  // CDI; saldoLiquido = o que entra na reserva). Sem vínculo, segue usando metas_saldos.
+  const rfLeit=rfLeiturasMeta(m.id);
+  const leituras=rfLeit || (DB.metasSaldos||[]).filter(s=>s.metaId===m.id).sort((a,b)=>a.data.localeCompare(b.data));
   const ult=leituras.length?leituras[leituras.length-1]:null;
   const comData=aportesPagos.map(l=>({valor:l.valor,data:dataAporteISO(l)}));
   const totalAportado=SM(comData.map(a=>a.valor));
@@ -5899,7 +6024,7 @@ function calcRendimentoMeta(m, aportesPagos){
   const ateLeitura=comData.filter(a=>a.data&&a.data<=ult.data);
   const aposLeitura=comData.filter(a=>!a.data||a.data>ult.data);
   const aportadoAteLeitura=SM(ateLeitura.map(a=>a.valor));
-  const saldoAtual=ult.saldo+SM(aposLeitura.map(a=>a.valor));
+  const saldoAtual=(ult.saldoLiquido!=null?ult.saldoLiquido:ult.saldo)+SM(aposLeitura.map(a=>a.valor));
   const rendReal=ult.saldo-aportadoAteLeitura;
   const rendRealPct=aportadoAteLeitura>0?rendReal/aportadoAteLeitura*100:0;
 
@@ -6040,7 +6165,7 @@ function renderMetaRendimentoBloco(m){
   if(!r.temLeitura){
     return h+`<div class="trow"><span class="tl">Rendimento</span><span class="tv" style="color:var(--tx3)">sem leitura de saldo — use 📈 para informar o saldo do banco</span></div>`;
   }
-  h+=`<div class="trow"><span class="tl">Última leitura</span><span class="tv" style="color:var(--tx2)">${fmtData(r.ultimaLeitura.data)} · ${R(r.ultimaLeitura.saldo)}</span></div>
+  h+=`<div class="trow"><span class="tl">Última leitura</span><span class="tv" style="color:var(--tx2)">${fmtData(r.ultimaLeitura.data)} · ${R(r.ultimaLeitura.saldo)}${r.ultimaLeitura.fonte==='carteira'?` bruto · ${R(r.ultimaLeitura.saldoLiquido)} líquido (Carteira)`:''}</span></div>
     <div class="trow"><span class="tl">Rendimento real</span><span class="tv" style="color:${r.rendReal>=0?'var(--green)':'var(--red)'}">${sinal(r.rendReal)} (${r.rendRealPct>=0?'+':''}${r.rendRealPct.toFixed(2)}%)</span></div>`;
   if(!r.temBenchmark){
     return h+`<div class="trow"><span class="tl">Esperado pelo contrato</span><span class="tv" style="color:var(--tx3)">informe % do CDI e CDI de referência na meta (✏)</span></div>`;
@@ -6135,6 +6260,10 @@ function toggleMetaHistorico(id){
 
 // ── Leitura de saldo da meta (metas_saldos) ──
 function abrirMetaSaldoForm(metaId){
+  // Meta vinculada a aplicação de renda fixa: o saldo é lançado na aplicação (Carteira), não na meta.
+  const rfLig=(DB.invRF||[]).filter(x=>x.metaId===metaId&&x.ativo);
+  if(rfLig.length===1){ abrirInvRFSaldoForm(rfLig[0].id); return; }
+  if(rfLig.length>1){ navTo('investidor', document.querySelector(".nav-item[onclick*=\"'investidor'\"]")); return; }
   const m = DB.metas.find(x=>x.id===metaId);
   if(!m) return;
   document.getElementById('metasaldo-title').textContent = '📈 Atualizar saldo — '+m.nome;
@@ -9553,15 +9682,29 @@ function onNvCat(){
   // Objetivo: só relevante pra Investimentos (várias metas podem compartilhar a mesma subcategoria)
   const wrapObj = document.getElementById('nv-objetivo-wrap');
   const elObj = document.getElementById('nv-objetivo');
+  const wrapApl = document.getElementById('nv-aplicacao-wrap');
+  const elApl = document.getElementById('nv-aplicacao');
   if(cat==='Investimentos'){
     wrapObj.style.display='block';
     const ativas = (DB.metas||[]).filter(m=>m.status==='ativa');
     elObj.innerHTML = '<option value="">Sem objetivo específico</option>' +
       ativas.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+    const apls = (DB.invRF||[]).filter(x=>x.ativo);
+    wrapApl.style.display = apls.length ? 'block' : 'none';
+    elApl.innerHTML = '<option value="">Nenhuma</option>' + apls.map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
   } else {
     wrapObj.style.display='none';
     elObj.value='';
+    wrapApl.style.display='none';
+    elApl.value='';
   }
+}
+
+// Ao escolher a aplicação de renda fixa, o objetivo (meta) segue o vínculo da aplicação —
+// assim o aporte entra na aplicação e na meta sem divergir.
+function onNvAplicacao(){
+  const inv=(DB.invRF||[]).find(x=>x.id===document.getElementById('nv-aplicacao').value);
+  if(inv && inv.metaId) document.getElementById('nv-objetivo').value=inv.metaId;
 }
 
 // Exibe/oculta o bloco de Cartão (Modalidade/Parcelas) conforme a forma de pagamento
@@ -9626,6 +9769,7 @@ async function salvarLancamento(){
   const ano    = parseInt(document.getElementById('nv-ano').value,10);
   const pago   = document.getElementById('nv-pago').value;
   const metaIdSel = cat==='Investimentos' ? (document.getElementById('nv-objetivo').value||null) : null;
+  const invRfSel  = cat==='Investimentos' ? (document.getElementById('nv-aplicacao').value||null) : null;
   const ehCartao    = isFormaCartao(forma);
   const modalidade  = ehCartao ? document.getElementById('nv-modalidade').value : 'avista';
   const nParcelas   = (ehCartao && modalidade==='parcelado') ? parseInt(document.getElementById('nv-parcelas').value,10) : 1;
@@ -9667,11 +9811,11 @@ async function salvarLancamento(){
         desc: `${desc} (${i+1}/${nParcelas})`,
         forma, valor: valorArred,
         pago: 'Não', // todas as parcelas começam como Não — conforme decidido
-        origem: 'manual', meta_id: metaIdSel
+        origem: 'manual', meta_id: metaIdSel, investimento_rf_id: invRfSel
       };
     });
   } else {
-    itens = [{ data, mes, ano, cat, subcat: sub||'Outros', desc, forma, valor: valorArred, pago, origem:'manual', meta_id: metaIdSel }];
+    itens = [{ data, mes, ano, cat, subcat: sub||'Outros', desc, forma, valor: valorArred, pago, origem:'manual', meta_id: metaIdSel, investimento_rf_id: invRfSel }];
   }
 
   let erroSupabase = null;
@@ -9691,7 +9835,8 @@ async function salvarLancamento(){
         valor:          it.valor,
         pago:           it.pago,
         origem:         it.origem,
-        meta_id:        it.meta_id || null
+        meta_id:        it.meta_id || null,
+        investimento_rf_id: it.investimento_rf_id || null
       }));
       const { data: res, error } = await getSB()
         .from('lancamentos')
@@ -9731,6 +9876,8 @@ async function salvarLancamento(){
   document.getElementById('nv-subcat').innerHTML='<option value="">Selecione a categoria primeiro</option>';
   document.getElementById('nv-objetivo-wrap').style.display='none';
   document.getElementById('nv-objetivo').value='';
+  document.getElementById('nv-aplicacao-wrap').style.display='none';
+  document.getElementById('nv-aplicacao').value='';
   document.getElementById('nv-desc').value='';
 
   if(btnSave){ btnSave.disabled=false; btnSave.textContent='✓ Salvar lançamento'; }
@@ -9830,6 +9977,349 @@ async function salvarInvPos(){
   }
 }
 
+// ══ RENDA FIXA (Carteira de Investimentos) ══
+// Fonte da verdade das aplicações de renda fixa. Aportes = lançamentos vinculados (investimento_rf_id,
+// pagos); sem nenhum vinculado, vale o valor_aplicado da própria aplicação (aporte inicial).
+// Cada aporte tem o seu próprio relógio de IOF (30 dias) e IR (180/360/720 dias).
+const IOF_REGRESSIVO=[96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3];
+function rfMap(r){
+  return { id:r.id, produto:r.produto, emissor:r.emissor, nome:r.nome, indexador:r.indexador,
+    taxa:parseFloat(r.taxa), cdiAaReferencia:r.cdi_aa_referencia!=null?parseFloat(r.cdi_aa_referencia):null,
+    dataAplicacao:r.data_aplicacao, valorAplicado:parseFloat(r.valor_aplicado)||0, vencimento:r.vencimento||null,
+    metaId:r.meta_id||null, isentoIr:r.isento_ir===true, acompanhar:r.acompanhar!==false, ativo:r.ativo!==false,
+    observacoes:r.observacoes||null };
+}
+function rfMapSaldo(s){
+  return { id:s.id, investimentoId:s.investimento_id, data:s.data, saldoBruto:parseFloat(s.saldo_bruto)||0,
+    iof:parseFloat(s.iof)||0, ir:parseFloat(s.ir)||0, saldoLiquido:parseFloat(s.saldo_liquido)||0, observacao:s.observacao||null };
+}
+function rfDiasCorridos(ini,fim){ return Math.round((new Date(fim+'T12:00:00')-new Date(ini+'T12:00:00'))/86400000); }
+function rfAddDias(iso,n){ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function rfFmtData(iso){ return iso?iso.split('-').reverse().join('/'):'—'; }
+function rfAliqIOF(dias){ return (dias<1||dias>=30) ? 0 : IOF_REGRESSIVO[dias-1]/100; }
+function rfAliqIR(dias){ return dias<=180?0.225 : dias<=360?0.20 : dias<=720?0.175 : 0.15; }
+function rfTaxaDia(inv){
+  return inv.indexador==='PRE' ? Math.pow(1+inv.taxa,1/252)-1 : (Math.pow(1+(inv.cdiAaReferencia||0),1/252)-1)*inv.taxa;
+}
+function rfAportes(inv){
+  const lans=(DB.lancamentos||[]).filter(l=>l.investimento_rf_id===inv.id && l.pago==='Sim')
+    .map(l=>({data:dataAporteISO(l), valor:l.valor})).filter(a=>a.data&&a.valor>0);
+  const base=lans.length ? lans : [{data:inv.dataAplicacao, valor:inv.valorAplicado}];
+  return base.sort((a,b)=>a.data.localeCompare(b.data));
+}
+function rfAplicadoAte(inv,data){ return SM(rfAportes(inv).filter(a=>a.data<=data).map(a=>a.valor)); }
+function rfBrutoEsperado(inv,data){
+  const t=rfTaxaDia(inv);
+  return SM(rfAportes(inv).filter(a=>a.data<=data).map(a=>a.valor*Math.pow(1+t,diasUteisEntre(a.data,data))));
+}
+// IOF/IR estimados para um saldo bruto numa data: o rendimento total é rateado entre os aportes
+// proporcionalmente ao rendimento esperado de cada um, e cada parcela usa a alíquota do seu prazo.
+function rfImpostos(inv,data,bruto){
+  if(inv.isentoIr) return {iof:0,ir:0};
+  const aps=rfAportes(inv).filter(a=>a.data<=data);
+  const rendTotal=Math.max(0,bruto-SM(aps.map(a=>a.valor)));
+  if(!aps.length||rendTotal<=0) return {iof:0,ir:0};
+  const t=rfTaxaDia(inv);
+  let pesos=aps.map(a=>a.valor*(Math.pow(1+t,diasUteisEntre(a.data,data))-1));
+  if(SM(pesos)<=0) pesos=aps.map(a=>a.valor);
+  const somaP=SM(pesos);
+  let iof=0, ir=0;
+  aps.forEach((a,i)=>{
+    const rend=rendTotal*pesos[i]/somaP, dias=rfDiasCorridos(a.data,data);
+    const iofI=rend*rfAliqIOF(dias);
+    iof+=iofI; ir+=(rend-iofI)*rfAliqIR(dias);
+  });
+  return {iof:Math.round(iof*100)/100, ir:Math.round(ir*100)/100};
+}
+// Taxa efetivamente realizada: CDI → fração do CDI (resolve Σ aporte×(1+cdiDia×p)^du = bruto);
+// PRE → taxa a.a. (resolve Σ aporte×(1+r)^(du/252) = bruto). Bisseção — função monotônica.
+function rfTaxaRealizada(inv,data,bruto){
+  const aps=rfAportes(inv).filter(a=>a.data<=data).map(a=>({v:a.valor,du:diasUteisEntre(a.data,data)}));
+  if(!aps.length || !aps.some(a=>a.du>0) || !(bruto>0)) return null;
+  const cdiDia=Math.pow(1+(inv.cdiAaReferencia||0),1/252)-1;
+  const f=inv.indexador==='PRE'
+    ? r=>SM(aps.map(a=>a.v*Math.pow(1+r,a.du/252)))-bruto
+    : p=>SM(aps.map(a=>a.v*Math.pow(1+cdiDia*p,a.du)))-bruto;
+  if(inv.indexador!=='PRE' && !(cdiDia>0)) return null;
+  let lo=inv.indexador==='PRE'?-0.5:0, hi=inv.indexador==='PRE'?2:3;
+  if(f(lo)>0||f(hi)<0) return null;
+  for(let i=0;i<80;i++){ const m=(lo+hi)/2; if(f(m)>0) hi=m; else lo=m; }
+  return (lo+hi)/2;
+}
+function rfResumo(inv){
+  const leituras=(DB.invRFSaldos||[]).filter(s=>s.investimentoId===inv.id).sort((a,b)=>a.data.localeCompare(b.data));
+  const ult=leituras.length?leituras[leituras.length-1]:null;
+  const hoje=hojeLocalISO();
+  const aportes=rfAportes(inv);
+  const aplicadoTotal=SM(aportes.map(a=>a.valor));
+  const out={inv, leituras, ult, aportes, aplicadoTotal, temLeitura:!!ult};
+  if(!ult){ Object.assign(out,{bruto:aplicadoTotal, liquido:aplicadoTotal, iof:0, ir:0, aplicadoLeitura:aplicadoTotal, rendBruto:0, rendLiq:0, taxaReal:null, esperado:null}); }
+  else {
+    const aplicadoLeitura=rfAplicadoAte(inv,ult.data);
+    const aposLeitura=SM(aportes.filter(a=>a.data>ult.data).map(a=>a.valor)); // aportes depois da leitura entram pelo valor
+    Object.assign(out,{ bruto:ult.saldoBruto+aposLeitura, liquido:ult.saldoLiquido+aposLeitura, iof:ult.iof, ir:ult.ir,
+      aplicadoLeitura, rendBruto:ult.saldoBruto-aplicadoLeitura, rendLiq:ult.saldoLiquido-aplicadoLeitura,
+      taxaReal:rfTaxaRealizada(inv,ult.data,ult.saldoBruto), esperado:rfBrutoEsperado(inv,ult.data),
+      calc:rfImpostos(inv,ult.data,ult.saldoBruto) });
+  }
+  // Prazos (por aporte): próximo IOF a zerar e próxima queda de faixa de IR, a partir de hoje.
+  const iofPend=aportes.map(a=>({a, zera:rfAddDias(a.data,30)})).filter(x=>x.zera>hoje);
+  out.iofZeraEm=iofPend.length?iofPend[iofPend.length-1].zera:null;
+  out.iofZerouEm=!iofPend.length&&aportes.length?rfAddDias(aportes[aportes.length-1].data,30):null;
+  const faixas=[[181,0.20],[361,0.175],[721,0.15]];
+  const prox=[];
+  aportes.forEach(a=>faixas.forEach(([d,aliq])=>{ const dt=rfAddDias(a.data,d); if(dt>hoje) prox.push({data:dt,aliq,aporte:a}); }));
+  prox.sort((x,y)=>x.data.localeCompare(y.data));
+  out.irProx=prox[0]||null;
+  out.irAtual=aportes.length?rfAliqIR(rfDiasCorridos(aportes[0].data,hoje)):null;
+  return out;
+}
+// Leituras "virtuais" de uma meta a partir das aplicações vinculadas a ela (calcRendimentoMeta).
+// Em cada data com leitura, soma por aplicação a última leitura ≤ data (ou o aplicado, se ainda
+// não houver leitura). Retorna null quando nenhuma aplicação vinculada tem leitura.
+function rfLeiturasMeta(metaId){
+  const invs=(DB.invRF||[]).filter(x=>x.metaId===metaId && x.ativo);
+  if(!invs.length) return null;
+  const todas=(DB.invRFSaldos||[]).filter(s=>invs.some(i=>i.id===s.investimentoId));
+  if(!todas.length) return null;
+  const datas=[...new Set(todas.map(s=>s.data))].sort();
+  return datas.map(d=>{
+    let bruto=0, liq=0;
+    invs.forEach(inv=>{
+      const l=todas.filter(s=>s.investimentoId===inv.id && s.data<=d).sort((a,b)=>a.data.localeCompare(b.data)).pop();
+      if(l){ const apos=SM(rfAportes(inv).filter(a=>a.data>l.data&&a.data<=d).map(a=>a.valor)); bruto+=l.saldoBruto+apos; liq+=l.saldoLiquido+apos; }
+      else { const ap=rfAplicadoAte(inv,d); bruto+=ap; liq+=ap; }
+    });
+    return {data:d, saldo:Math.round(bruto*100)/100, saldoLiquido:Math.round(liq*100)/100, fonte:'carteira'};
+  });
+}
+function rfTaxaLabel(inv){
+  return inv.indexador==='PRE' ? `${(inv.taxa*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}% a.a.`
+    : `${(inv.taxa*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}% do CDI`;
+}
+function rfTaxaRealLabel(r){
+  if(r.taxaReal==null) return '—';
+  return r.inv.indexador==='PRE' ? `${(r.taxaReal*100).toFixed(2)}% a.a.` : `${(r.taxaReal*100).toFixed(1)}% do CDI`;
+}
+
+function renderInvRF(rfRes){
+  const div=document.getElementById('inv-rf-tabela'); if(!div) return;
+  const th=(t,al)=>`<th style="padding:6px 8px${al?';text-align:right':''}">${t}</th>`;
+  const td=(v,al,st)=>`<td style="padding:6px 8px${al?';text-align:right':''}${st?';'+st:''}">${v}</td>`;
+  div.innerHTML = !rfRes.length
+    ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhuma aplicação de renda fixa. Clique em "+ Renda fixa".</div>`
+    : `<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px">
+      <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
+        ${th('Aplicação')}${th('Taxa')}${th('Aplicado',1)}${th('Bruto',1)}${th('IOF',1)}${th('IR',1)}${th('Líquido',1)}${th('Rend. líquido',1)}${th('Realizado',1)}${th('')}
+      </tr></thead><tbody>
+      ${rfRes.map(r=>{
+        const i=r.inv, metaNome=i.metaId?((DB.metas||[]).find(m=>m.id===i.metaId)||{}).nome:null;
+        return `<tr style="border-bottom:1px solid var(--bd)">
+          ${td(`<div style="font-weight:700">${i.nome}</div><div style="font-size:11px;color:var(--tx3)">${i.produto} · ${i.emissor}${metaNome?` · meta ${metaNome}`:''}</div>`)}
+          ${td(rfTaxaLabel(i),0,'color:var(--tx2);white-space:nowrap')}
+          ${td(`${R(r.aplicadoTotal,2)}<div style="font-size:11px;color:var(--tx3)">${r.aportes.length>1?r.aportes.length+' aportes':rfFmtData(r.aportes[0]&&r.aportes[0].data)}</div>`,1)}
+          ${td(r.temLeitura?R(r.bruto,2):'—',1)}
+          ${td(r.temLeitura?'-'+R(r.iof,2):'—',1,'color:var(--tx2)')}
+          ${td(r.temLeitura?'-'+R(r.ir,2):'—',1,'color:var(--tx2)')}
+          ${td(`<b>${R(r.liquido,2)}</b>${r.temLeitura?`<div style="font-size:11px;color:var(--tx3)">${rfFmtData(r.ult.data)}</div>`:'<div style="font-size:11px;color:var(--amber)">sem leitura</div>'}`,1)}
+          ${td(r.temLeitura?`${r.rendLiq>=0?'+':'-'}${R(Math.abs(r.rendLiq),2)}`:'—',1,`color:${r.rendLiq>=0?'var(--green)':'var(--red)'}`)}
+          ${td(rfTaxaRealLabel(r),1,'white-space:nowrap')}
+          ${td(`<a href="#" onclick="abrirInvRFSaldoForm('${i.id}');return false" title="Lançar saldo do banco" style="text-decoration:none">📈</a>
+            <a href="#" onclick="toggleInvRFAcompanhar('${i.id}');return false" title="${i.acompanhar?'Parar de acompanhar':'Acompanhar rendimento'}" style="text-decoration:none;opacity:${i.acompanhar?1:.4}">👁</a>`,1,'white-space:nowrap')}
+        </tr>`;}).join('')}
+      </tbody></table>`;
+
+  const sel=document.getElementById('inv-acomp-sel');
+  const acomp=rfRes.filter(r=>r.inv.acompanhar);
+  const atual=sel.value;
+  sel.innerHTML=acomp.map(r=>`<option value="${r.inv.id}">${r.inv.nome}</option>`).join('');
+  if(acomp.some(r=>r.inv.id===atual)) sel.value=atual;
+  document.getElementById('inv-acomp-card').style.display=acomp.length?'':'none';
+  if(acomp.length) renderInvAcomp();
+}
+
+function renderInvAcomp(){
+  const id=document.getElementById('inv-acomp-sel').value;
+  const inv=(DB.invRF||[]).find(x=>x.id===id); if(!inv) return;
+  const r=rfResumo(inv), hoje=hojeLocalISO(), corpo=document.getElementById('inv-acomp-corpo');
+  const kpi=(lbl,val,sub,cls)=>`<div class="kpi${cls?' '+cls:''}"><div class="kpi-lbl">${lbl}</div><div class="kpi-val" style="font-size:20px">${val}</div><div class="kpi-sub">${sub||''}</div></div>`;
+  const diasC=r.aportes.length?rfDiasCorridos(r.aportes[0].data,hoje):0;
+  const diasU=r.aportes.length?diasUteisEntre(r.aportes[0].data,hoje):0;
+  let html='';
+  if(!r.temLeitura){
+    html=`<div class="tip" style="margin-top:0">Nenhuma leitura de saldo ainda. Use 📈 para lançar o saldo bruto informado pelo banco.</div>`;
+  } else {
+    const efic=r.esperado!=null && r.esperado-r.aplicadoLeitura>0.5 ? r.rendBruto/(r.esperado-r.aplicadoLeitura) : null;
+    const okTaxa=efic==null?null:efic>=0.97;
+    html=`<div class="g4" style="margin-bottom:0">
+      ${kpi('Saldo líquido',R(r.liquido,2),`bruto ${R(r.bruto,2)} · ${rfFmtData(r.ult.data)}`)}
+      ${kpi('Rendimento bruto',`${r.rendBruto>=0?'+':'-'}${R(Math.abs(r.rendBruto),2)}`,r.esperado!=null?`contratado ${R(r.esperado-r.aplicadoLeitura,2)} até a leitura`:'—',r.rendBruto>=0?'kpi-accent-ok':'kpi-accent-danger')}
+      ${kpi('Taxa realizada',rfTaxaRealLabel(r),`contratado ${rfTaxaLabel(inv)}${inv.indexador==='CDI'?` · CDI ref. ${(inv.cdiAaReferencia*100).toFixed(2)}% a.a.`:''}`,okTaxa==null?'':okTaxa?'kpi-accent-ok':'kpi-accent-danger')}
+      ${kpi('Prazo',`${diasC} dias`,`${diasU} dias úteis desde ${rfFmtData(r.aportes[0]&&r.aportes[0].data)}`)}
+    </div>`;
+  }
+  // Alertas de IOF / IR / leitura desatualizada / divergência com a tabela regressiva
+  const al=[];
+  if(inv.isentoIr) al.push(['tag-ok','Isento de IR e IOF']);
+  else {
+    if(r.iofZeraEm) al.push(['tag-warn',`IOF ainda incide — zera em <b>${rfFmtData(r.iofZeraEm)}</b> (faltam ${rfDiasCorridos(hoje,r.iofZeraEm)} dias). Resgatar antes reduz o rendimento.`]);
+    else if(r.iofZerouEm) al.push(['tag-ok',`IOF zerado desde ${rfFmtData(r.iofZerouEm)}.`]);
+    if(r.irProx) al.push(['tag-info',`IR atual ${(r.irAtual*100).toLocaleString('pt-BR')}% — cai para <b>${(r.irProx.aliq*100).toLocaleString('pt-BR')}%</b> em <b>${rfFmtData(r.irProx.data)}</b>${r.aportes.length>1?` (aporte de ${rfFmtData(r.irProx.aporte.data)})`:''}.`]);
+    else if(r.irAtual!=null) al.push(['tag-ok','IR já na menor alíquota (15%).']);
+    if(r.temLeitura && r.calc && (Math.abs(r.calc.iof-r.iof)>0.05 || Math.abs(r.calc.ir-r.ir)>0.05))
+      al.push(['tag-warn',`IOF/IR da leitura (${R(r.iof,2)} / ${R(r.ir,2)}) diferem do cálculo pela tabela regressiva (${R(r.calc.iof,2)} / ${R(r.calc.ir,2)}) — vale conferir saldo bruto e impostos no app do banco.`]);
+  }
+  if(r.temLeitura && rfDiasCorridos(r.ult.data,hoje)>35) al.push(['tag-warn',`Última leitura há ${rfDiasCorridos(r.ult.data,hoje)} dias — lance o saldo atualizado.`]);
+  if(inv.vencimento) al.push(['tag-info',`Vencimento em ${rfFmtData(inv.vencimento)}.`]);
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">${al.map(([t,txt])=>`<div style="font-size:12px;color:var(--tx2)"><span class="badge ${t}" style="margin-right:8px">${t==='tag-warn'?'atenção':t==='tag-ok'?'ok':'info'}</span>${txt}</div>`).join('')}</div>`;
+  corpo.innerHTML=html;
+
+  // Gráfico: curva contratada (semanal + datas de aporte/leitura) × leituras reais (bruto e líquido)
+  const wrap=document.getElementById('inv-acomp-chart-wrap');
+  if(!r.aportes.length){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+  const ini=r.aportes[0].data, fim=[hoje, r.ult?r.ult.data:ini].sort().pop();
+  const ds=new Set([ini,fim,...r.aportes.map(a=>a.data),...r.leituras.map(l=>l.data)]);
+  for(let d=ini; d<fim; d=rfAddDias(d,7)) ds.add(d);
+  const datas=[...ds].sort();
+  const leitPorData=Object.fromEntries(r.leituras.map(l=>[l.data,l]));
+  const contratado=datas.map(d=>Math.round(rfBrutoEsperado(inv,d)*100)/100);
+  const brutoReal=datas.map(d=>d===ini?rfAplicadoAte(inv,d):(leitPorData[d]?leitPorData[d].saldoBruto:null));
+  const liqReal=datas.map(d=>d===ini?rfAplicadoAte(inv,d):(leitPorData[d]?leitPorData[d].saldoLiquido:null));
+  const lbl=d=>{const [a,m,dd]=d.split('-');return `${dd}/${m}/${a.slice(2)}`;};
+  mkChart('chart-inv-acomp',{type:'line',data:{labels:datas.map(lbl),datasets:[
+    {label:`Contratado (${rfTaxaLabel(inv)})`,data:contratado,borderColor:'#8a9690',borderDash:[5,4],borderWidth:1.5,pointRadius:0,tension:.2},
+    {label:'Real — bruto',data:brutoReal,borderColor:'#5fd99a',backgroundColor:'#5fd99a',borderWidth:2,pointRadius:4,spanGaps:true,tension:.2},
+    {label:'Real — líquido',data:liqReal,borderColor:'#6fb8c9',backgroundColor:'#6fb8c9',borderWidth:2,pointRadius:4,spanGaps:true,tension:.2}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true,position:'bottom',labels:{color:'#8a9690',boxWidth:12}},tooltip:{callbacks:{label:ctx=>ctx.raw==null?null:`${ctx.dataset.label}: ${R(ctx.raw,2)}`}}},
+    scales:{x:{grid:{display:false},ticks:{color:CC.tick,maxRotation:0,autoSkip:true,maxTicksLimit:8}},
+      y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>R(v)}}}}});
+}
+
+async function toggleInvRFAcompanhar(id){
+  const inv=(DB.invRF||[]).find(x=>x.id===id); if(!inv||!usuarioAtual) return;
+  const novo=!inv.acompanhar;
+  const {error}=await getSB().from('investimentos_rf').update({acompanhar:novo}).eq('id',id).eq('usuario_id',usuarioAtual.id);
+  if(error){ console.error('[renda fixa] acompanhar:',error); return; }
+  inv.acompanhar=novo; renderInvestidor();
+}
+
+function invRFFeedback(elId,msg,ok){
+  const fb=document.getElementById(elId);
+  fb.style.display='block';
+  fb.style.background=ok?'var(--gd)':'var(--rd)';
+  fb.style.color=ok?'var(--green)':'var(--red)';
+  fb.style.border=ok?'1px solid rgba(95,217,154,.3)':'1px solid rgba(217,122,122,.3)';
+  fb.textContent=msg;
+}
+function onInvRFProduto(){
+  const p=document.getElementById('invrf-produto').value;
+  document.getElementById('invrf-isento').checked=(p==='LCI'||p==='LCA');
+}
+function onInvRFIndexador(){
+  const pre=document.getElementById('invrf-indexador').value==='PRE';
+  document.getElementById('invrf-taxa-lbl').textContent=pre?'Taxa (% a.a.)':'Taxa (% do CDI)';
+  document.getElementById('invrf-taxa').placeholder=pre?'ex: 13.5':'ex: 101.5';
+  document.getElementById('invrf-cdi-wrap').style.visibility=pre?'hidden':'visible';
+}
+function abrirInvRFForm(){
+  ['invrf-emissor','invrf-nome','invrf-taxa','invrf-venc','invrf-valor','invrf-obs'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('invrf-produto').value='CDB';
+  document.getElementById('invrf-indexador').value='CDI';
+  const ultCdi=[...(DB.invRF||[])].reverse().find(x=>x.cdiAaReferencia)||(DB.metas||[]).find(m=>m.cdiAaReferencia);
+  document.getElementById('invrf-cdi').value=ultCdi?((ultCdi.cdiAaReferencia)*100).toFixed(2):'';
+  document.getElementById('invrf-data').value=hojeLocalISO();
+  document.getElementById('invrf-acompanhar').checked=true;
+  document.getElementById('invrf-isento').checked=false;
+  const metas=(DB.metas||[]).filter(m=>m.status==='ativa');
+  document.getElementById('invrf-meta').innerHTML='<option value="">Nenhuma</option>'+metas.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  onInvRFIndexador();
+  document.getElementById('invrf-feedback').style.display='none';
+  abrirModal('invrf');
+}
+async function salvarInvRF(){
+  const g=id=>document.getElementById(id);
+  const produto=g('invrf-produto').value, emissor=g('invrf-emissor').value.trim(), nome=g('invrf-nome').value.trim();
+  const indexador=g('invrf-indexador').value, taxaPct=parseFloat(g('invrf-taxa').value), cdiPct=parseFloat(g('invrf-cdi').value);
+  const data_aplicacao=g('invrf-data').value, valor=parseFloat(g('invrf-valor').value), vencimento=g('invrf-venc').value||null;
+  const meta_id=g('invrf-meta').value||null, obs=g('invrf-obs').value.trim();
+  const fbId='invrf-feedback', btn=g('btn-invrf-save');
+  if(!emissor||!nome||!data_aplicacao||!(valor>0)||!(taxaPct>0)){ invRFFeedback(fbId,'⚠ Preencha emissor, nome, data, valor e taxa (> 0).',false); return; }
+  if(indexador==='CDI' && !(cdiPct>0 && cdiPct<100)){ invRFFeedback(fbId,'⚠ Informe o CDI de referência (% a.a.).',false); return; }
+  if(indexador==='CDI' && taxaPct>300){ invRFFeedback(fbId,'⚠ Taxa acima de 300% do CDI — confira o valor.',false); return; }
+  if(vencimento && vencimento<=data_aplicacao){ invRFFeedback(fbId,'⚠ Vencimento deve ser depois da data da aplicação.',false); return; }
+  if(!usuarioAtual){ invRFFeedback(fbId,'⚠ Sessão não encontrada — faça login novamente.',false); return; }
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    const payload={ usuario_id:usuarioAtual.id, produto, emissor, nome, indexador, taxa:taxaPct/100,
+      cdi_aa_referencia:indexador==='CDI'?cdiPct/100:null, data_aplicacao, valor_aplicado:Math.round(valor*100)/100,
+      vencimento, meta_id, isento_ir:g('invrf-isento').checked, acompanhar:g('invrf-acompanhar').checked, observacoes:obs||null };
+    const {data:res,error}=await getSB().from('investimentos_rf').insert(payload).select();
+    if(error) throw new Error(error.message);
+    DB.invRF.push(rfMap(res[0]));
+    invRFFeedback(fbId,'✓ Aplicação salva! Lance a transferência em Novo Lançamento escolhendo esta aplicação.',true);
+    setTimeout(()=>{ fecharModal('invrf'); renderInvestidor(); },1100);
+  }catch(e){ invRFFeedback(fbId,'✗ Erro ao salvar: '+e.message,false); }
+  finally{ btn.disabled=false; btn.textContent='💾 Salvar aplicação'; }
+}
+function abrirInvRFSaldoForm(id){
+  const inv=(DB.invRF||[]).find(x=>x.id===id); if(!inv) return;
+  document.getElementById('invrfsaldo-title').textContent='📈 Lançar saldo — '+inv.nome;
+  document.getElementById('invrfsaldo-inv-id').value=id;
+  document.getElementById('invrfsaldo-data').value=hojeLocalISO();
+  ['invrfsaldo-bruto','invrfsaldo-iof','invrfsaldo-ir','invrfsaldo-obs'].forEach(i=>{ const el=document.getElementById(i); el.value=''; delete el.dataset.manual; });
+  document.getElementById('invrfsaldo-preview').textContent='';
+  document.getElementById('invrfsaldo-feedback').style.display='none';
+  abrirModal('invrfsaldo');
+}
+function invRFAutoImpostos(){
+  const inv=(DB.invRF||[]).find(x=>x.id===document.getElementById('invrfsaldo-inv-id').value); if(!inv) return;
+  const data=document.getElementById('invrfsaldo-data').value, bruto=parseFloat(document.getElementById('invrfsaldo-bruto').value);
+  if(data && bruto>0){
+    const c=rfImpostos(inv,data,bruto);
+    const elIof=document.getElementById('invrfsaldo-iof'), elIr=document.getElementById('invrfsaldo-ir');
+    if(!elIof.dataset.manual) elIof.value=c.iof.toFixed(2);
+    if(!elIr.dataset.manual) elIr.value=c.ir.toFixed(2);
+  }
+  invRFPreviewLiquido();
+}
+function invRFPreviewLiquido(){
+  const v=id=>parseFloat(document.getElementById(id).value)||0;
+  const inv=(DB.invRF||[]).find(x=>x.id===document.getElementById('invrfsaldo-inv-id').value);
+  const data=document.getElementById('invrfsaldo-data').value, bruto=v('invrfsaldo-bruto');
+  const el=document.getElementById('invrfsaldo-preview');
+  if(!(bruto>0)||!inv||!data){ el.textContent=''; return; }
+  const aplic=rfAplicadoAte(inv,data), liq=bruto-v('invrfsaldo-iof')-v('invrfsaldo-ir');
+  el.innerHTML=`Líquido: <b style="color:var(--tx)">${R(liq,2)}</b> · aplicado até a data ${R(aplic,2)} · rendimento bruto ${R(bruto-aplic,2)}`;
+}
+async function salvarInvRFSaldo(){
+  const id=document.getElementById('invrfsaldo-inv-id').value;
+  const data=document.getElementById('invrfsaldo-data').value;
+  const bruto=parseFloat(document.getElementById('invrfsaldo-bruto').value);
+  const iof=parseFloat(document.getElementById('invrfsaldo-iof').value)||0;
+  const ir=parseFloat(document.getElementById('invrfsaldo-ir').value)||0;
+  const obs=document.getElementById('invrfsaldo-obs').value.trim();
+  const fbId='invrfsaldo-feedback', btn=document.getElementById('btn-invrfsaldo-save');
+  if(!data||!(bruto>0)){ invRFFeedback(fbId,'⚠ Informe data e saldo bruto (> 0).',false); return; }
+  if(iof<0||ir<0||iof+ir>bruto){ invRFFeedback(fbId,'⚠ IOF/IR inválidos.',false); return; }
+  if(!usuarioAtual){ invRFFeedback(fbId,'⚠ Sessão não encontrada — faça login novamente.',false); return; }
+  btn.disabled=true; btn.textContent='⏳ Salvando...';
+  try{
+    // UNIQUE (investimento_id, data): salvar de novo no mesmo dia corrige a leitura.
+    const payload={ usuario_id:usuarioAtual.id, investimento_id:id, data, saldo_bruto:Math.round(bruto*100)/100,
+      iof:Math.round(iof*100)/100, ir:Math.round(ir*100)/100, observacao:obs||null };
+    const {data:res,error}=await getSB().from('investimentos_rf_saldos').upsert(payload,{onConflict:'investimento_id,data'}).select();
+    if(error) throw new Error(error.message);
+    DB.invRFSaldos=(DB.invRFSaldos||[]).filter(s=>!(s.investimentoId===id&&s.data===data));
+    DB.invRFSaldos.push(rfMapSaldo(res[0]));
+    invRFFeedback(fbId,'✓ Saldo salvo!',true);
+    setTimeout(()=>{ fecharModal('invrfsaldo'); const pg=document.getElementById('pg-metas'); if(pg&&pg.classList.contains('active')) renderMetas(); else renderInvestidor(); },900);
+  }catch(e){ invRFFeedback(fbId,'✗ Erro ao salvar: '+e.message,false); }
+  finally{ btn.disabled=false; btn.textContent='💾 Salvar saldo'; }
+}
+
 async function renderInvestidor(){
   if(!usuarioAtual) return;
   if(!DB_INVEST._loaded){
@@ -9868,20 +10358,28 @@ async function renderInvestidor(){
     return {...p,custoMedio,precoAtual,valorAtual,variacao,semCotacao:!cot};
   });
 
+  // Renda fixa entra nos KPIs pelo saldo LÍQUIDO (o que de fato se resgata); sem leitura, vale o aplicado.
+  const rfRes = (DB.invRF||[]).filter(x=>x.ativo).map(rfResumo);
+  const rfAplicado = SM(rfRes.map(r=>r.aplicadoTotal));
+  const rfAtual = SM(rfRes.map(r=>r.liquido));
+  const rvInvestido = totalInvestido, rvAtual = totalAtual;
+  totalInvestido += rfAplicado; totalAtual += rfAtual;
   const rentPct = totalInvestido>0 ? (totalAtual/totalInvestido-1)*100 : 0;
   // Cards fixos no HTML estático (ver #inv-kpis) — aqui só atualizamos texto/classe,
   // nunca innerHTML, pra não recriar os nós e perder o estado do tweenText.
   tweenText(document.getElementById('inv-kpi-total'), totalInvestido, v=>R(v,2));
-  document.getElementById('inv-kpi-total-sub').textContent = `${tickers.length} posição(ões)`;
+  document.getElementById('inv-kpi-total-sub').textContent = `RF ${R(rfAplicado,2)} · RV ${R(rvInvestido,2)}`;
   tweenText(document.getElementById('inv-kpi-atual'), totalAtual, v=>R(v,2));
-  document.getElementById('inv-kpi-atual-sub').textContent = tickers.length?'com cotação ao vivo':'sem posições';
+  document.getElementById('inv-kpi-atual-sub').textContent = (rfRes.length||tickers.length) ? `RF ${R(rfAtual,2)} · RV ${R(rvAtual,2)}${tickers.length?' (cotação ao vivo)':''}` : 'sem posições';
   const rentCard = document.getElementById('inv-kpi-rent-card');
   const rentVal = document.getElementById('inv-kpi-rent');
   rentCard.className = 'kpi' + (totalInvestido>0 ? (rentPct>=0?' kpi-accent-ok':' kpi-accent-danger') : '');
   rentVal.className = 'kpi-val' + (totalInvestido>0 ? (rentPct>=0?' ok':' danger') : '');
   tweenText(rentVal, rentPct, v=>`${v>=0?'+':''}${v.toFixed(2)}%`);
   document.getElementById('inv-kpi-rent-sub').textContent = totalInvestido>0?'desde os aportes':'—';
-  tweenText(document.getElementById('inv-kpi-pos'), tickers.length, v=>String(Math.round(v)));
+  tweenText(document.getElementById('inv-kpi-pos'), tickers.length+rfRes.length, v=>String(Math.round(v)));
+  document.getElementById('inv-kpi-pos-sub').textContent = `${rfRes.length} renda fixa · ${tickers.length} ticker(s)`;
+  renderInvRF(rfRes);
 
   const cpSaldos = DB.casaPropriaSaldos||[];
   const cpUlt = cpSaldos.length ? cpSaldos[cpSaldos.length-1] : null;
@@ -9891,7 +10389,7 @@ async function renderInvestidor(){
 
   const tabDiv = document.getElementById('inv-posicoes-tabela');
   tabDiv.innerHTML = !linhas.length
-    ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhum aporte cadastrado ainda. Clique em "+ Novo aporte".</div>`
+    ? `<div style="text-align:center;padding:16px;color:var(--tx2)">Nenhuma posição de renda variável. Clique em "+ Renda variável".</div>`
     : `<table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">
           <th style="padding:6px 8px">Ticker</th><th style="padding:6px 8px">Tipo</th><th style="padding:6px 8px">Corretora</th>
@@ -9913,8 +10411,9 @@ async function renderInvestidor(){
 
   const porTipo = {};
   linhas.forEach(l=>{ porTipo[l.tipo_ativo]=(porTipo[l.tipo_ativo]||0)+l.valorAtual; });
+  rfRes.forEach(r=>{ porTipo[r.inv.produto]=(porTipo[r.inv.produto]||0)+r.liquido; });
   const tipos = Object.keys(porTipo);
-  mkChart('chart-inv-comp',{type:'doughnut',data:{labels:tipos,datasets:[{data:tipos.map(t=>porTipo[t]),backgroundColor:['#5fd99a','#6fb8c9','#e0b35f'].slice(0,tipos.length),borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:tipos.length>0,position:'bottom',labels:{color:'#8a9690'}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${R(ctx.raw,2)}`}}},cutout:'62%'}});
+  mkChart('chart-inv-comp',{type:'doughnut',data:{labels:tipos,datasets:[{data:tipos.map(t=>porTipo[t]),backgroundColor:['#5fd99a','#6fb8c9','#e0b35f','#a892d4','#d97a7a','#8a9a8c','#c9a46f','#7fa8d9'].slice(0,tipos.length),borderWidth:0,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:tipos.length>0,position:'bottom',labels:{color:'#8a9690'}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${R(ctx.raw,2)}`}}},cutout:'62%'}});
 }
 
 async function analisarTicker(tickerParam, valorAtualParam){
@@ -10579,7 +11078,7 @@ async function carregarDoSupabase(){
   try {
     const sb = getSB();
 
-    const [lans, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16] = await Promise.all([
+    const [lans, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18] = await Promise.all([
       fetchTodosLancamentos(sb, usuarioAtual.id),
       sb.from('saldos_iniciais').select('*').eq('usuario_id', usuarioAtual.id),
       sb.from('orcamentos').select('*').eq('usuario_id', usuarioAtual.id),
@@ -10595,7 +11094,9 @@ async function carregarDoSupabase(){
       sb.from('casa_propria_lote_etapas').select('*').eq('usuario_id', usuarioAtual.id).order('ordem',{ascending:true}),
       sb.from('casa_propria_obra_orcamentos').select('*').eq('usuario_id', usuarioAtual.id).order('data_vigencia',{ascending:true}).order('criado_em',{ascending:true}),
       sb.from('casa_propria_fgts_eventos').select('*').eq('usuario_id', usuarioAtual.id).order('data_prevista',{ascending:true}),
-      sb.from('casa_propria_financiamento_sim').select('*').eq('usuario_id', usuarioAtual.id).order('data_simulacao',{ascending:true}).order('criado_em',{ascending:true})
+      sb.from('casa_propria_financiamento_sim').select('*').eq('usuario_id', usuarioAtual.id).order('data_simulacao',{ascending:true}).order('criado_em',{ascending:true}),
+      sb.from('investimentos_rf').select('*').eq('usuario_id', usuarioAtual.id).order('data_aplicacao',{ascending:true}),
+      sb.from('investimentos_rf_saldos').select('*').eq('usuario_id', usuarioAtual.id).order('data',{ascending:true})
     ]);
 
     if(r2.error) throw new Error('Saldos: ' + r2.error.message);
@@ -10625,6 +11126,10 @@ async function carregarDoSupabase(){
     DB.cpcObraOrcamentos = cpcRows(r14,'orçamento da obra').map(cpcMapObra);
     DB.cpcFgtsEventos    = cpcRows(r15,'eventos FGTS').map(cpcMapFgts);
     DB.cpcSims           = cpcRows(r16,'simulações').map(cpcMapSim);
+    // Renda fixa (Carteira de Investimentos) — carregada aqui, e não só na página Investidor, porque
+    // a meta vinculada (ex: Reserva de emergência) lê o saldo da aplicação em Metas e no Diagnóstico.
+    DB.invRF       = cpcRows(r17,'renda fixa').map(rfMap);
+    DB.invRFSaldos = cpcRows(r18,'saldos de renda fixa').map(rfMapSaldo);
 
     if(lans.length === 0){
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
@@ -10641,7 +11146,8 @@ async function carregarDoSupabase(){
       desc: l.descricao||'', forma: l.forma_pagamento||'',
       valor: parseFloat(l.valor),
       pago: (l.pago===true||l.pago==='Sim'||l.pago==='sim')?'Sim':'Não',
-      meta_id: l.meta_id||null
+      meta_id: l.meta_id||null,
+      investimento_rf_id: l.investimento_rf_id||null
     }));
     invalidarAnosCache();
 
