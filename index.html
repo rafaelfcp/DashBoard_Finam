@@ -783,6 +783,21 @@ html.is-mobile .sidebar.open{
 .lan-chip-mes.ativo{background:var(--blue);color:#fff;border-color:var(--blue)}
 .lan-chip-mes:active{opacity:.7}
 
+/* ── Fechamento do exercício: impressão / PDF — só o relatório vai para a página ── */
+#fx-print-root{display:none}
+#btn-fx-pdf:disabled{opacity:.45;cursor:not-allowed}
+@media print{
+  @page{size:A4;margin:12mm}
+  html,body{height:auto!important;overflow:visible!important;background:var(--bg)!important}
+  body>*:not(#fx-print-root){display:none!important}
+  /* padding repetido em cada página (clone): sem isso só a 1ª página teria respiro */
+  #fx-print-root{display:block;color:var(--tx);background:var(--bg);padding:7mm 8mm;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #fx-print-root .fx-sec{break-inside:avoid;page-break-inside:avoid}
+  #fx-print-root .g4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  #fx-print-root table{font-size:10.5px!important}
+}
 </style>
 <link rel="stylesheet" href="css/ctrl-v2.css?v=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3136,6 +3151,21 @@ html.is-mobile .sidebar.open{
     <div class="card" id="diag-plano-card" style="display:none">
       <div class="card-title">📋 Plano de ação imediato</div>
       <div id="diag-plano"></div>
+    </div>
+
+    <!-- Fechamento do exercício: gerar → visualizar → exportar PDF -->
+    <div class="card" id="fx-card" style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div>
+          <div class="card-title" style="margin:0">📑 Fechamento do exercício</div>
+          <div style="font-size:12px;color:var(--tx2);margin-top:3px" id="fx-sub">Relatório anual: resumo, evolução mensal, receitas, despesas × orçado e destaques do exercício selecionado</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-modal-save" onclick="gerarFechamento()">Gerar relatório</button>
+          <button class="btn-ghost" id="btn-fx-pdf" onclick="exportarFechamentoPDF()" disabled title="Gere o relatório primeiro">Exportar PDF</button>
+        </div>
+      </div>
+      <div id="fx-relatorio" style="margin-top:14px"></div>
     </div>
 
   </div>
@@ -9457,6 +9487,226 @@ function renderDiagnostico(){
     return `<div style="padding:11px 0;border-bottom:1px solid var(--bd)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px"><span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><span style="width:8px;height:8px;border-radius:50%;background:${CORES[c]||'#8a9a8c'}"></span>${c}</span><div style="display:flex;align-items:center;gap:8px">${desvioTag}<span style="font-size:13px;font-weight:800;color:${barColor}">${R(media)}/mês</span></div></div><div style="position:relative;height:7px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:5px">${orcado>0?`<div style="position:absolute;left:0;top:0;height:100%;width:${barOrc}%;background:rgba(111,184,201,.3);border-radius:99px"></div>`:''}<div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(barReal,100)}%;background:${barColor};border-radius:99px;opacity:.85"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--tx3)"><span>${pct}% da renda</span>${orcado>0?`<span>orçado: ${R(orcado)}/mês (${pctOrc}% renda)</span>`:`<span>sem orçamento definido</span>`}</div></div>`;
   }).join('');
   renderProjecaoReserva();
+  const fxOut=document.getElementById('fx-relatorio');
+  if(fxOut && fxOut.dataset.ano && fxOut.dataset.ano!==String(getAnoApuracao())){
+    fxOut.innerHTML=''; delete fxOut.dataset.ano;
+    document.getElementById('btn-fx-pdf').disabled=true;
+  }
+}
+
+// ══ FECHAMENTO DO EXERCÍCIO (Diagnóstico) ══
+// Relatório anual: gerado sob demanda (botão), visualizado na página e exportado em PDF pela
+// impressão do navegador (dados não saem do app). Regras:
+//  · Meses FECHADOS = anteriores ao mês corrente (getMesAtualDados). O mês corrente e os seguintes
+//    aparecem como "em aberto", com o que já foi pago + o que está pendente — fora dos KPIs.
+//  · Receitas em 3 grupos: recorrente (salário, aluguel, reembolsos), sazonal (férias, 13º, PLR —
+//    renda do trabalho concentrada em alguns meses) e pontual (resgates e Outras Receitas — patrimônio
+//    voltando para a conta / eventos que não se repetem). Taxa de poupança = aportes ÷ (recorrente + sazonal).
+//  · Comparação com o ano anterior só aparece quando ele existe na base, e sempre sobre os MESMOS meses
+//    fechados do ano atual (período equivalente), para não comparar 10 meses contra 12.
+const FX_REC_SAZONAL=['Férias','13º salário','PLR'];
+function fxGrupoReceita(sub){
+  const s=(sub||'').trim();
+  if(/^resgate/i.test(s) || s==='Outras Receitas') return 'pontual';
+  if(FX_REC_SAZONAL.includes(s)) return 'sazonal';
+  return 'recorrente';
+}
+function fxMk(ano,i){ return `${ano}-${String(i+1).padStart(2,'0')}`; }
+
+function fxCalc(ano, idxFiltro){
+  const mesAtual=getMesAtualDados();
+  const lanAno=DB.lancamentos.filter(l=>l.ano===ano);
+  const meses=[...Array(12).keys()].filter(i=>!idxFiltro||idxFiltro.includes(i)).map(i=>{
+    const mk=fxMk(ano,i), lan=lanAno.filter(l=>matchMes(l,mk)), pg=lan.filter(l=>l.pago==='Sim');
+    const rec={recorrente:0,sazonal:0,pontual:0};
+    pg.filter(l=>l.cat==='Receitas').forEach(l=>{ rec[fxGrupoReceita(l.subcat)]+=l.valor; });
+    const desp=SM(pg.filter(l=>l.cat!=='Receitas'&&l.cat!=='Investimentos').map(l=>l.valor));
+    const inv=SM(pg.filter(l=>l.cat==='Investimentos').map(l=>l.valor));
+    const renda=rec.recorrente+rec.sazonal;
+    return { mk, i, rec, renda, desp, inv, temLanc:lan.length>0,
+      fechado: !!mesAtual && mk<mesAtual && pg.length>0,
+      pendDesp:SM(lan.filter(l=>l.pago!=='Sim'&&l.cat!=='Receitas'&&l.cat!=='Investimentos').map(l=>l.valor)),
+      pendInv:SM(lan.filter(l=>l.pago!=='Sim'&&l.cat==='Investimentos').map(l=>l.valor)),
+      pendRec:SM(lan.filter(l=>l.pago!=='Sim'&&l.cat==='Receitas').map(l=>l.valor)),
+      resultado:renda+rec.pontual-desp-inv, resultadoOper:renda-desp-inv };
+  });
+  const F=meses.filter(m=>m.fechado), mksF=F.map(m=>m.mk), n=F.length;
+  const soma=f=>SM(F.map(f));
+  const t={ n, recorrente:soma(m=>m.rec.recorrente), sazonal:soma(m=>m.rec.sazonal), pontual:soma(m=>m.rec.pontual),
+    desp:soma(m=>m.desp), inv:soma(m=>m.inv), resultado:soma(m=>m.resultado), resultadoOper:soma(m=>m.resultadoOper) };
+  t.renda=t.recorrente+t.sazonal;
+  t.taxaPoup=t.renda>0?t.inv/t.renda:null;
+  t.despMedia=n?t.desp/n:0;
+
+  // Categorias de despesa (meses fechados) × orçado dos mesmos meses
+  const lanF=lanAno.filter(l=>l.pago==='Sim'&&mksF.includes(mkOf(l.mes,l.ano)));
+  const catsPresentes=[...new Set(lanF.filter(l=>l.cat!=='Receitas'&&l.cat!=='Investimentos').map(l=>l.cat))];
+  const cats=[...new Set([...CATS,...catsPresentes])].map(c=>{
+    const total=SM(lanF.filter(l=>l.cat===c).map(l=>l.valor));
+    const orcado=SM(mksF.map(mk=>getOrcCat(c,[mk])));
+    return { cat:c, total, media:n?total/n:0, pctRenda:t.renda>0?total/t.renda:0, pctDesp:t.desp>0?total/t.desp:0,
+      orcado, desvio:orcado>0?total-orcado:null };
+  }).filter(c=>c.total>0||c.orcado>0).sort((a,b)=>b.total-a.total);
+
+  // Receitas por subcategoria, com o último mês em que cada fonte recorrente apareceu
+  const recSub={};
+  lanF.filter(l=>l.cat==='Receitas').forEach(l=>{
+    const s=(l.subcat||'Outros').trim(), mk=mkOf(l.mes,l.ano);
+    if(!recSub[s]) recSub[s]={sub:s, grupo:fxGrupoReceita(s), total:0, ultimo:mk};
+    recSub[s].total+=l.valor; if(mk>recSub[s].ultimo) recSub[s].ultimo=mk;
+  });
+  return { ano, meses, F, t, cats, receitas:Object.values(recSub).sort((a,b)=>b.total-a.total), mesAtual };
+}
+
+function fxPct(v,d=1){ return v==null||!isFinite(v)?'—':`${(v*100).toFixed(d).replace('.',',')}%`; }
+function fxSinal(v){ return `${v>=0?'+':'-'}${R(Math.abs(v))}`; }
+function fxDelta(cur,prev,menorMelhor){
+  if(prev==null||!(Math.abs(prev)>0.5)) return '<span style="color:var(--tx3)">—</span>';
+  const d=(cur-prev)/Math.abs(prev), bom=menorMelhor?d<=0:d>=0;
+  return `<span style="color:${bom?'var(--green)':'var(--red)'};font-weight:700">${d>=0?'▲':'▼'} ${fxPct(Math.abs(d),0)}</span>`;
+}
+
+function gerarFechamento(){
+  const ano=getAnoApuracao(), out=document.getElementById('fx-relatorio');
+  const X=fxCalc(ano), t=X.t;
+  if(!t.n){
+    out.innerHTML=`<div class="tip" style="margin-top:0">Ainda não há meses fechados em ${ano} para apurar o exercício.</div>`;
+    document.getElementById('btn-fx-pdf').disabled=true; return;
+  }
+  // Ano anterior, no mesmo período (só os meses fechados do ano atual)
+  const temAnt=DB.lancamentos.some(l=>l.ano===ano-1&&l.pago==='Sim');
+  const P=temAnt?fxCalc(ano-1, X.F.map(m=>m.i)):null;
+  const pt=P&&P.t.n?P.t:null;
+
+  const ult=X.F[X.F.length-1].mk, abertos=X.meses.filter(m=>!m.fechado&&m.temLanc);
+  const parcial=X.F.length<12;
+  const periodo=`${mkLabel(X.F[0].mk)} a ${mkLabel(ult)}`;
+  const geradoEm=new Date().toLocaleDateString('pt-BR');
+  const card=(lbl,val,sub,cls,cmp)=>`<div class="kpi${cls?' '+cls:''}"><div class="kpi-lbl">${lbl}</div><div class="kpi-val" style="font-size:20px">${val}</div><div class="kpi-sub">${sub||''}${cmp?` · ${cmp}`:''}</div></div>`;
+  const sec=(titulo,corpo,extra)=>`<div class="fx-sec" style="margin-top:18px"><div class="card-title" style="margin-bottom:10px">${titulo}</div>${corpo}${extra||''}</div>`;
+  const th=(v,r)=>`<th style="padding:7px 8px;${r?'text-align:right;':''}white-space:nowrap">${v}</th>`;
+  const td=(v,r,st)=>`<td style="padding:7px 8px;${r?'text-align:right;':''}${st||''}">${v}</td>`;
+  const tabela=(cab,linhas)=>`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--tx2);border-bottom:1px solid var(--bd)">${cab}</tr></thead><tbody>${linhas}</tbody></table></div>`;
+  const cor=v=>`color:${v>=0?'var(--green)':'var(--red)'}`;
+
+  // ── 1. Resumo
+  const resumo=`<div class="g4" style="margin-bottom:0">
+    ${card('Renda do trabalho',R(t.renda),`recorrente ${R(t.recorrente)} · sazonal ${R(t.sazonal)}`,'',pt?fxDelta(t.renda,pt.renda):'')}
+    ${card('Despesas',R(t.desp),`${R(t.despMedia)}/mês em média`,'',pt?fxDelta(t.desp,pt.desp,true):'')}
+    ${card('Aportes em investimentos',R(t.inv),`taxa de poupança ${fxPct(t.taxaPoup)}`,t.taxaPoup>=0.1?'kpi-accent-ok':'kpi-accent-warn',pt?fxDelta(t.inv,pt.inv):'')}
+    ${card('Resultado operacional',fxSinal(t.resultadoOper),`sem pontuais · com eles ${fxSinal(t.resultado)}`,t.resultadoOper>=0?'kpi-accent-ok':'kpi-accent-danger',pt?fxDelta(t.resultadoOper,pt.resultadoOper):'')}
+  </div>`;
+
+  // ── 2. Evolução mensal
+  let acum=0;
+  const linhasMes=X.meses.filter(m=>m.temLanc).map(m=>{
+    if(m.fechado){ acum+=m.resultadoOper;
+      return `<tr style="border-bottom:1px solid var(--bd)">${td(mkLabel(m.mk),0,'font-weight:600')}${td(R(m.renda),1)}${td(m.rec.pontual?R(m.rec.pontual):'—',1,'color:var(--tx2)')}${td(R(m.desp),1)}${td(m.inv?R(m.inv):'—',1,'color:var(--tx2)')}${td(fxSinal(m.resultadoOper),1,cor(m.resultadoOper)+';font-weight:700')}${td(fxSinal(acum),1,cor(acum))}</tr>`; }
+    return `<tr style="border-bottom:1px solid var(--bd);opacity:.75">${td(`${mkLabel(m.mk)} <span class="badge b-warn" style="font-size:9px">em aberto</span>`)}${td(R(m.renda)+(m.pendRec?`<div style="font-size:10px;color:var(--amber)">+${R(m.pendRec)} pend.</div>`:''),1)}${td(m.rec.pontual?R(m.rec.pontual):'—',1,'color:var(--tx2)')}${td(R(m.desp)+(m.pendDesp?`<div style="font-size:10px;color:var(--amber)">+${R(m.pendDesp)} pend.</div>`:''),1)}${td(m.inv||m.pendInv?R(m.inv+m.pendInv):'—',1,'color:var(--tx2)')}${td('—',1)}${td('—',1)}</tr>`;
+  }).join('');
+  const melhor=[...X.F].sort((a,b)=>b.resultadoOper-a.resultadoOper)[0], pior=[...X.F].sort((a,b)=>a.resultadoOper-b.resultadoOper)[0];
+  const evolucao=`<div class="chart-wrap fx-chart" style="height:240px;margin-bottom:12px"><canvas id="chart-fx-mensal" role="img" aria-label="Renda, despesas e resultado acumulado por mês"></canvas></div>`+
+    tabela(th('Mês')+th('Renda trab.',1)+th('Pontual',1)+th('Despesas',1)+th('Aportes',1)+th('Resultado',1)+th('Acumulado',1),linhasMes);
+
+  // ── 3. Receitas
+  const grpLbl={recorrente:['Recorrente','b-ok'],sazonal:['Sazonal','b-info'],pontual:['Pontual','b-warn']};
+  const recLinhas=X.receitas.map(r=>{
+    const parou=r.grupo==='recorrente' && r.ultimo<X.F[Math.max(0,X.F.length-2)].mk;
+    return `<tr style="border-bottom:1px solid var(--bd)">${td(r.sub)}${td(`<span class="badge ${grpLbl[r.grupo][1]}" style="font-size:10px">${grpLbl[r.grupo][0]}</span>`)}${td(R(r.total),1,'font-weight:700')}${td(fxPct(t.renda+t.pontual>0?r.total/(t.renda+t.pontual):0),1,'color:var(--tx2)')}${td(parou?`<span style="color:var(--amber)">sem lançamento desde ${mkLabel(r.ultimo)}</span>`:'',0,'font-size:11px')}</tr>`;
+  }).join('');
+  const receitas=tabela(th('Fonte')+th('Grupo')+th('Total',1)+th('% receitas',1)+th(''),recLinhas);
+
+  // ── 4. Despesas por categoria × orçado (+ ano anterior, quando houver)
+  const catAnt=c=>pt?(P.cats.find(x=>x.cat===c)||{total:0}).total:null;
+  const catLinhas=X.cats.map(c=>`<tr style="border-bottom:1px solid var(--bd)">
+      ${td(`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${CORES[c.cat]||'#8a9a8c'}"></span>${c.cat}</span>`)}
+      ${td(R(c.total),1,'font-weight:700')}${td(R(c.media),1,'color:var(--tx2)')}${td(fxPct(c.pctRenda,0),1,'color:var(--tx2)')}
+      ${td(c.orcado?R(c.orcado):'<span style="color:var(--tx3)">—</span>',1)}
+      ${td(c.desvio==null?'<span style="color:var(--tx3)">sem orçado</span>':`<span style="color:${c.desvio>0?'var(--red)':'var(--green)'};font-weight:700">${c.desvio>0?'+':'-'}${R(Math.abs(c.desvio))}</span>`,1)}
+      ${pt?td(R(catAnt(c.cat)),1,'color:var(--tx2)')+td(fxDelta(c.total,catAnt(c.cat),true),1):''}</tr>`).join('');
+  const despesas=tabela(th('Categoria')+th('Total',1)+th('Média/mês',1)+th('% renda',1)+th('Orçado',1)+th('Desvio',1)+(pt?th(`${ano-1}`,1)+th('Δ',1):''),catLinhas);
+
+  // ── 5. Herança para o próximo exercício (parcelas já contratadas)
+  let heranca='';
+  try{
+    const {comprometimento}=buildComprometimento();
+    const prox=Object.keys(comprometimento).filter(mk=>mk.startsWith((ano+1)+'-')).sort();
+    if(prox.length){
+      const tot=mk=>SM(Object.values(comprometimento[mk]).flat().map(x=>x.valor));
+      const total=SM(prox.map(tot));
+      heranca=`<div style="font-size:13px;color:var(--tx2);line-height:1.7">Parcelas de cartão já contratadas que caem em ${ano+1}: <b style="color:var(--tx)">${R(total)}</b>, de ${mkLabel(prox[0])} a ${mkLabel(prox[prox.length-1])}.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${prox.map(mk=>`<span class="badge b-info" style="font-size:11px">${mkLabel(mk)} · ${R(tot(mk))}</span>`).join('')}</div>`;
+    }
+  }catch(e){ console.warn('[fechamento] herança de parcelas:',e); }
+
+  // ── 6. Destaques automáticos
+  const dest=[];
+  const top3=X.cats.slice(0,3), pctTop3=SM(top3.map(c=>c.pctDesp));
+  dest.push(['info',`As 3 maiores categorias (${top3.map(c=>c.cat).join(', ')}) somam <b>${fxPct(pctTop3,0)}</b> das despesas — é aí que qualquer ajuste tem mais efeito.`]);
+  if(t.taxaPoup!=null) dest.push([t.taxaPoup>=0.15?'ok':t.taxaPoup>=0.1?'info':'warn',`Taxa de poupança de <b>${fxPct(t.taxaPoup)}</b> sobre a renda do trabalho (referência saudável: 10% a 20%).`]);
+  if(t.pontual>0) dest.push([t.resultadoOper<0?'warn':'info',`<b>${R(t.pontual)}</b> vieram de receitas pontuais (resgates e eventuais). ${t.resultadoOper<0?`Sem elas, o ano fecharia em <b>${fxSinal(t.resultadoOper)}</b> — o caixa foi sustentado por patrimônio.`:`Mesmo sem elas o resultado operacional é positivo (${fxSinal(t.resultadoOper)}).`}`]);
+  const negs=X.F.filter(m=>m.resultadoOper<0);
+  if(negs.length) dest.push(['warn',`${negs.length} ${negs.length===1?'mês fechou':'meses fecharam'} com resultado operacional negativo: ${negs.map(m=>mkLabel(m.mk)).join(', ')}. Melhor mês: ${mkLabel(melhor.mk)} (${fxSinal(melhor.resultadoOper)}); pior: ${mkLabel(pior.mk)} (${fxSinal(pior.resultadoOper)}).`]);
+  const estouros=X.cats.filter(c=>c.desvio!=null&&c.desvio>0).sort((a,b)=>b.desvio-a.desvio).slice(0,3);
+  if(estouros.length) dest.push(['warn',`Maiores estouros de orçamento: ${estouros.map(c=>`${c.cat} (+${R(c.desvio)})`).join(', ')}.`]);
+  X.receitas.filter(r=>r.grupo==='recorrente'&&r.ultimo<X.F[Math.max(0,X.F.length-2)].mk).forEach(r=>
+    dest.push(['warn',`A receita recorrente <b>${r.sub}</b> não aparece desde ${mkLabel(r.ultimo)} — a renda de ${ano+1} parte de uma base menor.`]));
+  try{ const res=getReservaInvestida(); if(res.total>0) dest.push(['ok',`Reserva investida hoje: <b>${R(res.total)}</b> (${res.itens.map(i=>i.nome).join(', ')}).`]); }catch(e){}
+  if(pt) dest.push(['info',`Comparado ao mesmo período de ${ano-1}: renda ${fxDelta(t.renda,pt.renda)}, despesas ${fxDelta(t.desp,pt.desp,true)}, aportes ${fxDelta(t.inv,pt.inv)}.`]);
+  const corD={ok:'b-ok',info:'b-info',warn:'b-warn'};
+  const destaques=`<div style="display:flex;flex-direction:column;gap:8px">${dest.map(([k,txt])=>`<div style="font-size:13px;color:var(--tx2);line-height:1.6;display:flex;gap:8px;align-items:flex-start"><span class="badge ${corD[k]}" style="font-size:10px;flex:none;margin-top:2px">${k==='ok'?'ok':k==='warn'?'atenção':'info'}</span><span>${txt}</span></div>`).join('')}</div>`;
+
+  // ── Cabeçalho + aviso de período
+  const avisos=[];
+  if(parcial) avisos.push(`Exercício <b>em andamento</b>: os números consolidam ${X.F.length} meses fechados (${periodo}).${abertos.length?` ${abertos.map(m=>mkLabel(m.mk)).join(' e ')} ${abertos.length===1?'aparece':'aparecem'} como em aberto, fora dos totais.`:''}`);
+  const semRec=abertos.filter(m=>!m.renda&&!m.pendRec);
+  if(semRec.length) avisos.push(`Receitas de ${semRec.map(m=>mkLabel(m.mk)).join(', ')} ainda não foram lançadas.`);
+  avisos.push(pt?`Comparação com ${ano-1} feita sobre os mesmos meses (${periodo.replace(String(ano),String(ano-1))}).`:`A comparação com o ano anterior começa automaticamente no exercício ${ano+1}, quando ${ano} for a base.`);
+
+  out.dataset.ano=ano;
+  out.innerHTML=`<div class="fx-cab" style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--bd);padding-bottom:10px">
+      <div><div style="font-size:18px;font-weight:800;color:var(--tx)">Fechamento do exercício ${ano}</div>
+      <div style="font-size:12px;color:var(--tx2)">Ctrl Financeiro · ${periodo}${parcial?' · parcial':''}</div></div>
+      <div style="font-size:11px;color:var(--tx3)">Gerado em ${geradoEm}</div></div>
+    <div class="tip">${avisos.join('<br>')}</div>
+    ${sec('Resumo do ano',resumo)}
+    ${sec('Destaques',destaques)}
+    ${sec('Evolução mensal',evolucao)}
+    ${sec('Receitas por fonte',receitas,`<div style="font-size:11px;color:var(--tx3);margin-top:6px">Sazonal = renda do trabalho concentrada em alguns meses (férias, 13º, PLR). Pontual = resgates e Outras Receitas — entram no caixa, mas não na taxa de poupança nem no resultado operacional.</div>`)}
+    ${sec('Despesas por categoria × orçado',despesas,`<div style="font-size:11px;color:var(--tx3);margin-top:6px">Orçado somado só nos meses fechados. Desvio positivo = gastou acima do orçado.</div>`)}
+    ${heranca?sec(`Herança para ${ano+1}`,heranca):''}`;
+
+  // Gráfico: renda e despesas+aportes por mês, resultado operacional acumulado
+  let ac=0; const acumS=X.F.map(m=>(ac+=m.resultadoOper,Math.round(ac)));
+  mkChart('chart-fx-mensal',{type:'bar',data:{labels:X.F.map(m=>mkLabel(m.mk)),datasets:[
+    {type:'line',label:'Resultado acumulado',data:acumS,borderColor:'#e0b35f',backgroundColor:'#e0b35f',borderWidth:2,pointRadius:3,tension:.25,order:0},
+    {label:'Renda do trabalho',data:X.F.map(m=>Math.round(m.renda)),backgroundColor:'rgba(95,217,154,.75)',borderRadius:3,order:1},
+    {label:'Despesas + aportes',data:X.F.map(m=>Math.round(m.desp+m.inv)),backgroundColor:'rgba(217,122,122,.7)',borderRadius:3,order:2}
+  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,position:'bottom',labels:{color:CC.tick,boxWidth:12}},
+    tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw<0?'-':''}${R(Math.abs(ctx.raw))}`}}},
+    scales:{x:{grid:{display:false},ticks:{color:CC.tick}},y:{grid:{color:CC.grid},ticks:{color:CC.tick,callback:v=>(v<0?'-':'')+'R$'+(Math.abs(v)/1000).toFixed(0)+'k'}}}}});
+  document.getElementById('btn-fx-pdf').disabled=false;
+  document.getElementById('fx-sub').textContent=`Exercício ${ano} · ${periodo}${parcial?' (parcial)':''} — gerado em ${geradoEm}`;
+}
+
+// Exporta exatamente o que está na tela: clona o relatório para um contêiner de impressão
+// (o resto da página some no @media print), troca o <canvas> por imagem e chama a impressão do
+// navegador — "Salvar como PDF". O título vira o nome sugerido do arquivo.
+function exportarFechamentoPDF(){
+  const src=document.getElementById('fx-relatorio');
+  if(!src||!src.dataset.ano) return;
+  document.getElementById('fx-print-root')?.remove();
+  const root=document.createElement('div'); root.id='fx-print-root';
+  root.innerHTML=src.innerHTML;
+  const origem=[...src.querySelectorAll('canvas')], copias=[...root.querySelectorAll('canvas')];
+  origem.forEach((c,i)=>{ const img=new Image(); img.src=c.toDataURL('image/png'); img.alt=c.getAttribute('aria-label')||''; img.style.width='100%'; img.style.height='auto'; if(copias[i]) copias[i].replaceWith(img); });
+  root.querySelectorAll('.fx-chart').forEach(w=>{ w.style.height='auto'; });
+  document.body.appendChild(root);
+  const tituloAnt=document.title;
+  document.title=`Fechamento_Exercicio_${src.dataset.ano}`;
+  const limpar=()=>{ document.title=tituloAnt; root.remove(); window.removeEventListener('afterprint',limpar); };
+  window.addEventListener('afterprint',limpar);
+  setTimeout(()=>window.print(),150);   // dá tempo da imagem do gráfico decodificar
 }
 
 // Detecta se um lançamento é uma parcela de cartão de crédito (mesmo critério de buildComprometimento).
