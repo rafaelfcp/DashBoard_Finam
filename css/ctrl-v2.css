@@ -1,0 +1,89 @@
+/* Ctrl Financeiro — visual v2 (padrão ObraCerta, mesmo aplicado no Wayfin)
+ * Carregado DEPOIS do <style> inline do index.html: só sobrescreve, não remove nada.
+ * Para voltar ao visual anterior, basta tirar o <link> do index.html.
+ *
+ * O que muda:
+ *  - números com largura fixa (colunas de valores alinhadas) — desktop e celular
+ *  - ícones de traço (SVG) no menu lateral, no menu inferior e no cabeçalho do celular
+ *  - celular (até 860px): menu inferior plano, translúcido, com indicador da aba ativa
+ *  - celular instalado (PWA): respeita o notch e a barra de início do iPhone (safe-area),
+ *    que antes era ignorada porque faltava viewport-fit=cover
+ */
+
+body { font-variant-numeric: tabular-nums; }
+
+/* ── Ícones (sprite #ic-* no início do <body>) ───────── */
+.nv-ic, .bn-icon, .tb-ic {
+  flex: none; display: block;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.nv-ic { width: 17px; height: 17px; opacity: .7; transition: opacity .12s; }
+.nav-item:hover .nv-ic, .nav-item.active .nv-ic { opacity: 1; }
+.tb-ic { width: 20px; height: 20px; }
+
+.btn-logout { display: inline-flex; align-items: center; justify-content: center; }
+.btn-logout .tb-ic { width: 16px; height: 16px; }
+
+/* botões de ícone do cabeçalho do celular: um padrão só */
+.tb-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; padding: 0; border: 0; border-radius: 10px;
+  background: none; color: var(--tx2); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s;
+}
+.tb-icon-btn:hover { color: var(--tx); }
+.tb-icon-btn:active { background: var(--bg3); }
+.btn-filter-mobile { display: inline-flex; align-items: center; gap: 5px; }
+.btn-filter-mobile .tb-ic { width: 16px; height: 16px; }
+
+@media (max-width: 860px) {
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ── cabeçalho: desce abaixo do notch/ilha quando instalado ── */
+  .mobile-topbar { height: calc(54px + var(--sat)); padding-top: var(--sat); }
+  .main { top: calc(54px + var(--sat)); bottom: calc(58px + var(--sab)); }
+  .sidebar { padding-top: var(--sat); bottom: calc(58px + var(--sab)); }
+  .filter-drawer { bottom: calc(58px + var(--sab)); }
+
+  /* ── menu inferior plano ───────────────────────────── */
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    height: calc(58px + var(--sab));
+    padding: 0 0 var(--sab);
+    background: color-mix(in srgb, var(--bg2) 88%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--bd);
+  }
+  .bn-item {
+    position: relative;
+    margin: 0;
+    min-height: 58px;
+    padding: 6px 2px 4px;
+    gap: 3px;
+    border-radius: 0;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--tx3);
+  }
+  .bn-item.active { background: none; color: var(--blue); font-weight: 700; }
+  /* traço com o degradê da marca em cima da aba ativa */
+  .bn-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 28%; right: 28%;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+  }
+  .bn-item:active { background: none; opacity: .7; }
+  .bn-icon { width: 23px; height: 23px; font-size: 0; }
+
+  /* ── botão Novo Lançamento acima do menu (e da barra de início) ── */
+  .fab { bottom: calc(58px + var(--sab) + 14px); }
+}
