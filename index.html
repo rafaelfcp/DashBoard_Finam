@@ -92,6 +92,22 @@ body{background:var(--bg);color:var(--tx);font-family:'Inter',system-ui,-apple-s
 .empty-title{font-size:20px;font-weight:700}
 .empty-sub{font-size:13px;color:var(--tx2);max-width:360px;line-height:1.65}
 
+/* ─ LOADING STATE (carga inicial do Supabase) ─ */
+.dash-loader{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;text-align:center;gap:14px}
+body.sb-loading .dash-loader{display:flex}
+body.sb-loading .main .empty{display:none!important}
+body.sb-loading #import-section{display:none!important}
+.dash-spinner{width:46px;height:46px;border-radius:50%;border:3px solid var(--bd2);border-top-color:var(--green);border-right-color:var(--blue);animation:dash-spin .9s linear infinite}
+.dash-loader-title{font-size:17px;font-weight:700}
+.dash-loader-sub{font-size:13px;color:var(--tx2);min-height:18px}
+.dash-loader-dots{display:flex;gap:6px}
+.dash-loader-dots span{width:6px;height:6px;border-radius:50%;background:var(--tx2);opacity:.3;animation:dash-dot 1.2s ease-in-out infinite}
+.dash-loader-dots span:nth-child(2){animation-delay:.2s}
+.dash-loader-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dash-spin{to{transform:rotate(360deg)}}
+@keyframes dash-dot{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.dash-spinner{animation-duration:2.4s}.dash-loader-dots span{animation:none;opacity:.6}}
+
 /* ─ LAYOUT ─ */
 .g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}
@@ -1040,6 +1056,12 @@ html.is-mobile .sidebar.open{
 
 <!-- ══ MAIN ══ -->
 <main class="main">
+<div id="dash-loader" class="dash-loader" role="status" aria-live="polite">
+  <div class="dash-spinner" aria-hidden="true"></div>
+  <div class="dash-loader-title">Carregando seus dados</div>
+  <div class="dash-loader-sub" id="dash-loader-msg">Conectando ao Supabase…</div>
+  <div class="dash-loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+</div>
 
 <!-- VISÃO GERAL -->
 <div class="page active" id="pg-visao">
@@ -11252,6 +11274,7 @@ async function authLogin(){
   if(typeof closeSidebar === 'function') closeSidebar();
   // No mobile aguarda o layout estabilizar antes de carregar
   const loginDelay = (window.innerWidth <= 860) ? 600 : 0;
+  setDashLoading(true, 'Conectando ao Supabase…');
   setTimeout(carregarDoSupabase, loginDelay);
 }
 
@@ -11336,6 +11359,7 @@ async function initAuth(){
       if(typeof closeSidebar === 'function') closeSidebar();
       // No mobile aguarda layout estabilizar
       const sessionDelay = (window.innerWidth <= 860) ? 600 : 0;
+      setDashLoading(true, 'Conectando ao Supabase…');
       setTimeout(carregarDoSupabase, sessionDelay);
     } else {
       if(loading) loading.style.display = 'none';
@@ -11378,8 +11402,16 @@ async function fetchTodosLancamentos(sb, usuarioId){
   return all;
 }
 
+// Estado de carregamento do dashboard (só na carga inicial — refresh com dados na tela não cobre o dashboard)
+function setDashLoading(on, msg){
+  document.body.classList.toggle('sb-loading', !!on);
+  if(msg){ const m=document.getElementById('dash-loader-msg'); if(m) m.textContent=msg; }
+}
+
 async function carregarDoSupabase(){
   if(!usuarioAtual) return;
+  const _cargaInicial = !DB.lancamentos.length;
+  if(_cargaInicial) setDashLoading(true, 'Buscando lançamentos e metas…');
   const btn = document.getElementById('btn-sync-load');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Carregando...'; }
   document.getElementById('btn-sync-save') && (document.getElementById('btn-sync-save').style.display='none');
@@ -11442,6 +11474,7 @@ async function carregarDoSupabase(){
     DB.invRFSaldos = cpcRows(r18,'saldos de renda fixa').map(rfMapSaldo);
 
     if(lans.length === 0){
+      setDashLoading(false);
       setStatus('☁ Nenhum dado no Supabase. Importe a planilha.','');
       const importSecEmpty = document.getElementById('import-section');
       if(importSecEmpty) importSecEmpty.style.display = 'block';
@@ -11577,6 +11610,7 @@ async function carregarDoSupabase(){
     for(const k in CHARTS) delete CHARTS[k];
 
     // Migrar e carregar tabelas dinâmicas (formas, categorias, subcategorias)
+    if(_cargaInicial) setDashLoading(true, 'Montando o dashboard…');
     await migrarDadosParaSupabase();
     await carregarTabelasDinamicas();
     if(typeof initHideValues==='function') initHideValues();
@@ -11611,6 +11645,7 @@ async function carregarDoSupabase(){
     }
 
   } catch(err){
+    setDashLoading(false);
     setStatus(`✗ Erro: ${err.message}`, 'err');
     const elStErr = document.getElementById('import-status');
     if(elStErr) elStErr.style.display = 'block';
@@ -11619,6 +11654,9 @@ async function carregarDoSupabase(){
     console.error('carregarDoSupabase:', err);
   }
 
+  if(document.body.classList.contains('sb-loading')){
+    setTimeout(()=>setDashLoading(false), (window.innerWidth<=860) ? 650 : 200);
+  }
   if(btn){ btn.disabled=false; btn.textContent='☁ Carregar dados'; }
 }
 
